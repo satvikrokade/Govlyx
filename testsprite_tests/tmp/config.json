@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:5173/d:\\\\Govlyx\\\\frontend",
+  "executionArgs": {
+    "projectName": "frontend",
+    "projectPath": "d:\\Govlyx\\frontend",
+    "testIds": [],
+    "additionalInstruction": "Please focus on verifying the poll voting persistence and UI interactions we just implemented. Ensure that the vote counts and percentages update as expected.",
+    "serverMode": "development",
+    "envs": {
+      "API_KEY": "sk-user-iTMZNM9mhSWnDA2xSC6Mg4JuRZUk6fkTwUlJBya1DozOSroMbTCOd-OZAKhDyALvPAu4FPwPdu5zt5X1gKLAs4ZkNvVJ9Szh-aSBqWTyuDlSGPh-5h3_fH5P-t2r3Y2FuIY"
+    }
+  },
+  "serverPort": 53172,
+  "proxy": "http://0d69efc3-5250-4013-aafc-11c0a7f87363:VDjfBjSfobhbP2zm3fpPc9YzRKc4apdQ@tun.testsprite.com:8080"
+}
