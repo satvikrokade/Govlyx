@@ -1,8 +1,8 @@
 // src/components/layout/StrangerChat.tsx
 import { useEffect, useRef, useState, useCallback, useMemo, type KeyboardEvent } from "react";
-import { Dices, Zap, Search, AlertTriangle, Plus, Image as ImageIcon, Video, X, Eye, EyeOff, Send, Trash2, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Dices, Zap, Search, AlertTriangle, Plus, Image as ImageIcon, Video, X, Eye, EyeOff, Send, Trash2, LogOut, ChevronLeft, ChevronRight, Copy, Check, MoreVertical } from "lucide-react";
 import { FiSmile } from "react-icons/fi";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { useChat } from "../../hooks/useChat";
 import { sendMedia } from "../../api/chatApi.service";
 import { API_BASE_URL } from "../../api/axiosConfig";
@@ -125,7 +125,7 @@ export function SafeImage({
   mediaPayload?: string;
   sessionId: string;
   className?: string;
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent<HTMLImageElement>) => void;
   [key: string]: any;
 }) {
   const [url, setUrl] = useState<string>("");
@@ -1062,6 +1062,58 @@ function MessageArea({
   onUnlockPrivateMedia: (msg: ChatMessageDto) => void;
   sessionId: string;
 }) {
+  const [contextMenu, setContextMenu] = useState<{
+    messageId: string;
+    x: number;
+    y: number;
+    content?: string;
+    senderId: string;
+    messageType: MessageType;
+  } | null>(null);
+  
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const messageAreaRef = useRef<HTMLDivElement>(null);
+
+  // Close context menu on click outside or scroll
+  useEffect(() => {
+    const handleClose = () => setContextMenu(null);
+    window.addEventListener("click", handleClose);
+    
+    const container = messageAreaRef.current;
+    container?.addEventListener("scroll", handleClose);
+    
+    return () => {
+      window.removeEventListener("click", handleClose);
+      container?.removeEventListener("scroll", handleClose);
+    };
+  }, []);
+
+  const handleCopyText = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (e) {
+      console.error("Failed to copy", e);
+    }
+  };
+
+  const handleOpenMenu = (pos: { clientX: number; clientY: number }, msg: ChatMessageDto) => {
+    const rect = messageAreaRef.current?.getBoundingClientRect();
+    if (rect) {
+      const x = pos.clientX - rect.left;
+      const y = pos.clientY - rect.top;
+      setContextMenu({
+        messageId: msg.messageId,
+        x,
+        y,
+        content: msg.content,
+        senderId: msg.senderId,
+        messageType: msg.messageType
+      });
+    }
+  };
+
   // Chunk consecutive media messages sent within 60s
   const groupedMessages = useMemo(() => {
     const groups: ChatMessageDto[][] = [];
@@ -1088,7 +1140,7 @@ function MessageArea({
   }, [messages]);
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 md:p-4 scrollbar-hide flex flex-col gap-2 relative">
+    <div ref={messageAreaRef} className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 md:p-4 scrollbar-hide flex flex-col gap-2 relative">
       <div className="mt-auto" />
 
       {groupedMessages.map((group, i) => (
@@ -1101,6 +1153,7 @@ function MessageArea({
           onMediaClick={onMediaClick} 
           onUnlockPrivateMedia={onUnlockPrivateMedia}
           sessionId={sessionId}
+          onOpenMenu={handleOpenMenu}
         />
       ))}
       {partnerTyping && (
@@ -1116,10 +1169,64 @@ function MessageArea({
         </motion.div>
       )}
       <div ref={bottomRef} className="h-4 shrink-0" />
+
+      <AnimatePresence>
+        {contextMenu && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 5 }}
+            transition={{ duration: 0.12 }}
+            style={{ 
+              position: "absolute",
+              left: Math.min(contextMenu.x, (messageAreaRef.current?.clientWidth ?? 0) - 170),
+              top: Math.min(contextMenu.y, (messageAreaRef.current?.clientHeight ?? 0) - 110),
+              zIndex: 100
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-40 bg-base-300/90 backdrop-blur-md border border-base-content/10 shadow-2xl rounded-2xl p-1.5 flex flex-col gap-0.5"
+          >
+            <button
+              onClick={() => {
+                onReply({
+                  messageId: contextMenu.messageId,
+                  senderId: contextMenu.senderId,
+                  content: contextMenu.content,
+                  messageType: contextMenu.messageType
+                });
+                setContextMenu(null);
+              }}
+              className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-bold text-base-content hover:bg-base-content/5 transition-colors cursor-pointer"
+            >
+              <IconReply />
+              <span>Reply</span>
+            </button>
+            {contextMenu.messageType === "TEXT" && contextMenu.content && (
+              <button
+                onClick={() => {
+                  handleCopyText(contextMenu.content || "", contextMenu.messageId);
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-left text-xs font-bold text-base-content hover:bg-base-content/5 transition-colors cursor-pointer"
+              >
+                {copiedId === contextMenu.messageId ? (
+                  <>
+                    <Check size={14} className="text-success" />
+                    <span className="text-success">Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    <span>Copy Text</span>
+                  </>
+                )}
+              </button>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
-
 function Bubble({ 
   msgGroup, 
   isMine, 
@@ -1127,7 +1234,8 @@ function Bubble({
   onReply, 
   onMediaClick,
   onUnlockPrivateMedia,
-  sessionId
+  sessionId,
+  onOpenMenu
 }: { 
   msgGroup: ChatMessageDto[]; 
   isMine: boolean; 
@@ -1136,10 +1244,8 @@ function Bubble({
   onMediaClick: (items: { url: string, type: MessageType }[], index: number) => void;
   onUnlockPrivateMedia: (msg: ChatMessageDto) => void;
   sessionId: string;
+  onOpenMenu: (pos: { clientX: number; clientY: number }, msg: ChatMessageDto) => void;
 }) {
-  const [hovered, setHovered] = useState(false);
-
-   // We operate heavily on the last message for metadata (time, status)
   const msg = msgGroup[msgGroup.length - 1];
 
   const isSystem = msg.senderId === "SYSTEM" || msg.messageType === "USER_LEFT" || msg.messageType === "SYSTEM";
@@ -1160,9 +1266,52 @@ function Bubble({
   const repliedMsg = msg.replyToId ? allMessages.find(m => m.messageId === msg.replyToId || (m.messageId.startsWith('local-') && m.messageId === msg.replyToId)) : null;
   const truncate = (s: string, max = 50) => s.length > max ? s.slice(0, max) + "..." : s;
 
-  // Single media detection
   const isSingleMedia = msgGroup.length === 1 && (msg.messageType === "IMAGE" || msg.messageType === "VIDEO" || msg.messageType === "STICKER");
   const isMultiMedia = msgGroup.length > 1;
+
+  const dragX = useMotionValue(0);
+  const [reachedThreshold, setReachedThreshold] = useState(false);
+
+  const iconScale = useTransform(dragX, isMine ? [-60, 0] : [0, 60], isMine ? [1.2, 0.5] : [0.5, 1.2]);
+  const iconOpacity = useTransform(dragX, isMine ? [-60, 0] : [0, 60], isMine ? [1, 0] : [0, 1]);
+
+  const handleDrag = (_event: any, info: any) => {
+    const x = info.offset.x;
+    if (isMine) {
+      setReachedThreshold(x < -50);
+    } else {
+      setReachedThreshold(x > 50);
+    }
+  };
+
+  const handleDragEnd = (_event: any, info: any) => {
+    const x = info.offset.x;
+    const triggered = isMine ? x < -50 : x > 50;
+    if (triggered) {
+      onReply({ messageId: msg.messageId, senderId: msg.senderId, content: msg.content, messageType: msg.messageType });
+    }
+    setReachedThreshold(false);
+    dragX.set(0);
+  };
+
+  const handleThreeDotsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onOpenMenu({ clientX: e.clientX, clientY: e.clientY }, msg);
+  };
+
+  const handleScrollToMessage = (messageId: string) => {
+    const element = document.getElementById(`msg-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      
+      // Flash highlight ring effect
+      element.classList.add("scale-[1.02]", "shadow-lg", "ring-2", "ring-[#1D4ED8]", "transition-all", "duration-300");
+      setTimeout(() => {
+        element.classList.remove("scale-[1.02]", "shadow-lg", "ring-2", "ring-[#1D4ED8]");
+      }, 1000);
+    }
+  };
 
   const renderSingleMedia = () => {
     if (msg.messageType === "STICKER") {
@@ -1173,7 +1322,6 @@ function Bubble({
       );
     }
     
-    // Check if the private view-once media has been wiped
     if (msg.isWiped) {
       return (
         <div className="relative w-64 h-16 rounded-2xl bg-base-300/40 border border-base-content/5 flex items-center gap-3 px-4 select-none pointer-events-none opacity-60">
@@ -1191,7 +1339,7 @@ function Bubble({
     if (msg.viewOnce) {
       return (
         <div 
-          onClick={() => onUnlockPrivateMedia(msg)} 
+          onClick={(e) => { e.stopPropagation(); onUnlockPrivateMedia(msg); }} 
           className="relative w-64 aspect-video rounded-[20px] bg-[#1D4ED8]/10 backdrop-blur-3xl flex flex-col items-center justify-center gap-3 cursor-pointer group/vo border border-[#1D4ED8]/20 hover:bg-[#1D4ED8]/20 transition-all duration-300"
         >
           <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-[#1D4ED8] shadow-lg transition-transform group-hover/vo:scale-110">
@@ -1214,7 +1362,7 @@ function Bubble({
             mediaPayload={msg.mediaPayload} 
             sessionId={sessionId}
             className={`max-w-full max-h-[150px] md:max-h-[200px] w-auto h-auto object-cover cursor-pointer ${isMine ? "rounded-[14px]" : ""}`} 
-            onClick={() => onMediaClick([{ url: getCachedMediaUrl(msg.mediaPayload!), type: msg.messageType }], 0)} 
+            onClick={(e: React.MouseEvent<HTMLImageElement>) => { e.stopPropagation(); onMediaClick([{ url: getCachedMediaUrl(msg.mediaPayload!), type: msg.messageType }], 0); }} 
             alt="chat media" 
           />
         ) : (
@@ -1239,7 +1387,7 @@ function Bubble({
                 mediaPayload={m.mediaPayload} 
                 sessionId={sessionId}
                 className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" 
-                onClick={() => onMediaClick(msgGroup.map(g => ({ url: getCachedMediaUrl(g.mediaPayload!), type: g.messageType })), idx)} 
+                onClick={(e: React.MouseEvent<HTMLImageElement>) => { e.stopPropagation(); onMediaClick(msgGroup.map(g => ({ url: getCachedMediaUrl(g.mediaPayload!), type: g.messageType })), idx); }} 
                 alt="chat media list" 
               />
             ) : (
@@ -1257,50 +1405,78 @@ function Bubble({
   };
 
   return (
-    <div className={`relative flex flex-col ${isMine ? "items-end" : "items-start"} group px-1 mb-1`} onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}>
+    <div className={`relative flex flex-col ${isMine ? "items-end pr-9 pl-1" : "items-start pl-1 pr-1"} group px-1 mb-1`}>
 
-      <div
-        className={`max-w-[80%] md:max-w-[65%] rounded-2xl overflow-hidden relative z-10 transition-shadow 
-          ${msg.messageType === "STICKER"
-            ? "bg-transparent shadow-none"
-            : isMine
-              ? "bg-[#1D4ED8] text-white shadow-sm"
-              : "bg-base-100 text-base-content border border-base-200 shadow-sm"
-          } ${isSingleMedia || isMultiMedia ? "p-0 bg-transparent border-none shadow-none" : "px-3.5 py-1.5"}`}
-      >
-        {repliedMsg && (
-          <div className={`mb-2 pl-2 border-l-2 transition-colors ${isMine ? "border-white/40 bg-white/5" : "border-[#1D4ED8]/60 bg-[#1D4ED8]/5"
-            } py-1.5 pr-2 rounded-r-lg`}>
-            <p className={`text-[8px] font-black uppercase tracking-[0.1em] mb-0.5 ${isMine ? "text-white/60" : "text-[#1D4ED8]/70"}`}>
-              {repliedMsg.senderId === (isMine ? msg.senderId : "STRANGER") ? "You" : "Stranger"}
-            </p>
-            <p className={`text-[11px] ${isMine ? "text-white/80" : "text-base-content/50"} truncate leading-none`}>
-              {repliedMsg.messageType === "TEXT" ? truncate(repliedMsg.content || "") : `[${repliedMsg.messageType}]`}
-            </p>
+      <div className="relative max-w-[80%] md:max-w-[65%]">
+        {/* Swipe to reply background indicator */}
+        {(msg.messageType === "TEXT" || msg.messageType === "STICKER" || msg.messageType === "IMAGE" || msg.messageType === "VIDEO") && (
+          <div className={`absolute inset-y-0 flex items-center ${isMine ? "right-2 justify-end" : "left-2 justify-start"} pointer-events-none z-0`}>
+            <motion.div
+              style={{ scale: iconScale, opacity: iconOpacity }}
+              className={`p-1.5 rounded-full transition-colors duration-200 ${
+                reachedThreshold
+                  ? "bg-[#1D4ED8] text-white"
+                  : isMine
+                    ? "bg-base-content/10 text-base-content/40"
+                    : "bg-[#1D4ED8]/10 text-[#1D4ED8]/40"
+              }`}
+            >
+              <IconReply />
+            </motion.div>
           </div>
         )}
 
-        {isMultiMedia ? renderMultiMedia() : isSingleMedia ? renderSingleMedia() : (
-          <div className="flex items-end justify-between gap-3 min-w-[50px] relative">
-            <p className="text-[13px] whitespace-pre-wrap break-words leading-[1.4] font-medium tracking-tight flex-1 text-left py-0.5">{msg.content}</p>
-            <span className={`shrink-0 text-[8px] font-bold uppercase tracking-widest translate-y-[-2px] ${isMine ? "text-white/60" : "text-base-content/40"}`}>{time}</span>
-          </div>
+        <motion.div
+          id={`msg-${msg.messageId}`}
+          drag="x"
+          dragDirectionLock
+          dragConstraints={{ left: 0, right: 0 }}
+          dragElastic={{ left: isMine ? 0.5 : 0, right: isMine ? 0 : 0.5 }}
+          style={{ x: dragX }}
+          onDrag={handleDrag}
+          onDragEnd={handleDragEnd}
+          className={`rounded-2xl overflow-hidden relative z-10 transition-shadow 
+            ${msg.messageType === "STICKER"
+              ? "bg-transparent shadow-none"
+              : isMine
+                ? "bg-[#1D4ED8] text-white shadow-sm"
+                : "bg-base-100 text-base-content border border-base-200 shadow-sm"
+            } ${isSingleMedia || isMultiMedia ? "p-0 bg-transparent border-none shadow-none" : "px-3.5 py-1.5"}`}
+        >
+          {repliedMsg && (
+            <div 
+              onClick={(e) => { e.stopPropagation(); handleScrollToMessage(repliedMsg.messageId); }}
+              className={`mb-2 pl-2 border-l-2 transition-colors cursor-pointer hover:bg-black/5 ${
+                isMine ? "border-white/40 bg-white/5 hover:bg-white/10" : "border-[#1D4ED8]/60 bg-[#1D4ED8]/5 hover:bg-[#1D4ED8]/10"
+              } py-1.5 pr-2 rounded-r-lg`}
+            >
+              <p className={`text-[8px] font-black uppercase tracking-[0.1em] mb-0.5 ${isMine ? "text-white/60" : "text-[#1D4ED8]/70"}`}>
+                {repliedMsg.senderId === (isMine ? msg.senderId : "STRANGER") ? "You" : "Stranger"}
+              </p>
+              <p className={`text-[11px] ${isMine ? "text-white/80" : "text-base-content/50"} truncate leading-none`}>
+                {repliedMsg.messageType === "TEXT" ? truncate(repliedMsg.content || "") : `[${repliedMsg.messageType}]`}
+              </p>
+            </div>
+          )}
+
+          {isMultiMedia ? renderMultiMedia() : isSingleMedia ? renderSingleMedia() : (
+            <div className="flex items-end justify-between gap-3 min-w-[50px] relative">
+              <p className="text-[13px] whitespace-pre-wrap break-words leading-[1.4] font-medium tracking-tight flex-1 text-left py-0.5">{msg.content}</p>
+              <span className={`shrink-0 text-[8px] font-bold uppercase tracking-widest translate-y-[-2px] ${isMine ? "text-white/60" : "text-base-content/40"}`}>{time}</span>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Three dots menu button (visible next to bubble) */}
+        {(msg.messageType === "TEXT" || msg.messageType === "STICKER" || msg.messageType === "IMAGE" || msg.messageType === "VIDEO") && (
+          <button
+            onClick={handleThreeDotsClick}
+            className={`absolute top-1/2 -translate-y-1/2 btn btn-circle btn-xs bg-base-200/50 backdrop-blur-md border border-base-content/10 text-base-content/40 hover:text-[#1D4ED8] hover:bg-base-200 transition-all shadow-lg z-20 right-[-32px] opacity-60 md:opacity-0 group-hover:opacity-100 cursor-pointer`}
+          >
+            <MoreVertical size={14} />
+          </button>
         )}
       </div>
-
-      <AnimatePresence>
-        {hovered && (
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            onClick={() => onReply({ messageId: msg.messageId, senderId: msg.senderId, content: msg.content, messageType: msg.messageType })}
-            className={`absolute top-1/2 -translate-y-1/2 btn btn-circle btn-xs bg-base-200/50 backdrop-blur-md border border-base-content/10 text-base-content/40 hover:text-[#1D4ED8] transition-all shadow-lg hidden md:flex ${isMine ? "-left-10" : "-right-10"}`}
-          >
-            <IconReply />
-          </motion.button>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
