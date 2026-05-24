@@ -1,6 +1,7 @@
 // src/components/layout/StrangerChat.tsx
 import { useEffect, useRef, useState, useCallback, useMemo, type KeyboardEvent } from "react";
 import { Dices, Zap, Search, AlertTriangle, Plus, Image as ImageIcon, Video, X, Eye, EyeOff, Send, Trash2, LogOut, ChevronLeft, ChevronRight, Copy, Check, MoreVertical } from "lucide-react";
+import { showToast } from "../../utils/toast";
 import { FiSmile } from "react-icons/fi";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { useChat } from "../../hooks/useChat";
@@ -553,6 +554,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
       setMediaPreviews(prev => [...prev, ...newPreviews]);
     } catch (err) {
       console.error("File processing failed", err);
+      showToast.error("File processing failed. Please try a different file.");
     } finally {
       setIsUploading(false);
       e.target.value = "";
@@ -595,6 +597,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
       setReplyTo(null);
     } catch (err) {
       console.error("Failed to send media", err);
+      showToast.error("Failed to send media. Please try again.");
     } finally {
       setIsUploading(false);
     }
@@ -618,6 +621,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
       setReplyTo(null);
     } catch (err) {
       console.error("Failed to send sticker", err);
+      showToast.error("Failed to send sticker.");
     }
   };
 
@@ -1093,8 +1097,10 @@ function MessageArea({
       await navigator.clipboard.writeText(text);
       setCopiedId(id);
       setTimeout(() => setCopiedId(null), 2000);
+      showToast.success("Text copied to clipboard!");
     } catch (e) {
       console.error("Failed to copy", e);
+      showToast.error("Failed to copy text.");
     }
   };
 

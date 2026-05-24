@@ -18,6 +18,9 @@ import {
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { apiUrl } from "../../utils/apiUrl";
 import ConfirmModal from "./ConfirmModal";
+import { checkProfanity } from "../../utils/profanity";
+import { showToast } from "../../utils/toast";
+import { parseError } from "../../utils/error-handler";
 
 // ─── auth helpers ─────────────────────────────────────────────────────────────
 function authHeaders(): HeadersInit {
@@ -249,7 +252,6 @@ function CommentInput({
 }) {
   const [text, setText] = useState(initialValue);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const [focused, setFocused] = useState(autoFocus);
 
   const avatarUrl = getAvatarSrc(avatarSeed);
@@ -257,14 +259,19 @@ function CommentInput({
   async function submit() {
     const trimmed = text.trim();
     if (!trimmed) return;
+    
+    if (checkProfanity(trimmed)) {
+      showToast.error("Content contains prohibited language/profanity. Please check your words.");
+      return;
+    }
+
     setBusy(true);
-    setError("");
     try {
       await onSubmit(trimmed);
       setText("");
       setFocused(false);
     } catch (e: unknown) {
-      setError((e as Error)?.message ?? "Something went wrong");
+      showToast.error(parseError(e));
     } finally {
       setBusy(false);
     }
@@ -317,14 +324,10 @@ function CommentInput({
               >
                 <div className="flex items-center justify-between gap-4 border-t border-base-content/5 px-4 py-2.5">
                   <div className="flex flex-col">
-                    {error ? (
-                      <p className="text-[10px] text-error font-medium animate-pulse">{error}</p>
-                    ) : (
-                      <p className="text-[10px] text-base-content/40 flex items-center gap-1">
-                        <Sparkles size={10} className="text-primary/60" />
-                        Ctrl+Enter to send
-                      </p>
-                    )}
+                    <p className="text-[10px] text-base-content/40 flex items-center gap-1">
+                      <Sparkles size={10} className="text-primary/60" />
+                      Ctrl+Enter to send
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     {onCancel && (

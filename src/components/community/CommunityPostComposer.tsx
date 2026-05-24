@@ -4,6 +4,9 @@ import {
   Zap, ChevronRight, Film, Plus
 } from "lucide-react";
 import axiosInstance from "../../api/axiosConfig";
+import { checkProfanity } from "../../utils/profanity";
+import { showToast } from "../../utils/toast";
+import { parseError } from "../../utils/error-handler";
 
 interface CommunityPostComposerProps {
   communityId: number;
@@ -41,7 +44,11 @@ const CommunityPostComposer = ({
     const files = Array.from(e.target.files ?? []);
     setMediaFiles(prev => {
       const combined = [...prev, ...files];
-      return combined.slice(0, 4); // Limit to 4 media items
+      if (combined.length > 4) {
+        showToast.error("Maximum of 4 attachments allowed.");
+        return combined.slice(0, 4);
+      }
+      return combined;
     });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -140,6 +147,12 @@ const CommunityPostComposer = ({
 
   const handleSubmit = async () => {
     if (!content.trim() && mediaFiles.length === 0) return;
+    
+    if (checkProfanity(content)) {
+      showToast.error("Content contains prohibited language/profanity. Please check your words.");
+      return;
+    }
+
     setPosting(true);
     
     try {
@@ -165,16 +178,13 @@ const CommunityPostComposer = ({
         result = res.data?.data ?? res.data;
       }
 
+      showToast.success("Post published successfully!");
       onPostSuccess(result);
       setContent("");
       setMediaFiles([]);
     } catch (err: any) {
       console.error("[Post Error]", err);
-      if (err.code === "ECONNABORTED") {
-        alert("Upload timed out. The file might be too large or your internet is slow.");
-      } else {
-        alert(err.response?.data?.message || "Failed to post. Please try again.");
-      }
+      showToast.error(parseError(err));
     } finally {
       setPosting(false);
     }

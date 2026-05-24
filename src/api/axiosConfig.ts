@@ -1,4 +1,6 @@
 import axios from "axios";
+import { parseError } from "../utils/error-handler";
+import { showToast } from "../utils/toast";
 
 const FALLBACK_URL = import.meta.env.DEV ? "" : "https://jan-sahayak-ai-84vh.onrender.com";
 export const API_BASE_URL = import.meta.env.VITE_API_URL
@@ -34,6 +36,15 @@ axiosInstance.interceptors.response.use(
       localStorage.removeItem("token");
       window.location.href = "/login?error=expired";
     }
+
+    // Call parseError to log the requestId and parse details
+    const parsed = parseError(error);
+
+    // Support optional auto-toasting if requested
+    if (error.config?.autoToast || error.config?.headers?.["X-Auto-Toast"] === "true") {
+      showToast.error(parsed);
+    }
+
     return Promise.reject(error);
   }
 );

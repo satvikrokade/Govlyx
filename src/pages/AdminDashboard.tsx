@@ -18,6 +18,8 @@ import {
   ChevronRight
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { departmentRegisterSchema } from "../utils/validation";
+import { showToast } from "../utils/toast";
 
 const AdminDashboard = () => {
   const [requests, setRequests] = useState<any[]>([]);
@@ -53,14 +55,25 @@ const AdminDashboard = () => {
   };
 
   const confirmApprove = () => {
-    // In a real app, this would hit the backend to create the account
+    // Validate with departmentRegisterSchema
+    const parseResult = departmentRegisterSchema.safeParse({
+      name: showApproveModal.deptName,
+      email: approvedForm.email,
+      password: approvedForm.password,
+      departmentType: showApproveModal.deptType || "GENERAL",
+    });
+
+    if (!parseResult.success) {
+      const firstError = parseResult.error.issues[0]?.message || "Validation failed";
+      showToast.error(firstError);
+      return;
+    }
+
     const updated = requests.map(r => r.id === showApproveModal.id ? { ...r, status: "approved", ...approvedForm } : r);
     setRequests(updated);
     localStorage.setItem("dept_requests", JSON.stringify(updated));
 
-    // Notify "Simulated"
-    alert(`Success! Credentials for ${showApproveModal.deptName} generated.\nEmail: ${approvedForm.email}\nID: ${approvedForm.identity}`);
-
+    showToast.success(`Success! Credentials for ${showApproveModal.deptName} generated.\nEmail: ${approvedForm.email}`);
     setShowApproveModal(null);
   };
 

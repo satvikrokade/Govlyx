@@ -31,6 +31,9 @@ import { apiUrl } from "../../utils/apiUrl";
 import type { PostType } from "./CommentSection";
 import { resolveMediaUrl, toPostCardPost } from "../../utils/postUtils";
 import ConfirmModal from "./ConfirmModal";
+import { checkProfanity } from "../../utils/profanity";
+import { showToast } from "../../utils/toast";
+import { parseError } from "../../utils/error-handler";
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 async function apiFetch(url: string, method: string, body?: unknown): Promise<unknown> {
@@ -112,6 +115,8 @@ type BasePost = {
   likeCount: number;
   commentCount: number;
   shareCount: number;
+  contentHidden?: boolean;
+  hiddenReason?: string;
 };
 
 export type IssuePost = BasePost & {
@@ -1017,6 +1022,7 @@ export default function PostCard({
   const [expanded, setExpanded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isContentRevealed, setIsContentRevealed] = useState(false);
   const { copied, flash } = useCopied();
 
   useEffect(() => {
@@ -1029,6 +1035,7 @@ export default function PostCard({
       if ("isDislikedByCurrentUser" in post) setDisliked(!!(post as IssuePost).isDislikedByCurrentUser);
       setIsJoined((post as any).isMember ?? false);
       setCommentCount(post.commentCount ?? 0);
+      setIsContentRevealed(false);
     }
   }, [post]);
 
@@ -1182,6 +1189,10 @@ export default function PostCard({
   }
 
   async function handleResolveConfirm(message: string) {
+    if (checkProfanity(message)) {
+      showToast.error("Content contains prohibited language/profanity. Please check your words.");
+      return;
+    }
     setResolving(true);
     try {
       await apiPut(
@@ -1191,8 +1202,10 @@ export default function PostCard({
       );
       setResolveOpen(false);
       onResolve?.(post.id, true, message);
+      showToast.success("Issue resolved successfully!");
     } catch (err) {
       console.error("Resolve error:", err);
+      showToast.error(parseError(err));
     } finally {
       setResolving(false);
     }
@@ -1342,11 +1355,32 @@ export default function PostCard({
           )}
 
           {/* Content: Text Always Above */}
-          <motion.div className="space-y-1.5">
-            <motion.p className={`text-[13px] leading-relaxed font-medium text-base-content/90 ${!expanded ? "line-clamp-3" : ""}`}>
+          <motion.div className="space-y-1.5 relative overflow-hidden">
+            {post.contentHidden && !isContentRevealed && (
+              <div 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsContentRevealed(true);
+                }}
+                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-base-300/30 backdrop-blur-sm cursor-pointer rounded-xl border border-warning/10 hover:bg-base-300/40 transition-colors p-3 text-center select-none"
+              >
+                <AlertCircle className="text-warning mb-1 shrink-0" size={16} />
+                <p className="text-[11px] font-black uppercase tracking-wider text-warning">
+                  Content Moderated
+                </p>
+                <p className="text-[10px] text-base-content/80 font-bold mt-0.5 line-clamp-1">
+                  Reason: {post.hiddenReason || "Violates community guidelines"}
+                </p>
+                <p className="text-[9px] text-base-content/50 uppercase tracking-widest font-black mt-1">
+                  Click to reveal
+                </p>
+              </div>
+            )}
+
+            <motion.p className={`text-[13px] leading-relaxed font-medium text-base-content/90 ${!expanded ? "line-clamp-3" : ""} ${post.contentHidden && !isContentRevealed ? "blur-sm opacity-50 select-none" : ""}`}>
               {post.content}
             </motion.p>
-            {(post.content?.length ?? 0) > 160 && (
+            {(!post.contentHidden || isContentRevealed) && (post.content?.length ?? 0) > 160 && (
               <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline">
                 {expanded ? "Less ↑" : "More ↓"}
               </button>

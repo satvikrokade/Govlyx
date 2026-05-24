@@ -13,6 +13,10 @@ export interface UserProfile {
   createdAt: string;
   pincode?: string;
   address?: string;
+  preferredLanguage?: string;
+  autoTranslate?: boolean;
+  profanityFilterLevel?: "STRICT" | "BLUR" | "OFF";
+  mutedWords?: string;
 }
 
 /**
