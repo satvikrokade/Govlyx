@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @plugin "daisyui";
 
 @font-face {
@@ -14,14 +15,38 @@
   --color-primary-focus: #1e40af;
   --color-primary-content: #ffffff;
   --font-sans: 'Satoshi', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --animate-bounce-slow: bounce-slow 3s infinite;
+
+  @keyframes bounce-slow {
+    0%, 100% {
+      transform: translateY(-5%);
+      animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+    }
+    50% {
+      transform: translateY(0);
+      animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+  }
 }
 
-/* ── Override DaisyUI v5 primary to match app brand (#1D4ED8) ─────────────────
-   DaisyUI 5 uses oklch CSS vars that load after @theme, overriding our primary.
-   We re-assert it here so bg-primary / text-primary / border-primary all match. */
-:root, [data-theme] {
-  --color-primary: oklch(45.2% 0.274 264.1); /* #1D4ED8 in oklch */
-  --color-primary-content: oklch(100% 0 0);  /* white */
+/* Force brand primary color globally, overriding DaisyUI theme overrides */
+:root,
+[data-theme],
+[data-theme=light],
+[data-theme=dark],
+.dark {
+  --color-primary: #1D4ED8 !important;
+  --color-primary-content: #ffffff !important;
+  --primary: #1D4ED8 !important;
+  --primary-foreground: #ffffff !important;
+  --p: #1D4ED8 !important;
+  --pc: #ffffff !important;
+}
+
+/* Standardized primary button hover override */
+.btn-primary:hover {
+  background-color: #1e40af !important;
+  border-color: #1e40af !important;
 }
 
 @layer utilities {
@@ -57,12 +82,10 @@ body,
   display: none; /* Chrome, Safari and Opera */
 }
 
-/* Custom scrollbar and global font */
+/* Custom scrollbar */
 * {
   scrollbar-width: thin;
   scrollbar-color: var(--p) transparent;
-  font-family: var(--font-sans);
-  font-weight: 700;
 }
 
 *::-webkit-scrollbar {
@@ -108,4 +131,37 @@ body,
     transform: translateY(-5px);
     opacity: 1;
   }
+}
+
+/* Glassmorphism utility */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+[data-theme="dark"] .glass-panel {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Custom glow effect */
+.glow-blue {
+  box-shadow: 0 0 25px rgba(26, 86, 219, 0.15);
+}
+
+[data-theme="dark"] .glow-blue {
+  box-shadow: 0 0 35px rgba(26, 86, 219, 0.25);
+}
+
+/* Force elements to scroll on public landing/content page */
+html.scrollable-page,
+html.scrollable-page body,
+html.scrollable-page #root {
+  height: auto !important;
+  overflow: auto !important;
+  overscroll-behavior: auto !important;
 }

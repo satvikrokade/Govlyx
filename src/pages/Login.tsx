@@ -54,7 +54,7 @@ const Login = () => {
         if (form.email === "admin@govlyx.com") {
           navigate("/admin/dashboard");
         } else {
-          navigate("/");
+          navigate("/dashboard");
         }
       } else {
         setError(response.message || "Login failed");

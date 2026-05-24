@@ -21,6 +21,7 @@ import NotificationsPage from "../pages/NotificationsPage";
 import PostDetail from "../pages/PostDetail";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
+import LandingPage from "../pages/LandingPage";
 import { AcceptInvitePage } from "../pages/Communities";
 
 // ── Page transition wrapper ───────────────────────────────────────────────────
@@ -60,8 +61,13 @@ const useTokenExpiryWatcher = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Disable expiry checking if already on public auth routes
-    if (location.pathname === "/login" || location.pathname === "/register") {
+    // Disable expiry checking if already on public routes
+    if (
+      location.pathname === "/" ||
+      location.pathname === "/login" ||
+      location.pathname === "/register" ||
+      location.pathname.startsWith("/invite/")
+    ) {
       return;
     }
 
@@ -111,12 +117,18 @@ const AppRouter = () => {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
 
+        {/* ── Public landing page route ── */}
+        <Route
+          path="/"
+          element={<PageWrapper><LandingPage /></PageWrapper>}
+        />
+
         {/* ── Public auth routes ── */}
         <Route
           path="/login"
           element={
             isLoggedIn()
-              ? <Navigate to="/" replace />
+              ? <Navigate to="/dashboard" replace />
               : <PageWrapper><Login /></PageWrapper>
           }
         />
@@ -124,7 +136,7 @@ const AppRouter = () => {
           path="/register"
           element={
             isLoggedIn()
-              ? <Navigate to="/" replace />
+              ? <Navigate to="/dashboard" replace />
               : <PageWrapper><Register /></PageWrapper>
           }
         />
@@ -143,13 +155,13 @@ const AppRouter = () => {
         <Route
           element={isLoggedIn() ? <MainLayout /> : <Navigate to="/login" replace />}
         >
-          <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
+          <Route path="/dashboard" element={<PageWrapper><Home /></PageWrapper>} />
           <Route path="/communities/:id?" element={<PageWrapper><Communities /></PageWrapper>} />
           <Route path="/department-feed" element={<PageWrapper><DepartmentFeed /></PageWrapper>} />
           <Route path="/department/dashboard"
             element={
               !isDepartmentUser()
-                ? <Navigate to="/" replace />
+                ? <Navigate to="/dashboard" replace />
                 : <PageWrapper><DepartmentDashboard /></PageWrapper>
             }
           />
@@ -161,7 +173,7 @@ const AppRouter = () => {
           <Route path="/admin/dashboard" 
             element={
               !isSuperAdmin() 
-                ? <Navigate to="/" replace /> 
+                ? <Navigate to="/dashboard" replace /> 
                 : <PageWrapper><AdminDashboard /></PageWrapper>
             } 
           />
@@ -170,7 +182,7 @@ const AppRouter = () => {
         {/* ── Fallback ── */}
         <Route
           path="*"
-          element={<Navigate to={isLoggedIn() ? "/" : "/login"} replace />}
+          element={<Navigate to={isLoggedIn() ? "/dashboard" : "/"} replace />}
         />
 
       </Routes>

@@ -17,7 +17,7 @@ import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "../../api/axiosConfig";
 
 const BASE_NAV_ITEMS = [
-  { label: "Home", icon: Home, to: "/" },
+  { label: "Home", icon: Home, to: "/dashboard" },
   { label: "Communities", icon: Users, to: "/communities" },
   { label: "Notifications", icon: Bell, to: "/notifications" },
   { label: "Quick Chat", icon: Dices, to: "/quick-chat" },
