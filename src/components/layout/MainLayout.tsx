@@ -53,18 +53,20 @@ const MainLayout = () => {
                 </aside>
 
                 {/* CENTER */}
-                <main className={`col-span-12 lg:col-span-9 xl:col-span-6 h-full ${location.pathname.includes("quick-chat") ? "pb-0 overflow-hidden flex flex-col" : "pb-20 sm:pb-4 overflow-y-auto"} scrollbar-hide min-h-0`}>
-                  <div className={location.pathname.includes("quick-chat") ? "flex-1 min-h-0 flex flex-col pt-0" : "pt-3"}>
+                <main className={`col-span-12 lg:col-span-9 ${location.pathname.startsWith("/admin/dashboard") ? "xl:col-span-9" : "xl:col-span-6"} h-full ${location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "pb-0 overflow-hidden flex flex-col" : "pb-20 sm:pb-4 overflow-y-auto"} scrollbar-hide min-h-0`}>
+                  <div className={location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "flex-1 min-h-0 h-full flex flex-col pt-0" : "pt-3"}>
                     <Outlet />
                   </div>
                 </main>
                 
                 {/* RIGHT SIDEBAR */}
-                <aside className="hidden xl:block xl:col-span-3 h-full py-4 min-h-0">
-                  <div className="h-full overflow-y-auto scrollbar-hide">
-                    <SidebarRight />
-                  </div>
-                </aside>
+                {!location.pathname.startsWith("/admin/dashboard") && (
+                  <aside className="hidden xl:block xl:col-span-3 h-full py-4 min-h-0">
+                    <div className="h-full overflow-y-auto scrollbar-hide">
+                      <SidebarRight />
+                    </div>
+                  </aside>
+                )}
 
               </div>
             </div>

@@ -271,6 +271,8 @@ interface GatewayProps {
 
 const LandingGateway: React.FC<GatewayProps> = ({ onEnterPlatform, targetUrl, setTargetUrl, destinations }) => {
   const [showOverview, setShowOverview] = useState(false);
+  const [destinationOpen, setDestinationOpen] = useState(false);
+  const selectedDestination = destinations.find((dest) => dest.url === targetUrl) ?? destinations[0];
 
   return (
     <section className="min-h-[calc(100vh-12rem)] flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden bg-transparent">
@@ -308,20 +310,50 @@ const LandingGateway: React.FC<GatewayProps> = ({ onEnterPlatform, targetUrl, se
                     Select Destination
                   </label>
                   <div className="relative">
-                    <select
-                      value={targetUrl}
-                      onChange={(e) => setTargetUrl(e.target.value)}
-                      className="w-full bg-white dark:bg-slate-950/80 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 text-sm text-slate-900 dark:text-white focus:outline-none focus:border-[#1D4ED8] transition-colors cursor-pointer appearance-none"
+                    <button
+                      type="button"
+                      onClick={() => setDestinationOpen((open) => !open)}
+                      className={`w-full bg-white dark:bg-slate-950/80 border rounded-xl px-4 py-3 text-sm font-semibold text-left text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]/50 transition-colors cursor-pointer flex items-center justify-between gap-3 ${
+                        destinationOpen
+                          ? "border-[#1D4ED8] rounded-b-none"
+                          : "border-slate-200 dark:border-white/10 hover:border-[#1D4ED8]/60 dark:hover:border-[#3B82F6]/60"
+                      }`}
+                      aria-haspopup="listbox"
+                      aria-expanded={destinationOpen}
                     >
-                      {destinations.map((dest) => (
-                        <option key={dest.url} value={dest.url} className="bg-white dark:bg-slate-950 text-slate-900 dark:text-white">
-                          {dest.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-500 dark:text-slate-400">
-                      <ChevronDown className="size-4" />
-                    </div>
+                      <span className="truncate">{selectedDestination.name}</span>
+                      <ChevronDown className={`size-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform ${destinationOpen ? "rotate-180" : ""}`} />
+                    </button>
+
+                    {destinationOpen && (
+                      <div
+                        className="absolute left-0 right-0 top-full z-30 overflow-hidden rounded-b-xl border-x border-b border-[#1D4ED8] bg-white dark:bg-[#020617] shadow-xl shadow-[#1D4ED8]/15"
+                        role="listbox"
+                      >
+                        {destinations.map((dest) => {
+                          const active = dest.url === targetUrl;
+                          return (
+                            <button
+                              key={dest.url}
+                              type="button"
+                              onClick={() => {
+                                setTargetUrl(dest.url);
+                                setDestinationOpen(false);
+                              }}
+                              className={`w-full px-4 py-3 text-left text-sm transition-colors ${
+                                active
+                                  ? "bg-[#1D4ED8] text-white font-semibold"
+                                  : "bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:bg-[#020617] dark:text-slate-200 dark:hover:bg-[#0F1B33] dark:hover:text-white"
+                              }`}
+                              role="option"
+                              aria-selected={active}
+                            >
+                              {dest.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 </div>
 

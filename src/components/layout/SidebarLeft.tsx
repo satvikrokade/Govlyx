@@ -15,6 +15,7 @@ import { useCurrentUser } from "../../hooks/useUser";
 import { useUnreadNotificationsCount } from "../../hooks/useNotification";
 import { useQuery } from "@tanstack/react-query";
 import axiosInstance from "../../api/axiosConfig";
+import { resolveMediaUrl } from "../../utils/postUtils";
 
 const BASE_NAV_ITEMS = [
   { label: "Home", icon: Home, to: "/dashboard" },
@@ -26,6 +27,7 @@ const BASE_NAV_ITEMS = [
 ];
 
 const DEPT_NAV_ITEM = { label: "Dept. Dashboard", icon: LayoutDashboard, to: "/department/dashboard" };
+const ADMIN_NAV_ITEM = { label: "Admin Dashboard", icon: LayoutDashboard, to: "/admin/dashboard" };
 
 // ---------------------------------------------------------------------------
 // Component
@@ -71,10 +73,13 @@ const SidebarLeft = () => {
 
   // Simple check for role since useCurrentUser returns the full profile
   const isDept = user?.role === "ROLE_DEPARTMENT";
+  const isAdmin = user?.role === "ROLE_ADMIN" || user?.email === "madhavrakhonde7@gmail.com" || user?.email === "samarthbhagwanpawar098@gmail.com";
   const username = user?.actualUsername ?? user?.username;
 
   const navItems = isDept
     ? [...BASE_NAV_ITEMS.slice(0, 3), DEPT_NAV_ITEM, ...BASE_NAV_ITEMS.slice(3)]
+    : isAdmin
+    ? [...BASE_NAV_ITEMS.slice(0, 3), ADMIN_NAV_ITEM, ...BASE_NAV_ITEMS.slice(3)]
     : BASE_NAV_ITEMS;
 
   // Removing unused avatarLetter
@@ -88,7 +93,7 @@ const SidebarLeft = () => {
         <div className="flex items-center gap-3">
           <div className="avatar placeholder">
             <div className="w-10 rounded-full overflow-hidden bg-base-200 border border-base-300">
-              <img src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(displayName)}`} alt="Avatar" className="w-full h-full object-cover" />
+              <img src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(displayName)}`} alt="Avatar" className="w-full h-full object-cover" />
             </div>
           </div>
           <div className="flex-1 min-w-0">

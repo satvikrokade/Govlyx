@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import axiosInstance from "../api/axiosConfig";
 import { useCurrentUser } from "../hooks/useUser";
+import { clearAuthTokens } from "../utils/auth";
 
 // ─── Inline Toast ──────────────────────────────────────────────────────────────
 function InlineToast({
@@ -100,7 +101,7 @@ function EditableRow({
           </p>
         </div>
       </div>
-      <button className="btn btn-xs btn-ghost text-blue-700 shrink-0" onClick={onEdit}>
+      <button className="btn btn-xs btn-ghost text-blue-700 dark:text-white shrink-0" onClick={onEdit}>
         <Pencil size={12} /> Edit
       </button>
     </div>
@@ -246,8 +247,7 @@ const Settings = () => {
     setDeactivating(true);
     try {
       await axiosInstance.delete("/api/users/me");
-      localStorage.removeItem("token");
-      localStorage.removeItem("authToken");
+      clearAuthTokens();
       showToast("Account deleted", "info");
       setTimeout(() => navigate("/login", { replace: true }), 1500);
     } catch (err: any) {
@@ -258,8 +258,7 @@ const Settings = () => {
 
   // ── Logout ──
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("authToken");
+    clearAuthTokens();
     navigate("/login", { replace: true });
   };
 
@@ -291,7 +290,7 @@ const Settings = () => {
       {/* ═══════════════ ACCOUNT ═══════════════ */}
       <div className="rounded-xl border border-base-300 bg-base-200 p-4 space-y-4">
         <div className="flex items-center gap-2">
-          <UserIcon size={18} className="text-blue-700" />
+          <UserIcon size={18} className="text-blue-700 dark:text-blue-400" />
           <h2 className="font-semibold">Account</h2>
         </div>
 
@@ -323,7 +322,7 @@ const Settings = () => {
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImg}
-              className="btn btn-xs btn-ghost text-blue-700"
+              className="btn btn-xs btn-ghost text-blue-700 dark:text-white"
             >
               <Camera size={12} /> Photo
             </button>
@@ -381,7 +380,7 @@ const Settings = () => {
       {/* ═══════════════ LANGUAGE & LOCALIZATION ═══════════════ */}
       <div className="rounded-xl border border-base-300 bg-base-200 p-4 space-y-4">
         <div className="flex items-center gap-2">
-          <Globe size={18} className="text-blue-700" />
+          <Globe size={18} className="text-blue-700 dark:text-blue-400" />
           <h2 className="font-semibold">Language & Localization</h2>
         </div>
 
@@ -439,7 +438,7 @@ const Settings = () => {
       {/* ═══════════════ FEED FILTERING & MODERATION ═══════════════ */}
       <div className="rounded-xl border border-base-300 bg-base-200 p-4 space-y-4">
         <div className="flex items-center gap-2">
-          <Shield size={18} className="text-blue-700" />
+          <Shield size={18} className="text-blue-700 dark:text-blue-400" />
           <h2 className="font-semibold">Feed Filtering & Moderation</h2>
         </div>
 
@@ -495,7 +494,7 @@ const Settings = () => {
       {/* ═══════════════ SECURITY & PASSWORD ═══════════════ */}
       <div className="rounded-xl border border-base-300 bg-base-200 p-4 space-y-4">
         <div className="flex items-center gap-2">
-          <Lock size={18} className="text-blue-700" />
+          <Lock size={18} className="text-blue-700 dark:text-blue-400" />
           <h2 className="font-semibold">Security & Password</h2>
         </div>
 

@@ -151,6 +151,7 @@ function getAvatarSrc(username: string | undefined, profileImageUrl?: string): s
   );
 }
 
+/*
 function flattenComments(commentsList: CommentDto[]): CommentDto[] {
   const result: CommentDto[] = [];
   
@@ -167,6 +168,7 @@ function flattenComments(commentsList: CommentDto[]): CommentDto[] {
   recurse(commentsList);
   return result;
 }
+*/
 
 function formatCommentText(text: string) {
   if (!text) return "";
@@ -443,7 +445,6 @@ type SingleCommentProps = {
   onDeleted: (id: number, countToRemove: number, parentId?: number) => void;
   onUpdated: (updated: CommentDto) => void;
   onReplyAdded: (parentId: number, reply: CommentDto) => void;
-  parentAuthorName?: string;
   parentRepliesOpen?: boolean;
 };
 
@@ -457,7 +458,6 @@ function SingleComment({
   onDeleted,
   onUpdated,
   onReplyAdded,
-  parentAuthorName,
   parentRepliesOpen,
 }: SingleCommentProps) {
   const [showReplyBox, setShowReplyBox] = useState(false);
@@ -776,7 +776,6 @@ function SingleComment({
                   onDeleted={handleReplyDeleted}
                   onUpdated={handleReplyUpdated}
                   onReplyAdded={handleNestedReplyAdded}
-                  parentAuthorName={authorName}
                   parentRepliesOpen={repliesOpen}
                 />
               ))}

@@ -4,8 +4,9 @@ import AuthLayout from "../components/auth/AuthLayout";
 import AuthHeader from "../components/auth/AuthHeader";
 import AuthInput from "../components/auth/AuthInput";
 import { loginUser } from "../api/authService";
-import { Info } from "lucide-react";
+import { Info, Eye, EyeOff } from "lucide-react";
 import { queryClient } from "../api/queryClient";
+import { persistAuthToken } from "../utils/auth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ const Login = () => {
     const queryParams = new URLSearchParams(location.search);
   const isExpired = queryParams.get("error") === "expired";
   const [showExpiredMsg, setShowExpiredMsg] = useState(isExpired);
+  const [showPassword, setShowPassword] = useState(false);
 
   const [form, setForm] = useState({
     email: "",
@@ -46,12 +48,12 @@ const Login = () => {
       });
 
       if (response.success && response.data?.token) {
-        // Save JWT token to localStorage
-        localStorage.setItem("token", response.data.token);
+        // Save JWT token under the keys used across the app
+        persistAuthToken(response.data.token);
         // Ensure the query cache starts fresh for the new user session
         queryClient.clear();
         // Admin Redirect
-        if (form.email === "admin@govlyx.com") {
+        if (form.email === "madhavrakhonde7@gmail.com" || form.email === "samarthbhagwanpawar098@gmail.com") {
           navigate("/admin/dashboard");
         } else {
           navigate("/dashboard");
@@ -101,14 +103,27 @@ const Login = () => {
           onChange={handleChange}
         />
 
-        <AuthInput
-          label="Password"
-          type="password"
-          placeholder="••••••••"
-          name="password"
-          value={form.password}
-          onChange={handleChange}
-        />
+        <div className="space-y-1">
+          <label className="text-sm opacity-80">Password</label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="••••••••"
+              name="password"
+              value={form.password}
+              onChange={handleChange}
+              className="input input-bordered w-full focus:border-blue-700 focus:outline-none pr-11"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(prev => !prev)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content/70 transition-colors"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+            </button>
+          </div>
+        </div>
 
         <button
           className="btn w-full bg-[#1D4ED8] text-white hover:bg-[#1D4ED8]/90 disabled:opacity-50 disabled:cursor-not-allowed h-12 rounded-xl mt-2 shadow-lg shadow-[#1D4ED8]/20 border-none"

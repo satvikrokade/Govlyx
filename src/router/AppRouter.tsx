@@ -2,7 +2,7 @@ import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
-import { isDepartmentUser } from "../utils/auth";
+import { clearAuthTokens, getAuthToken, isDepartmentUser } from "../utils/auth";
 import { ModalProvider } from "../context/ModalContext";
 
 import MainLayout from "../components/layout/MainLayout";
@@ -38,19 +38,19 @@ const PageWrapper = ({ children }: { children: React.ReactNode }) => (
 
 // ── Token validation ──────────────────────────────────────────────────────────
 const isLoggedIn = (): boolean => {
-  const token = localStorage.getItem("token");
+  const token = getAuthToken();
   if (!token) return false;
 
   try {
     const decoded = jwtDecode<{ exp: number }>(token);
     const isExpired = decoded.exp * 1000 < Date.now();
     if (isExpired) {
-      localStorage.removeItem("token");
+      clearAuthTokens();
       return false;
     }
     return true;
   } catch {
-    localStorage.removeItem("token");
+    clearAuthTokens();
     return false;
   }
 };
@@ -81,14 +81,14 @@ const useTokenExpiryWatcher = () => {
     const interval = setInterval(check, 60 * 1000);
 
     // Also schedule a precise redirect exactly when the token expires
-    const token = localStorage.getItem("token");
+    const token = getAuthToken();
     if (token) {
       try {
         const decoded = jwtDecode<{ exp: number }>(token);
         const msUntilExpiry = decoded.exp * 1000 - Date.now();
         if (msUntilExpiry > 0) {
           const timeout = setTimeout(() => {
-            localStorage.removeItem("token");
+            clearAuthTokens();
             navigate("/login?error=expired", { replace: true });
           }, msUntilExpiry);
 
@@ -98,7 +98,7 @@ const useTokenExpiryWatcher = () => {
           };
         }
       } catch {
-        localStorage.removeItem("token");
+        clearAuthTokens();
         navigate("/login?error=expired", { replace: true });
       }
        }

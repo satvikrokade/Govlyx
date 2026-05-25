@@ -1,6 +1,7 @@
 import axios from "axios";
 import { parseError } from "../utils/error-handler";
 import { showToast } from "../utils/toast";
+import { clearAuthTokens, getAuthToken, isTokenExpired } from "../utils/auth";
 
 const FALLBACK_URL = import.meta.env.DEV ? "" : "https://jan-sahayak-ai-84vh.onrender.com";
 export const API_BASE_URL = import.meta.env.VITE_API_URL
@@ -16,10 +17,7 @@ const axiosInstance = axios.create({
 
 // Attach JWT to every request
 axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem("authToken") || 
-                localStorage.getItem("token") || 
-                localStorage.getItem("jwt") || 
-                localStorage.getItem("access_token");
+  const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -30,10 +28,16 @@ axiosInstance.interceptors.request.use((config) => {
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Don't treat a 401 on login/register endpoints as a session timeout
+    // Don't treat a 401 on login/register endpoints or a single forbidden API
+    // call as a session timeout. Only force logout when the JWT is actually
+    // expired/invalid according to the token or backend auth message.
     const isAuthRequest = error.config?.url?.includes("/api/auth/");
-    if (error.response?.status === 401 && !isAuthRequest) {
-      localStorage.removeItem("token");
+    const message = String(error.response?.data?.message ?? error.response?.data?.error ?? "").toLowerCase();
+    const backendSaysTokenInvalid =
+      /(token|jwt|session)/.test(message) && /(expired|invalid|malformed|unauthorized)/.test(message);
+
+    if (error.response?.status === 401 && !isAuthRequest && (isTokenExpired() || backendSaysTokenInvalid)) {
+      clearAuthTokens();
       window.location.href = "/login?error=expired";
     }
 

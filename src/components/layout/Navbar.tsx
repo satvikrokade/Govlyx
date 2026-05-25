@@ -20,6 +20,7 @@ import NotificationDropdown from "./NotificationDropdown";
 import { useModal } from "../../context/ModalContext";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useUnreadNotificationsCount } from "../../hooks/useNotification";
+import { resolveMediaUrl } from "../../utils/postUtils";
 
 const Navbar = () => {
   const [openCreate, setOpenCreate] = useState(false);
@@ -182,7 +183,7 @@ const Navbar = () => {
 
             <NavLink to="/profile" className="avatar placeholder">
               <div className="w-8 rounded-full overflow-hidden bg-base-200 border border-base-300">
-                <img src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(username)}`} alt="Avatar" className="w-full h-full object-cover" />
+                <img src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(username)}`} alt="Avatar" className="w-full h-full object-cover" />
               </div>
             </NavLink>
           </div>

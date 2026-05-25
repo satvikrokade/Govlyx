@@ -1013,9 +1013,9 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
 function IdleScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="h-full flex flex-col items-center justify-center p-6 md:p-8 text-center bg-transparent">
-      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-24 h-24 md:w-32 md:h-32 rounded-[40px] md:rounded-[48px] bg-gradient-to-br from-[#1D4ED8]/10 to-[#1D4ED8]/5 flex items-center justify-center text-[#1D4ED8] mb-6 md:mb-8 shadow-inner border border-[#1D4ED8]/10 relative">
-        <div className="absolute inset-0 bg-[#1D4ED8]/20 blur-3xl rounded-full scale-50 opacity-50" />
-        <Dices size={40} className="md:w-14 md:h-14 relative z-10" />
+      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-16 h-16 md:w-20 md:h-20 rounded-[24px] md:rounded-[32px] bg-gradient-to-br from-[#1D4ED8]/10 to-[#1D4ED8]/5 flex items-center justify-center text-[#1D4ED8] mb-6 md:mb-8 shadow-inner border border-[#1D4ED8]/10 relative shrink-0">
+        <div className="absolute inset-0 bg-[#1D4ED8]/20 blur-2xl rounded-full scale-50 opacity-50" />
+        <Dices size={24} className="md:w-8 md:h-8 relative z-10" />
       </motion.div>
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}>
         <h3 className="text-2xl md:text-4xl font-black text-base-content tracking-tighter mb-4">Connect with Neighbors.</h3>
