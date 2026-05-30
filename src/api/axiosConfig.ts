@@ -3,7 +3,7 @@ import { parseError } from "../utils/error-handler";
 import { showToast } from "../utils/toast";
 import { clearAuthTokens, getAuthToken, isTokenExpired } from "../utils/auth";
 
-const FALLBACK_URL = import.meta.env.DEV ? "" : "https://jan-sahayak-ai-84vh.onrender.com";
+const FALLBACK_URL = "";
 export const API_BASE_URL = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace(/\/$/, "")
   : FALLBACK_URL;

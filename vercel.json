@@ -2,6 +2,18 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/api/:path*",
+      "destination": "https://jan-sahayak-ai-84vh.onrender.com/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://jan-sahayak-ai-84vh.onrender.com/uploads/:path*"
+    },
+    {
+      "source": "/ws/:path*",
+      "destination": "https://jan-sahayak-ai-84vh.onrender.com/ws/:path*"
+    },
+    {
       "source": "/((?!assets|favicon.ico|manifest.json|workbox-.*).*)",
       "destination": "/index.html"
     }

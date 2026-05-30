@@ -17,7 +17,7 @@
  *   fetch(apiUrl('/api/search?q=foo'), { headers: ... })
  */
 
-const FALLBACK_URL = import.meta.env.DEV ? "" : "https://jan-sahayak-ai-84vh.onrender.com";
+const FALLBACK_URL = "";
 const BASE = import.meta.env.VITE_API_URL
   ? import.meta.env.VITE_API_URL.replace(/\/$/, "") // strip trailing slash
   : FALLBACK_URL;
