@@ -4,9 +4,10 @@ import { showToast } from "../utils/toast";
 import { clearAuthTokens, getAuthToken, isTokenExpired } from "../utils/auth";
 
 const FALLBACK_URL = "";
-export const API_BASE_URL = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL.replace(/\/$/, "")
-  : FALLBACK_URL;
+const rawUrl = import.meta.env.VITE_API_URL || FALLBACK_URL;
+export const API_BASE_URL = (rawUrl.includes("jan-sahayak-ai-84vh.onrender.com") && !import.meta.env.DEV)
+  ? ""
+  : rawUrl.replace(/\/$/, "");
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 120000,

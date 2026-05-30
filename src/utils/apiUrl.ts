@@ -18,9 +18,10 @@
  */
 
 const FALLBACK_URL = "";
-const BASE = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL.replace(/\/$/, "") // strip trailing slash
-  : FALLBACK_URL;
+const rawUrl = import.meta.env.VITE_API_URL || FALLBACK_URL;
+const BASE = (rawUrl.includes("jan-sahayak-ai-84vh.onrender.com") && !import.meta.env.DEV)
+  ? ""
+  : rawUrl.replace(/\/$/, "");
 
 /**
  * Prepend the backend base URL to `path`.
