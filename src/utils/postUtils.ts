@@ -68,6 +68,8 @@ export function toPostCardPost(dto: any): AnyPost {
     userDisplayName: dto.userDisplayName ?? authorUsername, // AuthorDto has no displayName
     userProfileImage: authorImage,
     timeAgo,
+    contentHidden: dto.contentHidden || dto.isFlagged || dto.status === "FLAGGED" || false,
+    hiddenReason: dto.hiddenReason || dto.flagReason || "Violates community guidelines",
   };
 
   // If it's explicitly a government post or has a broadcast scope

@@ -14,8 +14,9 @@ import { useTheme } from "../../hooks/useTheme";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useUnreadNotificationsCount } from "../../hooks/useNotification";
 import { useQuery } from "@tanstack/react-query";
-import axiosInstance from "../../api/axiosConfig";
 import { resolveMediaUrl } from "../../utils/postUtils";
+import { getUserRole } from "../../utils/auth";
+import axiosInstance from "../../api/axiosConfig";
 
 const BASE_NAV_ITEMS = [
   { label: "Home", icon: Home, to: "/dashboard" },
@@ -71,15 +72,26 @@ const SidebarLeft = () => {
     enabled: !!user,
   });
 
-  // Simple check for role since useCurrentUser returns the full profile
-  const isDept = user?.role === "ROLE_DEPARTMENT";
-  const isAdmin = user?.role === "ROLE_ADMIN" || user?.email === "madhavrakhonde7@gmail.com" || user?.email === "samarthbhagwanpawar098@gmail.com";
+  // Check role from JWT token which is the source of truth
+  const role = getUserRole();
+  const isDept = role === "ROLE_DEPARTMENT";
+  const isAdmin = role === "ROLE_ADMIN";
   const username = user?.actualUsername ?? user?.username;
 
   const navItems = isDept
-    ? [...BASE_NAV_ITEMS.slice(0, 3), DEPT_NAV_ITEM, ...BASE_NAV_ITEMS.slice(3)]
+    ? [
+        DEPT_NAV_ITEM,
+        { label: "Notifications", icon: Bell, to: "/notifications" },
+        { label: "Profile", icon: User, to: "/profile" },
+        { label: "Settings", icon: Settings, to: "/settings" }
+      ]
     : isAdmin
-    ? [...BASE_NAV_ITEMS.slice(0, 3), ADMIN_NAV_ITEM, ...BASE_NAV_ITEMS.slice(3)]
+    ? [
+        ADMIN_NAV_ITEM,
+        { label: "Notifications", icon: Bell, to: "/notifications" },
+        { label: "Profile", icon: User, to: "/profile" },
+        { label: "Settings", icon: Settings, to: "/settings" }
+      ]
     : BASE_NAV_ITEMS;
 
   // Removing unused avatarLetter
@@ -151,7 +163,7 @@ const SidebarLeft = () => {
       </div>
 
       {/* Communities */}
-      {user && (
+      {user && !isAdmin && !isDept && (
         <div className="rounded-xl bg-base-200 p-4">
           <p className="mb-2 text-sm font-semibold opacity-70">
             Your Communities

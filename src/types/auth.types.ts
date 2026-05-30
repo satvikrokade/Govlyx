@@ -3,6 +3,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   pincode: string;
+  username?: string;
 }
 
 export interface AuthRequest {
@@ -11,12 +12,16 @@ export interface AuthRequest {
 }
 
 export interface AuthResponse {
-  token: string;
+  token?: string;
+  authToken?: string;
+  accessToken?: string;
+  jwt?: string;
 }
 
 
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
+  error?: string;
   data?: T;
 }

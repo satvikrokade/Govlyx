@@ -17,6 +17,17 @@
   --font-sans: 'Satoshi', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
   --animate-bounce-slow: bounce-slow 3s infinite;
 
+  --color-brand-50: #eff4ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-700: #1d4ed8;
+  --color-brand-900: #1e3a8a;
+
+  --animate-marquee: marquee 35s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-float-delayed: float 6s ease-in-out 3s infinite;
+
   @keyframes bounce-slow {
     0%, 100% {
       transform: translateY(-5%);
@@ -26,6 +37,16 @@
       transform: translateY(0);
       animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
     }
+  }
+
+  @keyframes marquee {
+    0% { transform: translateX(0%); }
+    100% { transform: translateX(-50%); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-12px); }
   }
 }
 
@@ -169,4 +190,15 @@ html.scrollable-page #root {
   height: auto !important;
   overflow: auto !important;
   overscroll-behavior: auto !important;
+}
+
+:root {
+  --color-grid: rgba(203, 213, 225, 0.45);
+}
+.dark {
+  --color-grid: rgba(255, 255, 255, 0.05);
+}
+.bg-grid-pattern {
+  background-image: radial-gradient(circle, var(--color-grid) 1px, transparent 1px);
+  background-size: 24px 24px;
 }

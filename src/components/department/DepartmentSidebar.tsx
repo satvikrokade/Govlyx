@@ -42,7 +42,7 @@ const DepartmentSidebar = ({ activeTab, onTabChange, activeBadge }: Props) => {
             <ShieldCheck size={22} className="text-blue-100" />
           </div>
           <div>
-            <p className="text-[10px] font-bold opacity-60 uppercase tracking-[0.15em]">Admin Portal</p>
+            <p className="text-[10px] font-bold opacity-60 uppercase tracking-[0.15em]">Department Portal</p>
             <p className="text-base font-extrabold leading-tight tracking-tight">Control Panel</p>
           </div>
         </div>

@@ -16,7 +16,6 @@ export const departmentRegisterSchema = z.object({
   name: z.string().trim().min(3, "Name must be at least 3 characters"),
   email: z.string().trim().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  departmentType: z.string().trim().min(1, "Department type is required"),
 });
 
 export const adminRegisterSchema = z.object({

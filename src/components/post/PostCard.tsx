@@ -24,6 +24,7 @@ import {
   VolumeX,
   Link,
   Instagram,
+  Flag,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CommentSection from "./CommentSection";
@@ -31,6 +32,7 @@ import { apiUrl } from "../../utils/apiUrl";
 import type { PostType } from "./CommentSection";
 import { resolveMediaUrl, toPostCardPost } from "../../utils/postUtils";
 import ConfirmModal from "./ConfirmModal";
+import ReportModal from "../modals/ReportModal";
 import { checkProfanity } from "../../utils/profanity";
 import { showToast } from "../../utils/toast";
 import { parseError } from "../../utils/error-handler";
@@ -1023,6 +1025,7 @@ export default function PostCard({
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isContentRevealed, setIsContentRevealed] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const { copied, flash } = useCopied();
 
   useEffect(() => {
@@ -1065,7 +1068,7 @@ export default function PostCard({
   }, [post.id]);
 
   if (!post) return null;
-  if ((post as any).status === "DELETED" || (post as any).status === "FLAGGED") {
+  if ((post as any).status === "DELETED") {
     return null;
   }
 
@@ -1325,6 +1328,22 @@ export default function PostCard({
                 isDeleting={isDeleting}
                 showDelete={(post as any).canDelete !== undefined ? !!(post as any).canDelete : (currentUser && post.username === currentUser.username)}
                 hideDelete={hideDelete}
+                rightAction={
+                  currentUser && post.username !== currentUser.username ? (
+                    <motion.button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReportOpen(true);
+                      }}
+                      whileHover={{ scale: 1.12, y: -1 }}
+                      whileTap={{ scale: 0.94 }}
+                      className="group/report relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-base-300/40 text-base-content/40 transition-all duration-300 hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-600 hover:shadow-lg hover:shadow-red-500/10 backdrop-blur-md"
+                      title="Report content"
+                    >
+                      <Flag size={16} className="relative z-10 transition-transform duration-300 group-hover/report:rotate-6" />
+                    </motion.button>
+                  ) : undefined
+                }
               />
             )}
           </div>
@@ -1539,6 +1558,13 @@ export default function PostCard({
         title="Delete Post"
         message="Are you sure you want to delete this post? This action cannot be undone."
         isLoading={isDeleting}
+      />
+
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType={isIssue ? "POST" : "SOCIAL_POST"}
+        targetId={post.id}
       />
 
       {/* Lightbox */}

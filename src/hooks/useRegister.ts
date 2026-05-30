@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { registerCitizen } from "../api/authService";
+import { parseError } from "../utils/error-handler";
 
 export interface RegisterFormData {
   email: string;
@@ -10,7 +10,6 @@ export interface RegisterFormData {
 }
 
 export const useRegister = () => {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -39,14 +38,16 @@ export const useRegister = () => {
       });
 
       if (response.success) {
-        setSuccess(response.message); // "Citizen registered successfully"
-        setTimeout(() => navigate("/login"), 1500);
+        setSuccess(
+          response.error ||
+            response.message ||
+            "A verification link has been sent to your email address."
+        );
       } else {
-        setError(response.message);
+        setError(response.error || response.message || "Registration failed");
       }
     } catch (err: any) {
-      const msg = err.response?.data?.message || "Registration failed. Please try again.";
-      setError(msg);
+      setError(parseError(err));
     } finally {
       setLoading(false);
     }

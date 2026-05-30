@@ -4,19 +4,27 @@ import { jwtDecode } from "jwt-decode";
 import { useTheme } from "../hooks/useTheme";
 import { 
   ArrowRight, 
-  ExternalLink, 
   ChevronDown, 
-  ChevronUp, 
-  Shield, 
-  Activity, 
-  Cpu, 
-  Layers,
   Sun,
   Moon,
   Menu,
   X,
-  Globe,
-  MessageCircle
+  MessageCircle,
+  Plus,
+  Search,
+  Heart,
+  MessageSquare,
+  Share2,
+  Bookmark,
+  SlidersHorizontal,
+  Flag,
+  Zap,
+  Lock,
+  Settings as SettingsIcon,
+  Wifi,
+  Battery,
+  Users,
+  Eye
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -45,7 +53,7 @@ interface LogoProps {
   showText?: boolean;
 }
 
-const LandingLogo: React.FC<LogoProps> = ({ className = "", size = 40, showText = false }) => {
+const LandingLogo: React.FC<LogoProps> = ({ className = "", size = 36, showText = false }) => {
   return (
     <div className={`flex items-center gap-3 select-none ${className}`}>
       <svg
@@ -54,7 +62,7 @@ const LandingLogo: React.FC<LogoProps> = ({ className = "", size = 40, showText 
         viewBox="0 0 512 540"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
-        className="transition-transform hover:scale-105 duration-300"
+        className="transition-transform hover:scale-105 duration-300 shrink-0"
       >
         <path
           fill="#1D4ED8"
@@ -91,7 +99,7 @@ const LandingLogo: React.FC<LogoProps> = ({ className = "", size = 40, showText 
         </g>
       </svg>
       {showText && (
-        <span className="font-sans font-bold text-2xl tracking-tight text-slate-900 dark:text-white transition-colors duration-300">
+        <span className="font-bold text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-white transition-colors duration-300">
           Govlyx
         </span>
       )}
@@ -99,457 +107,7 @@ const LandingLogo: React.FC<LogoProps> = ({ className = "", size = 40, showText 
   );
 };
 
-// ─── Navbar Sub-component ────────────────────────────────────────────────────
-interface NavbarProps {
-  theme: string;
-  toggleTheme: () => void;
-  onEnterPlatform: (e: React.MouseEvent) => void;
-}
-
-const LandingNavbar: React.FC<NavbarProps> = ({ theme, toggleTheme, onEnterPlatform }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
-    window.addEventListener("scroll", handleScroll);
-    return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
-
-  const navLinks = [
-    { name: "Platform", href: "#", onClick: onEnterPlatform },
-    { name: "GitHub", href: "https://github.com/govlyx/govlyx", target: "_blank" },
-    { name: "Docs", href: "https://github.com/govlyx/govlyx#readme", target: "_blank" },
-  ];
-
-  return (
-    <header
-      className={`sticky top-0 z-50 w-full transition-[background-color,border-color,box-shadow] duration-300 py-3 ${
-        scrolled
-          ? "bg-white/80 dark:bg-[#0A0F1D]/80 backdrop-blur-md shadow-md border-b border-slate-200/50 dark:border-slate-800/50"
-          : "bg-transparent border-b border-transparent"
-      }`}
-    >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <a href="#" className="flex items-center">
-            <LandingLogo showText size={38} />
-          </a>
-
-          <nav className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
-              <a
-                key={link.name}
-                href={link.href}
-                target={link.target}
-                rel={link.target ? "noopener noreferrer" : undefined}
-                onClick={link.onClick}
-                className="text-sm font-semibold transition-colors text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-primary"
-              >
-                {link.name}
-              </a>
-            ))}
-          </nav>
-
-          <div className="hidden md:flex items-center gap-4">
-            <button
-              onClick={toggleTheme}
-              className="btn btn-ghost btn-circle text-base-content dark:text-gray-300"
-              aria-label="Toggle theme"
-            >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={theme}
-                  initial={{ y: -20, opacity: 0, rotate: -90 }}
-                  animate={{ y: 0, opacity: 1, rotate: 0 }}
-                  exit={{ y: 20, opacity: 0, rotate: 90 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  {theme === "light" ? <Moon className="size-5" /> : <Sun className="size-5" />}
-                </motion.div>
-              </AnimatePresence>
-            </button>
-
-            <a
-              href="https://github.com/govlyx/govlyx"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn btn-ghost btn-circle text-base-content dark:text-gray-300"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-5">
-                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
-              </svg>
-            </a>
-
-            <button onClick={onEnterPlatform} className="btn btn-primary btn-sm rounded-lg shadow-sm font-bold">
-              Enter Platform <ArrowRight className="size-4" />
-            </button>
-          </div>
-
-          <div className="flex items-center gap-2 md:hidden">
-            <button
-              onClick={toggleTheme}
-              className="btn btn-ghost btn-circle btn-sm text-base-content"
-              aria-label="Toggle theme"
-            >
-              {theme === "light" ? <Moon className="size-5" /> : <Sun className="size-5" />}
-            </button>
-
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="btn btn-ghost btn-circle btn-sm text-base-content"
-              aria-label="Toggle menu"
-            >
-              {isOpen ? <X className="size-5" /> : <Menu className="size-5" />}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md"
-          >
-            <div className="px-4 pt-2 pb-6 space-y-2">
-              {navLinks.map((link) => (
-                <a
-                  key={link.name}
-                  href={link.href}
-                  target={link.target}
-                  rel={link.target ? "noopener noreferrer" : undefined}
-                  onClick={(e) => {
-                    setIsOpen(false);
-                    if (link.onClick) link.onClick(e);
-                  }}
-                  className="block px-3 py-2.5 rounded-md text-base font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  {link.name}
-                </a>
-              ))}
-              <div className="pt-4 flex items-center gap-4 px-3">
-                <a
-                  href="https://github.com/govlyx/govlyx"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-outline btn-sm gap-2 w-1/2"
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
-                    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
-                  </svg> Github
-                </a>
-                <button
-                  onClick={(e) => {
-                    setIsOpen(false);
-                    onEnterPlatform(e);
-                  }}
-                  className="btn btn-primary btn-sm gap-2 w-1/2 font-bold"
-                >
-                  Enter Platform
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </header>
-  );
-};
-
-// ─── Gateway Sub-component ──────────────────────────────────────────────────
-interface GatewayProps {
-  onEnterPlatform: (e: React.MouseEvent) => void;
-  targetUrl: string;
-  setTargetUrl: (url: string) => void;
-  destinations: { name: string; url: string }[];
-}
-
-const LandingGateway: React.FC<GatewayProps> = ({ onEnterPlatform, targetUrl, setTargetUrl, destinations }) => {
-  const [showOverview, setShowOverview] = useState(false);
-  const [destinationOpen, setDestinationOpen] = useState(false);
-  const selectedDestination = destinations.find((dest) => dest.url === targetUrl) ?? destinations[0];
-
-  return (
-    <section className="min-h-[calc(100vh-12rem)] flex flex-col justify-center items-center px-4 py-12 relative overflow-hidden bg-transparent">
-      <div className="absolute top-1/4 left-10 w-80 h-80 bg-[#1D4ED8]/10 rounded-full blur-3xl -z-10 animate-pulse duration-5000"></div>
-      <div className="absolute bottom-1/4 right-10 w-96 h-96 bg-[#1D4ED8]/5 rounded-full blur-3xl -z-10 animate-pulse duration-7000"></div>
-
-      <div className="w-full max-w-4xl lg:max-w-5xl space-y-8 z-10">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="glass-panel w-full p-8 sm:p-10 lg:p-12 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden"
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            
-            {/* Left Column */}
-            <div className="lg:col-span-7 space-y-6 order-last lg:order-first">
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1D4ED8]/10 dark:bg-[#1D4ED8]/20 border border-[#1D4ED8]/20 dark:border-[#1D4ED8]/30 text-xs font-semibold text-[#1D4ED8] dark:text-[#60A5FA] uppercase tracking-wider">
-                  <span>Portal Gateway</span>
-                </div>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
-                  Welcome to Govlyx
-                </h2>
-                <p className="text-sm sm:text-base text-slate-600 dark:text-slate-300 leading-relaxed">
-                  The main application is hosted on its primary platform. Select your destination below and click enter.
-                </p>
-              </div>
-
-              <div className="bg-slate-100/70 dark:bg-slate-900/40 border border-slate-200 dark:border-white/5 rounded-2xl p-6 space-y-6">
-                
-                {/* Select Destination */}
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                    Select Destination
-                  </label>
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setDestinationOpen((open) => !open)}
-                      className={`w-full bg-white dark:bg-slate-950/80 border rounded-xl px-4 py-3 text-sm font-semibold text-left text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]/50 transition-colors cursor-pointer flex items-center justify-between gap-3 ${
-                        destinationOpen
-                          ? "border-[#1D4ED8] rounded-b-none"
-                          : "border-slate-200 dark:border-white/10 hover:border-[#1D4ED8]/60 dark:hover:border-[#3B82F6]/60"
-                      }`}
-                      aria-haspopup="listbox"
-                      aria-expanded={destinationOpen}
-                    >
-                      <span className="truncate">{selectedDestination.name}</span>
-                      <ChevronDown className={`size-4 shrink-0 text-slate-500 dark:text-slate-400 transition-transform ${destinationOpen ? "rotate-180" : ""}`} />
-                    </button>
-
-                    {destinationOpen && (
-                      <div
-                        className="absolute left-0 right-0 top-full z-30 overflow-hidden rounded-b-xl border-x border-b border-[#1D4ED8] bg-white dark:bg-[#020617] shadow-xl shadow-[#1D4ED8]/15"
-                        role="listbox"
-                      >
-                        {destinations.map((dest) => {
-                          const active = dest.url === targetUrl;
-                          return (
-                            <button
-                              key={dest.url}
-                              type="button"
-                              onClick={() => {
-                                setTargetUrl(dest.url);
-                                setDestinationOpen(false);
-                              }}
-                              className={`w-full px-4 py-3 text-left text-sm transition-colors ${
-                                active
-                                  ? "bg-[#1D4ED8] text-white font-semibold"
-                                  : "bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 dark:bg-[#020617] dark:text-slate-200 dark:hover:bg-[#0F1B33] dark:hover:text-white"
-                              }`}
-                              role="option"
-                              aria-selected={active}
-                            >
-                              {dest.name}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    onClick={onEnterPlatform}
-                    className="w-full bg-[#1D4ED8] hover:bg-[#1e40af] text-white px-6 py-4 rounded-xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-[#1D4ED8]/20 transition-all transform hover:translate-y-[-2px] duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#1D4ED8] focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950"
-                  >
-                    Enter Platform <ArrowRight className="size-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Platform Concept Dropdown */}
-              <div className="border-t border-slate-200 dark:border-white/10 pt-6">
-                <button
-                  onClick={() => setShowOverview(!showOverview)}
-                  className="w-full flex items-center justify-between py-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors text-sm font-semibold uppercase tracking-wider focus:outline-none"
-                >
-                  <span>Platform Concept At A Glance</span>
-                  {showOverview ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
-                </button>
-
-                <AnimatePresence>
-                  {showOverview && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      className="overflow-hidden"
-                    >
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4">
-                        <div className="bg-slate-100/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 p-4 rounded-xl space-y-2">
-                          <div className="flex items-center gap-2 text-[#1D4ED8]">
-                            <Shield className="size-4" />
-                            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Public Policy Audits</h4>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Transforms raw government expenditure data and scheme guidelines into searchable ledger audits.
-                          </p>
-                        </div>
-
-                        <div className="bg-slate-100/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 p-4 rounded-xl space-y-2">
-                          <div className="flex items-center gap-2 text-[#1D4ED8]">
-                            <Activity className="size-4" />
-                            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Transparency Index</h4>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Calculates region-by-region transparency levels using open-source scoring models.
-                          </p>
-                        </div>
-
-                        <div className="bg-slate-100/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 p-4 rounded-xl space-y-2">
-                          <div className="flex items-center gap-2 text-[#1D4ED8]">
-                            <Cpu className="size-4" />
-                            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Civic Telemetry</h4>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Tracks budget allocations vs. actual ground achievements with cryptographic validation hashes.
-                          </p>
-                        </div>
-
-                        <div className="bg-slate-100/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 p-4 rounded-xl space-y-2">
-                          <div className="flex items-center gap-2 text-[#1D4ED8]">
-                            <Layers className="size-4" />
-                            <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Developer API Hub</h4>
-                          </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                            Open access nodes letting civic devs integrate transparency data directly into external apps.
-                          </p>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            {/* Right Column (Branding logo and card) */}
-            <div className="lg:col-span-5 flex flex-col items-center justify-center text-center p-8 lg:py-12 bg-slate-100/50 dark:bg-white/5 rounded-2xl border border-slate-200/50 dark:border-white/10 shadow-xl order-first lg:order-last relative group overflow-hidden">
-              <div className="absolute inset-0 opacity-75 group-hover:scale-110 transition-transform duration-700 pointer-events-none" style={{ background: "radial-gradient(circle, rgba(29, 78, 216, 0.15) 0%, transparent 70%)" }}></div>
-              
-              <motion.div 
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", stiffness: 100 }}
-                className="relative z-10 p-5 bg-white/10 rounded-3xl border border-white/20 shadow-2xl mb-6 hover:border-white/40 transition-colors duration-300 animate-bounce-slow"
-              >
-                <LandingLogo size={120} />
-              </motion.div>
-              
-              <div className="space-y-3 relative z-10">
-                <h1 className="text-5xl lg:text-6xl font-black tracking-wider text-slate-900 dark:text-white select-none">
-                  GOVLYX
-                </h1>
-                <div className="w-16 h-1 bg-slate-900 dark:bg-white mx-auto rounded-full"></div>
-                <p className="text-xs font-semibold tracking-wider text-slate-600 dark:text-slate-300 uppercase">
-                  Civic-Tech Transparency Infrastructure
-                </p>
-              </div>
-            </div>
-
-          </div>
-        </motion.div>
-        
-        <p className="text-center text-xs text-slate-500">
-          Hosting Address: <a href="https://govlyx.com" className="text-slate-500 dark:text-slate-400 hover:text-[#1D4ED8] transition-colors underline inline-flex items-center gap-0.5">govlyx.com <ExternalLink className="size-3 inline" /></a>
-        </p>
-      </div>
-    </section>
-  );
-};
-
-// ─── Footer Sub-component ────────────────────────────────────────────────────
-const LandingFooter: React.FC = () => {
-  return (
-    <footer className="bg-base-200/50 dark:bg-slate-950 border-t border-base-200 dark:border-slate-900 py-12 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-          
-          <div className="md:col-span-5 space-y-4">
-            <LandingLogo showText size={32} />
-            <p className="text-sm text-base-content/70 dark:text-gray-400 max-w-sm leading-relaxed">
-              GOVLYX is a civic-tech transparency engine that parses scattered open datasets into structured, immutable, and citizen-friendly intelligence.
-            </p>
-            <p className="text-xs text-base-content/50 dark:text-gray-500 font-mono">
-              Transparency is not a slogan. It is an infrastructure layer.
-            </p>
-          </div>
-
-          <div className="md:col-span-3 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-base-content/50">Navigation</h4>
-            <div className="flex flex-col gap-2 text-sm text-base-content/75 dark:text-gray-400">
-              <a href="#vision" className="hover:text-primary transition-colors">Vision</a>
-              <a href="#objectives" className="hover:text-primary transition-colors">Objectives</a>
-              <a href="#features" className="hover:text-primary transition-colors">Features Simulator</a>
-              <a href="#tech-stack" className="hover:text-primary transition-colors">Architecture</a>
-            </div>
-          </div>
-
-          <div className="md:col-span-4 space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-base-content/50">Community & Nodes</h4>
-            <p className="text-xs text-base-content/70 dark:text-gray-400 leading-relaxed mb-2">
-              Interested in running an independent audit node or verifying telemetry hashes?
-            </p>
-            <div className="flex gap-3">
-              <a
-                href="https://github.com/govlyx/govlyx"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-sm btn-circle btn-outline border-base-300 dark:border-slate-800 text-base-content/80 hover:bg-primary hover:text-white hover:border-primary"
-                aria-label="GitHub"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="size-4">
-                  <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
-                </svg>
-              </a>
-              <a
-                href="#"
-                className="btn btn-sm btn-circle btn-outline border-base-300 dark:border-slate-800 text-base-content/80 hover:bg-primary hover:text-white hover:border-primary"
-                aria-label="Discord / Chat"
-              >
-                <MessageCircle className="size-4" />
-              </a>
-              <a
-                href="#"
-                className="btn btn-sm btn-circle btn-outline border-base-300 dark:border-slate-800 text-base-content/80 hover:bg-primary hover:text-white hover:border-primary"
-                aria-label="Global"
-              >
-                <Globe className="size-4" />
-              </a>
-              <a
-                href="#"
-                className="btn btn-sm btn-circle btn-outline border-base-300 dark:border-slate-800 text-base-content/80 hover:bg-primary hover:text-white hover:border-primary"
-                aria-label="Auditing Status"
-              >
-                <Shield className="size-4" />
-              </a>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-t border-base-200 dark:border-slate-900 mt-8 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-base-content/50 dark:text-gray-500">
-          <p>© 2026 GOVLYX. MIT Licensed. Open source civic-tech project.</p>
-          <div className="flex gap-4">
-            <a href="#" className="hover:text-primary transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-primary transition-colors">Terms of Service</a>
-            <a href="#contribution" className="hover:text-primary transition-colors">Security Audit Report</a>
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-};
-
-// ─── Main LandingPage Page Component ─────────────────────────────────────────
+// ─── Destinations Config ─────────────────────────────────────────────────────
 const DESTINATIONS = [
   { name: "Main Platform (govlyx.com)", url: "https://govlyx.com" },
   { name: "Open Source Repository (GitHub)", url: "https://github.com/govlyx/govlyx" },
@@ -557,21 +115,94 @@ const DESTINATIONS = [
 ];
 
 export default function LandingPage() {
-  const [targetUrl, setTargetUrl] = useState("https://govlyx.com");
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [targetUrl, setTargetUrl] = useState("https://govlyx.com");
+  const [destinationOpen, setDestinationOpen] = useState(false);
+
+  // ─── Interactive Phone Mockup Post States ──────────────────────────────────
+  const [posts, setPosts] = useState([
+    {
+      id: "post-1",
+      author: "ZENYETI8480",
+      avatarInitials: "ZY",
+      avatarBg: "bg-slate-800",
+      time: "1 HOUR AGO",
+      content: "Major pothole on MG Road near the main junction finally got patched up today! Traffic is flowing smoothly now. Thanks to everyone who bumped the issue last week. 🙌",
+      reactions: 412,
+      comments: 88,
+      shares: 14,
+      liked: false,
+      bookmarked: false
+    },
+    {
+      id: "post-2",
+      author: "PUNECIVIC404",
+      avatarInitials: "PC",
+      avatarBg: "bg-indigo-600",
+      time: "5 HOURS AGO",
+      content: "Does anyone know if the Sunday farmer's market is still happening at Shivaji Park this weekend despite the rain forecast?",
+      reactions: 156,
+      comments: 34,
+      shares: 2,
+      liked: false,
+      bookmarked: false
+    },
+    {
+      id: "post-3",
+      author: "KINDCROW9071",
+      avatarInitials: "KC",
+      avatarBg: "bg-brand-100 text-brand-600",
+      time: "1 DAY AGO",
+      content: "Streetlights have been out on 4th Cross Street for three days straight. It's completely pitch dark at night and unsafe for pedestrians. @CityCouncil please look into this urgently! 🔦⚠️",
+      reactions: 892,
+      comments: 134,
+      shares: 45,
+      liked: false,
+      bookmarked: false
+    }
+  ]);
+
+  const handleLikePost = (postId: string) => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => {
+        if (post.id === postId) {
+          const isLikedNow = !post.liked;
+          return {
+            ...post,
+            liked: isLikedNow,
+            reactions: isLikedNow ? post.reactions + 1 : post.reactions - 1
+          };
+        }
+        return post;
+      })
+    );
+  };
+
+  const handleBookmarkPost = (postId: string) => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            bookmarked: !post.bookmarked
+          };
+        }
+        return post;
+      })
+    );
+  };
 
   useEffect(() => {
     // Enable scrollable behavior by adding a CSS class helper on Mount
     document.documentElement.classList.add("scrollable-page");
-
     return () => {
       // Restore scroll lock on Unmount
       document.documentElement.classList.remove("scrollable-page");
     };
   }, []);
 
-  // Navigate locally if entering Main Platform; otherwise open external URLs
   const handleEnterPlatform = (e: React.MouseEvent) => {
     e.preventDefault();
     if (targetUrl === "https://govlyx.com") {
@@ -585,18 +216,459 @@ export default function LandingPage() {
     }
   };
 
+  const selectedDestination = DESTINATIONS.find((dest) => dest.url === targetUrl) ?? DESTINATIONS[0];
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0A0F1D] text-base-content font-sans transition-colors duration-300 flex flex-col justify-between">
-      <LandingNavbar theme={theme} toggleTheme={toggleTheme} onEnterPlatform={handleEnterPlatform} />
-      <main className="flex-grow">
-        <LandingGateway 
-          destinations={DESTINATIONS} 
-          targetUrl={targetUrl} 
-          setTargetUrl={setTargetUrl} 
-          onEnterPlatform={handleEnterPlatform} 
-        />
-      </main>
-      <LandingFooter />
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0A0F1D] text-slate-800 dark:text-slate-200 selection:bg-brand-500/20 selection:text-brand-900 dark:selection:text-white transition-colors duration-300 flex flex-col justify-between overflow-x-hidden">
+      
+      {/* ─── Navbar ──────────────────────────────────────────────────────────── */}
+      <nav className="fixed top-0 inset-x-0 z-[100] bg-white/90 dark:bg-[#0A0F1D]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 h-[72px] transition-colors duration-300">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
+          <a href="#" className="flex items-center">
+            <LandingLogo showText size={34} />
+          </a>
+          
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center gap-8">
+            <a href="#features" className="text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Platform</a>
+            <a href="#communities" className="text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Communities</a>
+            <a href="https://github.com/govlyx/govlyx#readme" target="_blank" rel="noopener noreferrer" className="text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Docs</a>
+          </div>
+
+          <div className="flex items-center gap-3 sm:gap-4">
+            <button 
+              onClick={toggleTheme} 
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60"
+              aria-label="Toggle Theme"
+            >
+              {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            </button>
+            
+            <button 
+              onClick={handleEnterPlatform}
+              className="bg-brand-600 hover:bg-brand-700 dark:bg-brand-600 dark:hover:bg-brand-500 text-white font-semibold text-xs sm:text-sm px-4 sm:px-5 py-2 sm:py-2.5 rounded-lg shadow-md shadow-brand-500/10 transition-all flex items-center gap-2 cursor-pointer"
+            >
+              Enter Platform <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+
+            {/* Mobile Menu Toggle */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+              className="md:hidden text-slate-500 dark:text-slate-400 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60"
+              aria-label="Toggle Menu"
+            >
+              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Mobile Drawer Menu */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed top-[72px] inset-x-0 z-[99] bg-white dark:bg-[#0A0F1D] border-b border-slate-200 dark:border-slate-800/80 shadow-lg md:hidden transition-colors"
+          >
+            <div className="px-4 pt-3 pb-6 space-y-3">
+              <a 
+                href="#features" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block px-3 py-2.5 rounded-lg text-base font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Platform
+              </a>
+              <a 
+                href="#communities" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block px-3 py-2.5 rounded-lg text-base font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Communities
+              </a>
+              <a 
+                href="https://github.com/govlyx/govlyx#readme" 
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block px-3 py-2.5 rounded-lg text-base font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              >
+                Docs
+              </a>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
+                <button
+                  onClick={toggleTheme}
+                  className="flex items-center justify-center gap-2 w-1/2 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                >
+                  {theme === "light" ? <><Moon className="w-4 h-4" /> Dark Mode</> : <><Sun className="w-4 h-4" /> Light Mode</>}
+                </button>
+                <button
+                  onClick={(e) => {
+                    setIsMobileMenuOpen(false);
+                    handleEnterPlatform(e);
+                  }}
+                  className="w-1/2 py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold shadow-md shadow-brand-500/10 flex justify-center items-center gap-1.5"
+                >
+                  Enter Platform <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ─── Hero Section ────────────────────────────────────────────────────── */}
+      <section className="relative pt-20 pb-6 lg:pt-24 lg:pb-8 px-4 sm:px-6 overflow-hidden min-h-[80vh] lg:min-h-0 flex items-center bg-transparent">
+        {/* Background Decor */}
+        <div className="absolute inset-0 bg-grid-pattern opacity-40 dark:opacity-30 pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-[400px] lg:w-[600px] h-[400px] lg:h-[600px] bg-brand-100 dark:bg-brand-900/10 rounded-full mix-blend-multiply filter blur-[80px] lg:blur-[100px] opacity-70 dark:opacity-40 translate-x-1/3 -translate-y-1/4 pointer-events-none"></div>
+        <div className="absolute bottom-0 left-0 w-[300px] lg:w-[500px] h-[300px] lg:h-[500px] bg-blue-100 dark:bg-blue-900/10 rounded-full mix-blend-multiply filter blur-[80px] lg:blur-[100px] opacity-70 dark:opacity-40 -translate-x-1/4 translate-y-1/4 pointer-events-none"></div>
+
+        <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-[1.1fr_0.9fr] gap-8 lg:gap-12 items-center relative z-10">
+          
+          {/* Left Column: Title & Replicated Portal Gateway Card */}
+          <div className="max-w-xl mx-auto lg:mx-0 w-full text-center lg:text-left order-2 lg:order-1 mt-4 lg:mt-0">
+            <div className="inline-flex items-center gap-2 bg-brand-50 dark:bg-brand-900/25 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-400 font-semibold text-[10px] sm:text-xs px-3 py-0.5 rounded-full uppercase tracking-wider mb-3">
+              Portal Gateway
+            </div>
+            
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-slate-900 dark:text-white leading-[1.1] tracking-tight mb-3 lg:mb-4">
+              Apni baat.<br className="hidden sm:block" /> Apna shehar.<br />
+              <span className="text-brand-600 dark:text-brand-500">Apna feed.</span>
+            </h1>
+            
+            <p className="text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-355 leading-relaxed mb-4 lg:mb-5 max-w-lg mx-auto lg:mx-0">
+              The civic-tech transparency infrastructure. Connect with your neighbors, get verified government alerts, and join local communities based on your 6-digit pincode.
+            </p>
+
+            {/* Replicated Portal Gateway Card */}
+            <div className="bg-white dark:bg-[#121829] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-soft dark:shadow-none text-left max-w-md mx-auto lg:mx-0 relative overflow-hidden transition-colors">
+              <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white mb-0.5">Welcome to Govlyx</h3>
+              <p className="text-[11px] sm:text-xs text-slate-505 dark:text-slate-400 mb-4 leading-normal">
+                Select your destination below to enter the platform.
+              </p>
+              
+              <div className="bg-slate-50 dark:bg-[#0B0F1A] border border-slate-100 dark:border-slate-800/80 rounded-xl p-3 sm:p-4 transition-colors">
+                <label className="block text-[10px] sm:text-[11px] font-bold text-slate-450 dark:text-slate-500 tracking-wider uppercase mb-1.5">
+                  Select Destination
+                </label>
+                
+                <div className="relative mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setDestinationOpen(!destinationOpen)}
+                    className={`w-full bg-white dark:bg-[#121829] border rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-left text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500/40 transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                      destinationOpen
+                        ? "border-brand-500"
+                        : "border-slate-200 dark:border-slate-800 hover:border-brand-500/60 dark:hover:border-brand-500/60"
+                    }`}
+                  >
+                    <span className="truncate">{selectedDestination.name}</span>
+                    <ChevronDown className={`w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-500 transition-transform duration-200 ${destinationOpen ? "rotate-180" : ""}`} />
+                  </button>
+
+                  <AnimatePresence>
+                    {destinationOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 4 }}
+                        className="absolute left-0 right-0 top-full mt-1.5 z-30 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0B0F1A] shadow-xl"
+                      >
+                        {DESTINATIONS.map((dest) => {
+                          const active = dest.url === targetUrl;
+                          return (
+                            <button
+                              key={dest.url}
+                              type="button"
+                              onClick={() => {
+                                setTargetUrl(dest.url);
+                                setDestinationOpen(false);
+                              }}
+                              className={`w-full px-3.5 py-2 text-left text-xs transition-colors cursor-pointer ${
+                                active
+                                  ? "bg-brand-600 text-white font-semibold"
+                                  : "bg-white text-slate-700 hover:bg-slate-50 dark:bg-[#0B0F1A] dark:text-slate-350 dark:hover:bg-[#121829] dark:hover:text-white"
+                              }`}
+                            >
+                              {dest.name}
+                            </button>
+                          );
+                        })}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <button 
+                  onClick={handleEnterPlatform}
+                  className="w-full bg-brand-600 hover:bg-brand-700 text-white font-semibold rounded-lg py-2 sm:py-2.5 text-xs sm:text-sm shadow-md shadow-brand-500/20 transition-all flex justify-center items-center gap-1.5 cursor-pointer"
+                >
+                  Enter Platform <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Realistic CSS Mobile Phone Mockup */}
+          <div className="relative flex justify-center items-center order-1 lg:order-2">
+            {/* Decorative Blur behind phone */}
+            <div className="absolute w-[280px] sm:w-[320px] h-[360px] sm:h-[440px] bg-brand-400/20 dark:bg-brand-500/10 rounded-full blur-[60px] animate-pulse pointer-events-none"></div>
+
+            {/* Phone Body */}
+            <div className="relative w-[280px] sm:w-[296px] h-[500px] sm:h-[540px] bg-slate-900 dark:bg-slate-950 rounded-[40px] sm:rounded-[44px] border-[10px] sm:border-[12px] border-slate-900 dark:border-slate-800 shadow-phone overflow-hidden animate-float flex flex-col select-none transition-colors">
+              
+              {/* Top Status Bar Mock */}
+              <div className="h-6 w-full bg-white dark:bg-[#0A0F1D] flex justify-between items-center px-6 text-[10px] font-bold text-slate-800 dark:text-slate-300 z-20 transition-colors shrink-0">
+                <span>9:41</span>
+                <div className="flex items-center gap-1.5">
+                  <Wifi className="w-3 h-3 text-slate-800 dark:text-slate-300" />
+                  <Battery className="w-3.5 h-3.5 text-slate-800 dark:text-slate-300" />
+                </div>
+              </div>
+
+              {/* Dynamic Island / Camera Notch */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-slate-900 dark:bg-slate-800 rounded-b-2xl z-30 transition-colors"></div>
+
+              {/* App Header */}
+              <div className="bg-white dark:bg-[#121829] px-4 pt-3.5 pb-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 z-10 shrink-0 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Menu className="w-4.5 h-4.5 text-slate-700 dark:text-slate-300" />
+                  <LandingLogo size={24} />
+                </div>
+                <div className="flex items-center gap-3">
+                  <Search className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <div className="bg-brand-600 text-white text-[9px] font-bold px-2 py-0.5 rounded flex items-center gap-0.5">
+                    <Plus className="w-2.5 h-2.5" /> Create
+                  </div>
+                </div>
+              </div>
+
+              {/* App Content Area (Feed) */}
+              <div className="flex-1 bg-[#F8FAFC] dark:bg-[#0B0F1A] overflow-y-auto scrollbar-hide p-3 flex flex-col gap-3 pb-8 relative transition-colors">
+                
+                {/* Floating Pill */}
+                <div className="sticky top-0 z-10 flex justify-center mb-1">
+                  <div className="bg-white/90 dark:bg-[#121829]/95 backdrop-blur border border-slate-200 dark:border-slate-800/80 text-[10px] font-bold text-slate-600 dark:text-slate-300 px-3.5 py-1.5 rounded-full shadow-sm flex items-center gap-1.5 transition-colors">
+                    <SlidersHorizontal className="w-3 h-3" /> Explore Feed
+                  </div>
+                </div>
+
+                {/* Posts mapping */}
+                {posts.map((post) => (
+                  <div key={post.id} className="bg-white dark:bg-[#121829] border border-slate-200 dark:border-slate-800/80 rounded-2xl p-3 shadow-sm transition-all hover:shadow-md">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className={`w-8 h-8 rounded-full ${post.avatarBg} flex items-center justify-center font-bold text-[10px] text-white shrink-0 shadow-inner`}>
+                          {post.avatarInitials}
+                        </div>
+                        <div className="leading-tight">
+                          <div className="text-[10px] font-bold text-slate-900 dark:text-white">{post.author}</div>
+                          <div className="text-[8px] font-semibold text-slate-400 dark:text-slate-500 uppercase">{post.time}</div>
+                        </div>
+                      </div>
+                      <button className="text-slate-300 dark:text-slate-600 hover:text-red-500 dark:hover:text-red-400 transition-colors p-0.5 rounded cursor-pointer">
+                        <Flag className="w-3 h-3" />
+                      </button>
+                    </div>
+                    
+                    <p className="text-[11px] text-slate-700 dark:text-slate-300 mb-3 ml-1 leading-relaxed text-left">
+                      {post.content}
+                    </p>
+                    
+                    {/* Interaction Buttons (Active and incrementable!) */}
+                    <div className="flex items-center gap-4 text-[9px] font-bold text-slate-500 dark:text-slate-400 border-t border-slate-50 dark:border-slate-800/60 pt-2 ml-1">
+                      
+                      {/* Heart (Like) button */}
+                      <button 
+                        onClick={() => handleLikePost(post.id)}
+                        className={`flex items-center gap-1 transition-all duration-200 cursor-pointer p-1 rounded hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
+                          post.liked 
+                            ? "text-pink-600 dark:text-pink-500" 
+                            : "hover:text-pink-600 dark:hover:text-pink-400"
+                        }`}
+                      >
+                        <Heart className={`w-3.5 h-3.5 ${post.liked ? "fill-pink-600 dark:fill-pink-500" : ""}`} />
+                        <span>{post.reactions}</span>
+                      </button>
+
+                      {/* Comments count */}
+                      <span className="flex items-center gap-1 p-1">
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                        <span>{post.comments}</span>
+                      </span>
+
+                      {/* Shares count */}
+                      <span className="flex items-center gap-1 p-1">
+                        <Share2 className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                        <span>{post.shares}</span>
+                      </span>
+
+                      {/* Bookmark button */}
+                      <button 
+                        onClick={() => handleBookmarkPost(post.id)}
+                        className={`ml-auto transition-colors duration-200 cursor-pointer p-1 rounded hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
+                          post.bookmarked 
+                            ? "text-brand-600 dark:text-brand-400" 
+                            : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300"
+                        }`}
+                        aria-label="Bookmark"
+                      >
+                        <Bookmark className={`w-3.5 h-3.5 ${post.bookmarked ? "fill-brand-600 dark:fill-brand-400" : ""}`} />
+                      </button>
+
+                    </div>
+                  </div>
+                ))}
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      {/* ─── Ticker Section ──────────────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#121829] border-y border-slate-200 dark:border-slate-800 py-3 overflow-hidden relative flex items-center transition-colors">
+        <div className="absolute left-0 top-0 bottom-0 z-20 bg-brand-600 dark:bg-brand-700 px-3 sm:px-4 flex items-center font-bold text-[9px] sm:text-[10px] text-white tracking-widest uppercase shadow-md">
+          <span className="w-1.5 h-1.5 rounded-full bg-white mr-1.5 sm:mr-2 animate-pulse"></span> LIVE
+        </div>
+        <div className="flex whitespace-nowrap animate-marquee pl-[90px] sm:pl-[120px] space-x-8 sm:space-x-12 text-xs sm:text-sm font-semibold text-slate-500 dark:text-slate-400">
+          <span>Street light fixed after 200+ reactions <span className="text-brand-600 dark:text-brand-400">📍 Kolhapur</span></span>
+          <span>Free health camp this Saturday <span className="text-brand-600 dark:text-brand-400">📍 Sangli</span></span>
+          <span>New bus route approved by MSRTC <span className="text-brand-600 dark:text-brand-400">📍 Nashik</span></span>
+          <span>Pothole on SH-10 repaired! <span className="text-brand-600 dark:text-brand-400">📍 Solapur</span></span>
+          <span>Power cut Sunday 9AM–1PM <span className="text-brand-600 dark:text-brand-400">📍 Aurangabad</span></span>
+          {/* Duplicated for seamless loop */}
+          <span>Street light fixed after 200+ reactions <span className="text-brand-600 dark:text-brand-400">📍 Kolhapur</span></span>
+          <span>Free health camp this Saturday <span className="text-brand-600 dark:text-brand-400">📍 Sangli</span></span>
+          <span>New bus route approved by MSRTC <span className="text-brand-600 dark:text-brand-400">📍 Nashik</span></span>
+        </div>
+      </div>
+
+      {/* ─── Platform Features Section (Features Indicator for anchor link) ─── */}
+      <section id="features" className="py-12 bg-transparent"></section>
+
+      {/* ─── Communities Section ─────────────────────────────────────────────── */}
+      <section id="communities" className="py-16 sm:py-24 px-4 sm:px-6 bg-[#F8FAFC] dark:bg-[#0B0F1A] border-t border-slate-200/50 dark:border-slate-800/40 transition-colors">
+        <div className="max-w-[1400px] mx-auto">
+          
+          <div className="mb-12 sm:mb-16 text-center max-w-2xl mx-auto px-2">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white mb-3 sm:mb-4 tracking-tight">
+              Discover your local network
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base md:text-lg leading-relaxed">
+              Join communities based on your interests, get daily updates, or chat anonymously with neighbors in your pincode.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            
+            {/* Card 1 */}
+            <div className="bg-white dark:bg-[#121829] border border-slate-200 dark:border-slate-800/80 rounded-xl p-5 shadow-sm hover:shadow-lg dark:hover:border-brand-500/40 transition-all duration-350 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-orange-50 dark:bg-orange-950/20 flex items-center justify-center flex-shrink-0 text-xl shadow-inner group-hover:scale-110 transition-transform duration-300">🚦</div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base">Pune traffic update</h3>
+                      <span className="bg-orange-50 dark:bg-orange-950/45 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-900/60 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 shrink-0">
+                        <SettingsIcon className="w-2.5 h-2.5" /> Owner
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">Get all traffic related updates in pune</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 border-t border-slate-100 dark:border-slate-800/60 pt-4 flex flex-col gap-2">
+                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mb-2">
+                  <Users className="w-3.5 h-3.5" /> 14,203 members
+                </p>
+                <div className="flex gap-2">
+                  <button className="flex-1 py-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400 hover:text-brand-600 dark:hover:text-brand-400 hover:bg-slate-50 dark:hover:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-lg transition-all flex justify-center items-center gap-1 cursor-pointer">
+                    <Eye className="w-3.5 h-3.5" /> View
+                  </button>
+                  <button className="flex-1 py-1.5 text-xs font-semibold text-orange-500 hover:text-orange-600 hover:bg-orange-50/30 border border-orange-200 dark:border-orange-900/40 rounded-lg transition-all flex justify-center items-center gap-1 cursor-pointer">
+                    <SettingsIcon className="w-3.5 h-3.5" /> Manage
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2 */}
+            <div className="bg-white dark:bg-[#121829] border border-slate-200 dark:border-slate-800/80 rounded-xl p-5 shadow-sm hover:shadow-lg dark:hover:border-brand-500/40 transition-all duration-350 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center flex-shrink-0 text-xl shadow-inner group-hover:scale-110 transition-transform duration-300">💧</div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base">Water Supply Dept.</h3>
+                      <span className="bg-blue-50 dark:bg-blue-950/45 text-brand-600 dark:text-brand-400 border border-brand-200 dark:border-brand-900/60 text-[9px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0">Official</span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">Verified alerts for water cuts & supply scheduling.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 border-t border-slate-100 dark:border-slate-800/60 pt-4 flex flex-col gap-2">
+                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mb-2">
+                  <Users className="w-3.5 h-3.5" /> 5,892 members
+                </p>
+                <button className="w-full py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-white hover:bg-brand-600 border border-slate-200 dark:border-slate-800 rounded-lg transition-all flex justify-center items-center gap-1 cursor-pointer">
+                  View Community <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Card 3 */}
+            <div className="bg-white dark:bg-[#121829] border border-slate-200 dark:border-slate-800/80 rounded-xl p-5 shadow-sm hover:shadow-lg dark:hover:border-brand-500/40 transition-all duration-350 flex flex-col justify-between group">
+              <div>
+                <div className="flex items-start gap-4 mb-4">
+                  <div className="w-12 h-12 rounded-full bg-purple-50 dark:bg-purple-950/20 flex items-center justify-center flex-shrink-0 text-xl shadow-inner group-hover:scale-110 transition-transform duration-300">🤖</div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-bold text-slate-900 dark:text-white text-base">Local Chat</h3>
+                      <span className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-800 text-[9px] font-bold px-1.5 py-0.5 rounded flex items-center gap-0.5 uppercase shrink-0">
+                        <Lock className="w-2.5 h-2.5" /> Secret
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">Anonymous connections in your immediate area.</p>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 border-t border-slate-100 dark:border-slate-800/60 pt-4 flex flex-col gap-2">
+                <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mb-2">
+                  <Zap className="w-3.5 h-3.5 text-yellow-500" /> Ephemeral chats
+                </p>
+                <button className="w-full py-2 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:text-white hover:bg-brand-600 border border-slate-200 dark:border-slate-800 rounded-lg transition-all flex justify-center items-center gap-1 cursor-pointer">
+                  Start Chatting <MessageCircle className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ─── Footer ──────────────────────────────────────────────────────────── */}
+      <footer className="bg-white dark:bg-[#0A0F1D] border-t border-slate-200 dark:border-slate-800/80 py-10 sm:py-12 px-4 sm:px-6 transition-colors duration-300">
+        <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6 text-center md:text-left">
+          
+          <LandingLogo showText size={26} />
+          
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-sm text-slate-500 dark:text-slate-400 font-semibold">
+            <a href="#features" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Platform</a>
+            <a href="https://github.com/govlyx/govlyx" target="_blank" rel="noopener noreferrer" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">GitHub</a>
+            <a href="https://github.com/govlyx/govlyx#readme" target="_blank" rel="noopener noreferrer" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Docs</a>
+            <a href="#" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Privacy Policy</a>
+          </div>
+
+          <p className="text-[11px] sm:text-xs text-slate-400 dark:text-slate-500 font-medium">
+            © 2026 Govlyx · Civic-Tech Transparency Infrastructure
+          </p>
+        </div>
+      </footer>
+
     </div>
   );
 }

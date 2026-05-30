@@ -14,10 +14,12 @@ import {
   MessageSquare,
   SmilePlus,
   Sparkles,
+  Flag,
 } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { apiUrl } from "../../utils/apiUrl";
 import ConfirmModal from "./ConfirmModal";
+import ReportModal from "../modals/ReportModal";
 import { checkProfanity } from "../../utils/profanity";
 import { showToast } from "../../utils/toast";
 import { parseError } from "../../utils/error-handler";
@@ -471,6 +473,7 @@ function SingleComment({
   );
   const [deleting, setDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
   const isFirstRender = useRef(true);
 
   useEffect(() => {
@@ -704,6 +707,16 @@ function SingleComment({
                   </button>
                 )}
 
+                {currentUsername && !isOwner && (
+                  <button
+                    onClick={() => setReportOpen(true)}
+                    className="flex items-center gap-1 hover:text-error transition-colors hover:scale-105 active:scale-95"
+                  >
+                    <Flag size={10} />
+                    Report
+                  </button>
+                )}
+
                 {replyCount > 0 && (
                   <button
                     onClick={toggleReplies}
@@ -806,6 +819,13 @@ function SingleComment({
         title="Delete Comment"
         message="Are you sure you want to delete this comment? This action cannot be undone."
         isLoading={deleting}
+      />
+
+      <ReportModal
+        isOpen={reportOpen}
+        onClose={() => setReportOpen(false)}
+        targetType="COMMENT"
+        targetId={comment.id}
       />
     </motion.div>
   );

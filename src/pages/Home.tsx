@@ -291,6 +291,21 @@ const Home = () => {
         </div>
       </div>
 
+      {user?.hasInvalidPincode && (
+        <div className="alert alert-warning shadow-sm rounded-2xl border border-warning/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <h4 className="font-bold text-sm">Location Verification Failed</h4>
+              <p className="text-xs opacity-85">We couldn't verify your location. Please update your pincode in Settings to access local features.</p>
+            </div>
+          </div>
+          <a href="/settings" className="btn btn-xs sm:btn-sm btn-outline border-warning-content/30 hover:bg-warning-content/10 shrink-0 self-end sm:self-auto font-bold">
+            Update Pincode
+          </a>
+        </div>
+      )}
+
       {error && (
         <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm text-error flex items-center justify-between gap-3">
           <span>{error}</span>

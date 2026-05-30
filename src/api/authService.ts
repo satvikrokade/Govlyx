@@ -33,3 +33,23 @@ export const loginUser = async (
   );
   return response.data;
 };
+
+// GET /api/auth/verify-email
+export const verifyEmail = async (
+  token: string
+): Promise<ApiResponse<string>> => {
+  const response = await axiosInstance.get<ApiResponse<string>>(
+    `/api/auth/verify-email?token=${encodeURIComponent(token)}`
+  );
+  return response.data;
+};
+
+// POST /api/auth/resend-verification
+export const resendVerification = async (
+  email: string
+): Promise<ApiResponse<string>> => {
+  const response = await axiosInstance.post<ApiResponse<string>>(
+    `/api/auth/resend-verification?email=${encodeURIComponent(email.trim())}`
+  );
+  return response.data;
+};

@@ -17,6 +17,7 @@ export interface UserProfile {
   autoTranslate?: boolean;
   profanityFilterLevel?: "STRICT" | "BLUR" | "OFF";
   mutedWords?: string;
+  hasInvalidPincode?: boolean;
 }
 
 /**

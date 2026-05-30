@@ -235,9 +235,9 @@ const SidebarRight = () => {
         <QuoteWidgetCard />
 
         {/* 3D App Logo Section */}
-        <div className="mt-auto flex flex-col items-center p-1 pt-2">
+        <div className="mt-auto mb-16 flex flex-col items-center p-1 pt-2">
           <motion.div
-            className="relative flex h-24 w-24 items-center justify-center"
+            className="relative flex h-28 w-28 items-center justify-center"
             initial={{ rotateY: 0, rotateX: 0 }}
             animate={{
               rotateY: [0, 15, 0, -15, 0],
@@ -257,7 +257,7 @@ const SidebarRight = () => {
             <motion.img
               src={govlyxLogo}
               alt="Govlyx Logo"
-              className="z-10 h-24 w-24 drop-shadow-2xl opacity-80"
+              className="z-10 h-28 w-28 drop-shadow-2xl opacity-80"
               whileHover={{ scale: 1.1, rotateY: 180 }}
               transition={{ duration: 0.8 }}
             />

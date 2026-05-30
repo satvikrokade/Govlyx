@@ -19,7 +19,7 @@ function normaliseTaggedPage(raw: unknown): TaggedPostsPage {
   const postsField = data.posts; // may be a PaginatedResponse object or array
   const rawItems: any[] = Array.isArray(postsField)
     ? postsField
-    : postsField?.content ?? postsField?.items ?? data.content ?? data.items ?? [];
+    : postsField?.data ?? postsField?.content ?? postsField?.items ?? data.content ?? data.items ?? [];
 
   const totalCount: number =
     typeof data.count === "number" ? data.count :
@@ -33,7 +33,7 @@ function normaliseTaggedPage(raw: unknown): TaggedPostsPage {
   const posts: TaggedPost[] = rawItems.map((p: any): TaggedPost => ({
     id: p.id,
     content: p.content ?? "",
-    targetPincode: p.targetPincode,
+    targetPincode: p.userPincode ?? p.targetPincode,
     issueType: p.issueType,
     mediaUrl: p.mediaUrl,
     citizenId: p.citizenId ?? p.author?.id,
@@ -125,9 +125,9 @@ export async function createBroadcast(
     form.append("content", content);
     form.append("media", mediaFile);
     const params: Record<string, unknown> = { broadcastScope, targetCountry };
-    if (targetStates?.length) params.targetStates = targetStates;
-    if (targetDistricts?.length) params.targetDistricts = targetDistricts;
-    if (targetPincodes?.length) params.targetPincodes = targetPincodes;
+    if (targetStates?.length) params.targetStates = targetStates.join(",");
+    if (targetDistricts?.length) params.targetDistricts = targetDistricts.join(",");
+    if (targetPincodes?.length) params.targetPincodes = targetPincodes.join(",");
     const res = await axiosInstance.post("/api/posts/broadcast/with-media", form, {
       params,
       headers: { "Content-Type": "multipart/form-data" },
@@ -137,9 +137,9 @@ export async function createBroadcast(
 
   // JSON broadcast
   const params: Record<string, unknown> = { broadcastScope, targetCountry };
-  if (targetStates?.length) params.targetStates = targetStates;
-  if (targetDistricts?.length) params.targetDistricts = targetDistricts;
-  if (targetPincodes?.length) params.targetPincodes = targetPincodes;
+  if (targetStates?.length) params.targetStates = targetStates.join(",");
+  if (targetDistricts?.length) params.targetDistricts = targetDistricts.join(",");
+  if (targetPincodes?.length) params.targetPincodes = targetPincodes.join(",");
   const res = await axiosInstance.post(
     "/api/posts/broadcast",
     { content },
@@ -160,4 +160,18 @@ export async function getBroadcastStatistics(): Promise<BroadcastStatistics> {
 export async function getBroadcastAnalytics(days = 30): Promise<BroadcastAnalytics> {
   const res = await axiosInstance.get("/api/posts/broadcast/analytics", { params: { days } });
   return res.data?.data ?? res.data ?? {};
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Location / Pincode selectors
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function getPincodeStates(): Promise<string[]> {
+  const res = await axiosInstance.get("/api/pincode/states");
+  return res.data?.data ?? res.data ?? [];
+}
+
+export async function getPincodeDistricts(state: string): Promise<string[]> {
+  const res = await axiosInstance.get(`/api/pincode/states/${encodeURIComponent(state)}/districts`);
+  return res.data?.data ?? res.data ?? [];
 }

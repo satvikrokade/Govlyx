@@ -172,14 +172,18 @@ const Settings = () => {
 
     setSaving(true);
     try {
-      await axiosInstance.put("/api/users/profile", {
-        email: email || undefined,
-        pincode: pincode || undefined,
-        preferredLanguage,
-        autoTranslate,
-        profanityFilterLevel,
-        mutedWords,
-      });
+      if (editField === "pincode") {
+        await axiosInstance.put("/api/users/update-pincode", { pincode });
+      } else {
+        await axiosInstance.put("/api/users/profile", {
+          email: email || undefined,
+          pincode: pincode || undefined,
+          preferredLanguage,
+          autoTranslate,
+          profanityFilterLevel,
+          mutedWords,
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       setEditField(null);
       showToast("Profile updated successfully");
@@ -349,18 +353,25 @@ const Settings = () => {
 
 
         {/* Pincode / Location */}
-        <EditableRow
-          icon={<MapPin size={15} />}
-          label="Location (Pincode)"
-          value={user?.pincode || ""}
-          placeholder="e.g. 411001"
-          editing={editField === "pincode"}
-          onEdit={() => setEditField("pincode")}
-          onCancel={() => { setEditField(null); setPincode(user?.pincode || ""); }}
-          inputValue={pincode}
-          onInputChange={setPincode}
-          hint="6-digit Indian pincode — used for local content"
-        />
+        <div className="space-y-1">
+          <EditableRow
+            icon={<MapPin size={15} />}
+            label="Location (Pincode)"
+            value={user?.pincode || ""}
+            placeholder="e.g. 411001"
+            editing={editField === "pincode"}
+            onEdit={() => setEditField("pincode")}
+            onCancel={() => { setEditField(null); setPincode(user?.pincode || ""); }}
+            inputValue={pincode}
+            onInputChange={setPincode}
+            hint="6-digit Indian pincode — used for local content"
+          />
+          {user?.hasInvalidPincode && editField !== "pincode" && (
+            <p className="text-xs text-error font-semibold flex items-center gap-1.5 mt-1 bg-error/10 border border-error/20 p-2.5 rounded-xl">
+              ⚠️ Your stored pincode is invalid. Please update it to a valid Indian pincode.
+            </p>
+          )}
+        </div>
 
 
         {/* Save button (shown when any field is being edited) */}

@@ -82,10 +82,8 @@ export function isCitizenUser(): boolean {
   return role === "ROLE_USER" || role === "ROLE_CITIZEN" || role === null;
 }
 
-/** True if the logged-in user is the Super Admin (hardcoded email check). */
+/** True if the logged-in user is an Admin (checks ROLE_ADMIN). */
 export function isSuperAdmin(): boolean {
-  const payload = getTokenPayload();
-  // We'll check the 'sub' or 'username' depending on where the email is stored.
-  // Based on your backend, 'username' often holds the email.
-  return payload?.username === "madhavrakhonde7@gmail.com" || payload?.email === "madhavrakhonde7@gmail.com" || payload?.username === "samarthbhagwanpawar098@gmail.com" || payload?.email === "samarthbhagwanpawar098@gmail.com";
+  return isAdminUser();
 }
+

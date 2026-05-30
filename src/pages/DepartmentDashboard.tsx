@@ -24,6 +24,8 @@ import {
   createBroadcast,
   getBroadcastAnalytics,
   getBroadcastStatistics,
+  getPincodeStates,
+  getPincodeDistricts,
 } from "../api/departmentService";
 import { apiUrl } from "../utils/apiUrl";
 import type {
@@ -242,6 +244,39 @@ const BroadcastForm = ({ onSuccess }: { onSuccess: () => void }) => {
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [err, setErr] = useState("");
 
+  // Location Selector Cache and Selected states
+  const [statesList, setStatesList] = useState<string[]>([]);
+  const [districtsList, setDistrictsList] = useState<string[]>([]);
+  const [selectedStates, setSelectedStates] = useState<string[]>([]);
+  const [selectedDistricts, setSelectedDistricts] = useState<string[]>([]);
+  const [activeDistrictState, setActiveDistrictState] = useState("");
+  const [loadingLocations, setLoadingLocations] = useState(false);
+
+  // Fetch States list when STATE or DISTRICT scope is active
+  useEffect(() => {
+    if ((scope === "STATE" || scope === "DISTRICT") && statesList.length === 0) {
+      setLoadingLocations(true);
+      getPincodeStates()
+        .then((data) => setStatesList(data))
+        .catch((e) => console.error("Failed to load states:", e))
+        .finally(() => setLoadingLocations(false));
+    }
+  }, [scope, statesList.length]);
+
+  // Fetch Districts when a State is selected under DISTRICT scope
+  useEffect(() => {
+    if (scope === "DISTRICT" && activeDistrictState) {
+      setLoadingLocations(true);
+      setDistrictsList([]);
+      getPincodeDistricts(activeDistrictState)
+        .then((data) => setDistrictsList(data))
+        .catch((e) => console.error("Failed to load districts:", e))
+        .finally(() => setLoadingLocations(false));
+    } else {
+      setDistrictsList([]);
+    }
+  }, [scope, activeDistrictState]);
+
   function handleMedia(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0] ?? null;
     setMediaFile(f);
@@ -255,24 +290,40 @@ const BroadcastForm = ({ onSuccess }: { onSuccess: () => void }) => {
     setStatus("loading");
     setErr("");
     try {
-      const splitTargets = targets
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean);
+      let finalStates: string[] | undefined = undefined;
+      let finalDistricts: string[] | undefined = undefined;
+      let finalPincodes: string[] | undefined = undefined;
+
+      if (scope === "STATE") {
+        finalStates = selectedStates;
+        if (finalStates.length === 0) throw new Error("Please select at least one State");
+      } else if (scope === "DISTRICT") {
+        finalDistricts = selectedDistricts;
+        if (finalDistricts.length === 0) throw new Error("Please select at least one District");
+      } else if (scope === "AREA") {
+        finalPincodes = targets
+          .split(",")
+          .map((t) => t.trim())
+          .filter(Boolean);
+        if (finalPincodes.length === 0) throw new Error("Please enter at least one Pincode");
+      }
 
       await createBroadcast(
         {
           content: content.trim(),
           broadcastScope: scope,
-          ...(scope === "STATE" ? { targetStates: splitTargets } : {}),
-          ...(scope === "DISTRICT" ? { targetDistricts: splitTargets } : {}),
-          ...(scope === "AREA" ? { targetPincodes: splitTargets } : {}),
+          ...(scope === "STATE" ? { targetStates: finalStates } : {}),
+          ...(scope === "DISTRICT" ? { targetDistricts: finalDistricts } : {}),
+          ...(scope === "AREA" ? { targetPincodes: finalPincodes } : {}),
         },
         mediaFile
       );
       setStatus("success");
       setContent("");
       setTargets("");
+      setSelectedStates([]);
+      setSelectedDistricts([]);
+      setActiveDistrictState("");
       setMediaFile(null);
       setMediaPreview(null);
       setTimeout(() => { setStatus("idle"); onSuccess(); }, 1500);
@@ -340,25 +391,168 @@ const BroadcastForm = ({ onSuccess }: { onSuccess: () => void }) => {
 
       {/* Targets input (hidden for COUNTRY) */}
       {scope !== "COUNTRY" && (
-        <div>
-          <label className="text-xs font-semibold opacity-60 mb-1.5 block">
-            {scope === "STATE" ? "Target States" :
-              scope === "DISTRICT" ? "Target Districts" : "Target Pincodes"}{" "}
-            <span className="text-error">*</span>
-          </label>
-          <input
-            id="broadcast-targets"
-            type="text"
-            value={targets}
-            onChange={(e) => setTargets(e.target.value)}
-            placeholder={
-              scope === "STATE" ? "e.g. Maharashtra, Karnataka" :
-                scope === "DISTRICT" ? "e.g. Pune, Mumbai" : "e.g. 411001, 400001"
-            }
-            className="w-full rounded-xl border border-base-300 bg-base-200 px-4 py-2.5 text-sm
-                       placeholder:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
-            disabled={status === "loading" || status === "success"}
-          />
+        <div className="space-y-3">
+          {scope === "STATE" && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold opacity-60 block">
+                Target States <span className="text-error">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  id="state-select"
+                  className="w-full appearance-none rounded-xl border border-base-300 bg-base-200 px-4 py-2.5
+                             text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 pr-10 transition-all"
+                  value=""
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val && !selectedStates.includes(val)) {
+                      setSelectedStates([...selectedStates, val]);
+                    }
+                  }}
+                  disabled={loadingLocations || status === "loading" || status === "success"}
+                >
+                  <option value="" disabled>
+                    {loadingLocations ? "Loading states..." : "Select State..."}
+                  </option>
+                  {statesList.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </select>
+                {loadingLocations ? (
+                  <RefreshCw className="animate-spin absolute right-3 top-3.5 opacity-40 text-primary" size={16} />
+                ) : (
+                  <ChevronDown size={16} className="pointer-events-none absolute right-3 top-3.5 opacity-40" />
+                )}
+              </div>
+
+              {/* Selected States Pills */}
+              {selectedStates.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {selectedStates.map((st) => (
+                    <span
+                      key={st}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#1D4ED8]/10 text-[#1D4ED8]
+                                 px-3 py-1 rounded-full border border-[#1D4ED8]/25"
+                    >
+                      {st}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStates(selectedStates.filter((x) => x !== st))}
+                        className="hover:text-red-500 transition-colors ml-0.5"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {scope === "DISTRICT" && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* State Dropdown */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold opacity-60 block">Select State</label>
+                  <div className="relative">
+                    <select
+                      id="district-state-select"
+                      className="w-full appearance-none rounded-xl border border-base-300 bg-base-200 px-3.5 py-2
+                                 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 pr-9 transition-all"
+                      value={activeDistrictState}
+                      onChange={(e) => setActiveDistrictState(e.target.value)}
+                      disabled={loadingLocations || status === "loading" || status === "success"}
+                    >
+                      <option value="" disabled>Select State...</option>
+                      {statesList.map((state) => (
+                        <option key={state} value={state}>{state}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="pointer-events-none absolute right-3 top-3 opacity-40" />
+                  </div>
+                </div>
+
+                {/* District Dropdown */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-semibold opacity-60 block">Select District</label>
+                  <div className="relative">
+                    <select
+                      id="district-select"
+                      className="w-full appearance-none rounded-xl border border-base-300 bg-base-200 px-3.5 py-2
+                                 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 pr-9 transition-all"
+                      value=""
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val && !selectedDistricts.includes(val)) {
+                          setSelectedDistricts([...selectedDistricts, val]);
+                        }
+                      }}
+                      disabled={!activeDistrictState || loadingLocations || status === "loading" || status === "success"}
+                    >
+                      <option value="" disabled>
+                        {!activeDistrictState
+                          ? "Select state first..."
+                          : loadingLocations
+                          ? "Loading districts..."
+                          : "Select District..."}
+                      </option>
+                      {districtsList.map((dist) => (
+                        <option key={dist} value={dist}>{dist}</option>
+                      ))}
+                    </select>
+                    {loadingLocations ? (
+                      <RefreshCw className="animate-spin absolute right-3 top-3 opacity-40 text-primary" size={14} />
+                    ) : (
+                      <ChevronDown size={14} className="pointer-events-none absolute right-3 top-3 opacity-40" />
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Selected Districts Pills */}
+              {selectedDistricts.length > 0 && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {selectedDistricts.map((ds) => (
+                    <span
+                      key={ds}
+                      className="inline-flex items-center gap-1.5 text-xs font-bold bg-[#1D4ED8]/10 text-[#1D4ED8]
+                                 px-3 py-1 rounded-full border border-[#1D4ED8]/25"
+                    >
+                      {ds}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDistricts(selectedDistricts.filter((x) => x !== ds))}
+                        className="hover:text-red-500 transition-colors ml-0.5"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {scope === "AREA" && (
+            <div className="space-y-2">
+              <label className="text-xs font-semibold opacity-60 block">
+                Target Pincodes <span className="text-error">*</span>
+              </label>
+              <input
+                id="broadcast-targets"
+                type="text"
+                value={targets}
+                onChange={(e) => setTargets(e.target.value)}
+                placeholder="e.g. 411001, 400001"
+                className="w-full rounded-xl border border-base-300 bg-base-200 px-4 py-2.5 text-sm
+                           placeholder:opacity-40 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                disabled={status === "loading" || status === "success"}
+              />
+            </div>
+          )}
         </div>
       )}
 

@@ -21,6 +21,7 @@ import { useModal } from "../../context/ModalContext";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useUnreadNotificationsCount } from "../../hooks/useNotification";
 import { resolveMediaUrl } from "../../utils/postUtils";
+import { isAdminUser } from "../../utils/auth";
 
 const Navbar = () => {
   const [openCreate, setOpenCreate] = useState(false);
@@ -109,63 +110,73 @@ const Navbar = () => {
           </NavLink>
 
           {/* DESKTOP SEARCH — read-only trigger, opens overlay */}
-          <div className="hidden lg:flex flex-1 justify-center">
-            <div className="relative w-full max-w-xl">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none"
-              />
-              <input
-                type="text"
-                placeholder="Search communities, posts…"
-                className="input input-bordered w-full pl-10 cursor-pointer caret-transparent"
-                readOnly
-                // Open overlay immediately on click
-                onClick={() => openSearch()}
-                // If user just starts typing, seed that character into the overlay
-                onKeyDown={(e) => {
-                  if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
-                    openSearch(e.key);
-                  }
-                }}
-              />
+          {!isAdminUser() && (
+            <div className="hidden lg:flex flex-1 justify-center">
+              <div className="relative w-full max-w-xl">
+                <Search
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50 pointer-events-none"
+                />
+                <input
+                  type="text"
+                  placeholder="Search communities, posts…"
+                  className="input input-bordered w-full pl-10 cursor-pointer caret-transparent"
+                  readOnly
+                  // Open overlay immediately on click
+                  onClick={() => openSearch()}
+                  // If user just starts typing, seed that character into the overlay
+                  onKeyDown={(e) => {
+                    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                      openSearch(e.key);
+                    }
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* ACTIONS */}
           <div className="ml-auto flex items-center gap-2">
 
             {/* MOBILE SEARCH ICON */}
-            <button
-              className="btn btn-ghost btn-sm lg:hidden hover:bg-blue-700/10"
-              onClick={() => openSearch()}
-              aria-label="Open search"
-            >
-              <Search size={18} />
-            </button>
+            {!isAdminUser() && (
+              <button
+                className="btn btn-ghost btn-sm lg:hidden hover:bg-blue-700/10"
+                onClick={() => openSearch()}
+                aria-label="Open search"
+              >
+                <Search size={18} />
+              </button>
+            )}
 
             {/* CREATE - Desktop */}
-            <button
-              onClick={() => { setOpenCreate(true); openModal(); }}
-              className="btn btn-sm bg-blue-700 hidden sm:flex gap-1 text-white"
-            >
-              <Plus size={16} />
-              Create
-            </button>
+            {!isAdminUser() && (
+              <button
+                onClick={() => { setOpenCreate(true); openModal(); }}
+                className="btn btn-sm bg-blue-700 hidden sm:flex gap-1 text-white"
+              >
+                <Plus size={16} />
+                Create
+              </button>
+            )}
 
             {/* MOBILE CREATE ICON */}
-            <button
-              onClick={() => { setOpenCreate(true); openModal(); }}
-              className="btn btn-ghost btn-sm sm:hidden hover:bg-blue-700/10"
-              aria-label="Create post"
-            >
-              <Plus size={18} />
-            </button>
+            {!isAdminUser() && (
+              <button
+                onClick={() => { setOpenCreate(true); openModal(); }}
+                className="btn btn-ghost btn-sm sm:hidden hover:bg-blue-700/10"
+                aria-label="Create post"
+              >
+                <Plus size={18} />
+              </button>
+            )}
 
             {/* CHAT - HIDE ON MOBILE */}
-            <NavLink to="/quick-chat" className="btn btn-ghost btn-sm hover:bg-blue-700/10 hidden sm:inline-flex">
-              <MessageCircle size={18} />
-            </NavLink>
+            {!isAdminUser() && (
+              <NavLink to="/quick-chat" className="btn btn-ghost btn-sm hover:bg-blue-700/10 hidden sm:inline-flex">
+                <MessageCircle size={18} />
+              </NavLink>
+            )}
 
             <NotificationDropdown 
               unreadCount={unreadNotifications} 
