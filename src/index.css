@@ -31,6 +31,7 @@
   --animate-marquee: marquee 35s linear infinite;
   --animate-float: float 6s ease-in-out infinite;
   --animate-float-delayed: float 6s ease-in-out 3s infinite;
+  --animate-subtle-blink: subtle-blink 2.5s ease-in-out infinite;
 
   @keyframes bounce-slow {
     0%, 100% {
@@ -51,6 +52,21 @@
   @keyframes float {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-12px); }
+  }
+
+  @keyframes subtle-blink {
+    0%, 100% {
+      opacity: 1;
+      border-color: rgba(239, 68, 68, 0.25);
+      background-color: rgba(239, 68, 68, 0.08);
+      box-shadow: 0 0 5px rgba(239, 68, 68, 0.15);
+    }
+    50% {
+      opacity: 0.85;
+      border-color: rgba(239, 68, 68, 0.65);
+      background-color: rgba(239, 68, 68, 0.16);
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+    }
   }
 }
 
@@ -186,6 +202,17 @@ body,
 [data-theme="dark"] .glow-blue {
   box-shadow: 0 0 35px rgba(26, 86, 219, 0.25);
 }
+
+/* Custom glow red text effect */
+.glow-red-text {
+  color: #ef4444 !important;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.65);
+}
+.dark .glow-red-text {
+  color: #f87171 !important;
+  text-shadow: 0 0 10px rgba(248, 113, 113, 0.8);
+}
+
 
 /* Force elements to scroll on public landing/content page */
 html.scrollable-page,

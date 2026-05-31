@@ -9,7 +9,7 @@ import {
   CheckCircle2, AlertTriangle, Inbox, Settings, BarChart3,
   X, Crown, Shield, User, VolumeX, Volume2, Ban, Trash2,
   Save, Archive, MessageSquare, Calendar,
-  Tag, Rocket, PartyPopper, Plus, ChevronLeft,
+  Tag, Rocket, PartyPopper, Plus, ChevronLeft, ChevronRight,
   XCircle, Home, Link, Eye, Image as ImageIcon, RefreshCw,
   Activity, Radio, FileText
 } from "lucide-react";
@@ -1985,6 +1985,331 @@ function DetailPanel({
 /* ════════════════════════════════════════════════════════════════════════════
    MAIN PAGE
 ════════════════════════════════════════════════════════════════════════════ */
+const DEFAULT_RECOMMENDED: CommunityData[] = [
+  {
+    id: 9991,
+    name: "Civic Pune Action Group",
+    slug: "civic-pune-action",
+    description: "Collaborative platform for citizen engagement, road repairs, and public amenity improvements in Pune.",
+    privacy: "PUBLIC",
+    avatarUrl: "https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=150&q=80",
+    coverImageUrl: null,
+    category: "CIVIC_ISSUES",
+    memberCount: 1420,
+    postCount: 89,
+    isMember: false,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 9992,
+    name: "Tech Hub India",
+    slug: "tech-hub-india",
+    description: "Connecting developers, designers, and startup enthusiasts across India to share ideas and collaborate.",
+    privacy: "PUBLIC",
+    avatarUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=150&q=80",
+    coverImageUrl: null,
+    category: "TECHNOLOGY",
+    memberCount: 3250,
+    postCount: 154,
+    isMember: false,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 9993,
+    name: "Clean & Green Mumbai",
+    slug: "clean-green-mumbai",
+    description: "Join the movement to make Mumbai cleaner, greener, and more sustainable. Organizing local clean-up drives.",
+    privacy: "PUBLIC",
+    avatarUrl: "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=150&q=80",
+    coverImageUrl: null,
+    category: "ENVIRONMENT",
+    memberCount: 890,
+    postCount: 42,
+    isMember: false,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 9994,
+    name: "Healthy Living & Wellness",
+    slug: "healthy-living",
+    description: "Daily tips, discussions, and local group activities focused on physical fitness, mental health, and nutrition.",
+    privacy: "PUBLIC",
+    avatarUrl: "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=150&q=80",
+    coverImageUrl: null,
+    category: "HEALTH",
+    memberCount: 1730,
+    postCount: 96,
+    isMember: false,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 9995,
+    name: "Local Governance Pune",
+    slug: "local-gov-pune",
+    description: "Official update and discussion forum for Pune local municipal issues, ward meetings, and public notices.",
+    privacy: "PUBLIC",
+    avatarUrl: "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=150&q=80",
+    coverImageUrl: null,
+    category: "LOCAL_GOVERNANCE",
+    memberCount: 2150,
+    postCount: 112,
+    isMember: false,
+    createdAt: new Date().toISOString()
+  }
+];
+
+function RecommendedCarousel({
+  recommended,
+  loading,
+  onSelect,
+  onJoin,
+  joiningId
+}: {
+  recommended: CommunityData[];
+  loading: boolean;
+  onSelect: (c: CommunityData) => void;
+  onJoin: (e: React.MouseEvent, c: CommunityData) => void;
+  joiningId: number | null;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartX = useRef<number | null>(null);
+
+  const nextSlide = useCallback(() => {
+    if (recommended.length === 0) return;
+    setActiveIndex((prev) => (prev + 1) % recommended.length);
+  }, [recommended.length]);
+
+  const prevSlide = useCallback(() => {
+    if (recommended.length === 0) return;
+    setActiveIndex((prev) => (prev - 1 + recommended.length) % recommended.length);
+  }, [recommended.length]);
+
+  // Autoplay loop
+  useEffect(() => {
+    if (isPaused || recommended.length < 3) return;
+    timerRef.current = setInterval(nextSlide, 4000);
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isPaused, nextSlide, recommended.length]);
+
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-base-300 bg-base-200/50 p-6 flex flex-col items-center justify-center min-h-[220px] animate-pulse">
+        <div className="h-4 bg-base-300 rounded w-1/3 mb-6" />
+        <div className="flex gap-4 w-full justify-center items-center">
+          <div className="w-1/4 h-32 bg-base-300 rounded-2xl opacity-50" />
+          <div className="w-1/3 h-40 bg-base-300 rounded-2xl" />
+          <div className="w-1/4 h-32 bg-base-300 rounded-2xl opacity-50" />
+        </div>
+      </div>
+    );
+  }
+
+  if (recommended.length < 3) return null;
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setIsPaused(true);
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartX.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartX.current;
+    if (Math.abs(diffX) > 50) {
+      if (diffX > 0) prevSlide();
+      else nextSlide();
+    }
+    touchStartX.current = null;
+    // Resume auto-play after a short delay
+    setTimeout(() => setIsPaused(false), 2000);
+  };
+
+  return (
+    <div 
+      className="relative flex flex-col items-center justify-center py-6 select-none overflow-hidden"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+    >
+      <div className="w-full text-left mb-4 px-1">
+        <p className="text-xs font-bold uppercase tracking-widest text-base-content/95">
+          Recommended Communities
+        </p>
+      </div>
+
+      {/* 3D Carousel container */}
+      <div 
+        className="relative w-full h-[220px] flex items-center justify-center"
+        style={{
+          perspective: "1200px",
+          transformStyle: "preserve-3d"
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Left Arrow Button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            prevSlide();
+          }}
+          className="absolute left-1 sm:left-3 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-base-100/70 hover:bg-base-100 border border-base-300/80 backdrop-blur-md text-base-content hover:text-blue-500 hover:scale-105 active:scale-95 transition-all shadow-md cursor-pointer"
+          aria-label="Previous slide"
+        >
+          <ChevronLeft size={18} className="sm:w-5 sm:h-5" />
+        </button>
+
+        {/* Right Arrow Button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            nextSlide();
+          }}
+          className="absolute right-1 sm:right-3 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-base-100/70 hover:bg-base-100 border border-base-300/80 backdrop-blur-md text-base-content hover:text-blue-500 hover:scale-105 active:scale-95 transition-all shadow-md cursor-pointer"
+          aria-label="Next slide"
+        >
+          <ChevronRight size={18} className="sm:w-5 sm:h-5" />
+        </button>
+
+        {recommended.map((c, i) => {
+          const n = recommended.length;
+          let diff = i - activeIndex;
+          
+          // Wrap around for circular loop
+          if (diff < -n / 2) diff += n;
+          if (diff > n / 2) diff -= n;
+
+          const isActive = diff === 0;
+          const isLeft = diff === -1;
+          const isRight = diff === 1;
+
+          // Compute style
+          let transform = "";
+          let opacity = 0;
+          let zIndex = 0;
+          let pointerEvents: "auto" | "none" = "none";
+
+          if (isActive) {
+            transform = "translateX(0) scale(1) translateZ(0) rotateY(0deg)";
+            opacity = 1;
+            zIndex = 20;
+            pointerEvents = "auto";
+          } else if (isLeft) {
+            transform = "translateX(-28%) scale(0.82) translateZ(-120px) rotateY(20deg)";
+            opacity = 0.55;
+            zIndex = 10;
+            pointerEvents = "auto";
+          } else if (isRight) {
+            transform = "translateX(28%) scale(0.82) translateZ(-120px) rotateY(-20deg)";
+            opacity = 0.55;
+            zIndex = 10;
+            pointerEvents = "auto";
+          } else {
+            transform = `translateX(${diff > 0 ? "40%" : "-40%"}) scale(0.65) translateZ(-240px)`;
+            opacity = 0;
+            zIndex = 0;
+            pointerEvents = "none";
+          }
+
+          const imgSrc = c.avatarUrl || `https://robohash.org/${encodeURIComponent(c.name)}`;
+
+          return (
+            <div
+              key={c.id}
+              onClick={() => {
+                if (isActive) onSelect(c);
+                else if (isLeft) prevSlide();
+                else if (isRight) nextSlide();
+              }}
+              className={`absolute w-[290px] sm:w-[320px] h-[190px] rounded-[2rem] border-2 border-base-300 bg-base-100/90 backdrop-blur-md p-5 flex flex-col justify-between shadow-[0_15px_35px_rgba(0,0,0,0.15)] transition-all duration-500 ease-out transform-gpu cursor-pointer ${
+                isActive ? "hover:shadow-[0_20px_45px_rgba(29,78,216,0.15)]" : ""
+              }`}
+              style={{
+                transform,
+                opacity,
+                zIndex,
+                pointerEvents,
+                transformStyle: "preserve-3d",
+                backfaceVisibility: "hidden"
+              }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="shrink-0 w-11 h-11 rounded-full overflow-hidden ring-2 ring-base-300 shadow-sm">
+                  <img
+                    src={imgSrc}
+                    alt={c.name}
+                    className="w-full h-full object-cover"
+                    onError={e => { (e.target as HTMLImageElement).src = `https://robohash.org/${encodeURIComponent(c.name)}`; }}
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="font-extrabold text-[13px] text-base-content leading-tight truncate w-full">{c.name}</p>
+                    {c.category && (
+                      <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/15">
+                        {c.category.replace(/_/g, " ")}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-base-content/65 line-clamp-2 mt-1 leading-snug">{c.description}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-base-content/5">
+                <span className="text-[10px] font-bold text-base-content/50 flex items-center gap-1">
+                  <Users size={11} className="text-[#1D4ED8]" /> {c.memberCount.toLocaleString()} members
+                </span>
+                
+                {isActive && (
+                  <button
+                    onClick={(e) => onJoin(e, c)}
+                    disabled={joiningId === c.id || c.isMember || c.hasPendingRequest}
+                    className={`btn btn-xs rounded-full px-4 h-7 text-[9px] font-black uppercase tracking-wider border-none ${
+                      c.isMember 
+                        ? "bg-emerald-600 text-white" 
+                        : c.hasPendingRequest 
+                          ? "bg-warning text-white" 
+                          : "bg-blue-700 hover:bg-blue-800 text-white"
+                    }`}
+                  >
+                    {joiningId === c.id ? (
+                      <span className="loading loading-spinner loading-xs" />
+                    ) : c.isMember ? (
+                      "Joined"
+                    ) : c.hasPendingRequest ? (
+                      "Pending"
+                    ) : (
+                      "Join"
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Control Dots */}
+      <div className="flex gap-1.5 mt-2">
+        {recommended.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => setActiveIndex(i)}
+            className={`h-1.5 rounded-full transition-all duration-300 ${
+              activeIndex === i ? "bg-[#1D4ED8] w-4" : "bg-base-content/20 w-1.5"
+            }`}
+            aria-label={`Go to slide ${i + 1}`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const Community = () => {
   const [query, setQuery] = useState("");
   const [committed, setCommitted] = useState("");
@@ -2002,9 +2327,83 @@ const Community = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [view, setView] = useState<"default" | "joined" | "owned">("default");
 
+  const [recommended, setRecommended] = useState<CommunityData[]>([]);
+  const [recommendedLoading, setRecommendedLoading] = useState(true);
+  const [joiningId, setJoiningId] = useState<number | null>(null);
+
   const { id: slugParam } = useParams<{ id?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Load recommended
+  useEffect(() => {
+    let active = true;
+    const loadRecs = async () => {
+      try {
+        const res = await fetch(apiUrl("/api/communities?size=30"), { headers: hdrs() });
+        if (!res.ok) throw new Error();
+        const d = await res.json();
+        const list = d?.data?.data ?? d?.data?.content ?? d?.data ?? d?.content ?? d ?? [];
+        if (active && Array.isArray(list)) {
+          const mapped = list.map((c: any): CommunityData => ({
+            id: c.id,
+            name: c.name || c.communityName || "",
+            slug: c.slug || c.communitySlug || String(c.id),
+            description: c.description || c.communityDescription || "",
+            category: c.category || c.communityCategory || "General",
+            privacy: c.privacy || c.communityPrivacy || "PUBLIC",
+            avatarUrl: c.avatarUrl || null,
+            coverImageUrl: c.coverImageUrl || null,
+            memberCount: c.memberCount ?? c.communityMemberCount ?? 0,
+            postCount: c.postCount ?? 0,
+            isMember: c.isMember ?? c.member ?? false,
+            isOwner: c.isOwner ?? c.owner ?? false,
+            createdAt: c.createdAt ?? new Date().toISOString(),
+            hasPendingRequest: c.hasPendingRequest ?? false,
+          }));
+          const joinedIds = new Set(myCommunities.map(x => x.id));
+          const filtered = mapped.filter(x => !joinedIds.has(x.id));
+          
+          if (filtered.length < 3) {
+            const fallback = DEFAULT_RECOMMENDED.filter(x => !joinedIds.has(x.id));
+            setRecommended([...filtered, ...fallback]);
+          } else {
+            setRecommended(filtered);
+          }
+        }
+      } catch {
+        if (active) {
+          const joinedIds = new Set(myCommunities.map(x => x.id));
+          const fallback = DEFAULT_RECOMMENDED.filter(x => !joinedIds.has(x.id));
+          setRecommended(fallback);
+        }
+      } finally {
+        if (active) setRecommendedLoading(false);
+      }
+    };
+    loadRecs();
+    return () => { active = false; };
+  }, [myCommunities]);
+
+  const handleCarouselJoin = async (e: React.MouseEvent, c: CommunityData) => {
+    e.stopPropagation();
+    setJoiningId(c.id);
+    try {
+      const res = await fetch(apiUrl(`/api/communities/${c.id}/join`), { method: "POST", headers: hdrs(), body: JSON.stringify({}) });
+      if (res.status === 401) { alert("Please log in."); return; }
+      const d = await res.json();
+      const joined = d?.data?.joined ?? false;
+      const newHasPending = !joined && String(c.privacy).toUpperCase() === "PRIVATE";
+      
+      setRecommended(prev => prev.map(item => item.id === c.id ? { ...item, isMember: joined, hasPendingRequest: newHasPending, memberCount: joined ? item.memberCount + 1 : item.memberCount } : item));
+      
+      syncMembership(c.id, joined, joined ? 1 : 0, newHasPending);
+    } catch {
+      alert("Action failed.");
+    } finally {
+      setJoiningId(null);
+    }
+  };
 
   const inputRef = useRef<HTMLInputElement>(null);
   const quickDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2281,6 +2680,19 @@ const Community = () => {
         </div>
       )}
 
+      {!isSearching && view === "default" && (
+        <RecommendedCarousel
+          recommended={recommended}
+          loading={recommendedLoading}
+          onSelect={(c) => {
+            setSelected(c);
+            navigate("/communities/" + c.slug);
+          }}
+          onJoin={handleCarouselJoin}
+          joiningId={joiningId}
+        />
+      )}
+
       {isSearching && (
         <>
           <div className="flex items-center justify-between">
@@ -2344,7 +2756,6 @@ const Community = () => {
           )}
           {!myCommunitiesLoading && myCommunities.length === 0 && (
             <div className="text-center py-14 opacity-60 space-y-3">
-              <div className="flex justify-center mb-2"><Home size={48} className="text-base-content/20" /></div>
               <p className="font-semibold">You haven't joined any communities yet</p>
               <p className="text-sm max-w-xs mx-auto">Search above or create your own community.</p>
             </div>
@@ -2434,7 +2845,6 @@ const Community = () => {
 
               {view === "joined" && joinedOnly.length === 0 && (
                 <div className="text-center py-14 opacity-60 space-y-3">
-                  <div className="flex justify-center mb-2"><Home size={48} className="text-base-content/20" /></div>
                   <p className="font-semibold">You haven't joined any communities yet</p>
                   <p className="text-sm max-w-xs mx-auto">Search above to discover communities.</p>
                 </div>

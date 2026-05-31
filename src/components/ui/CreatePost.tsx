@@ -164,10 +164,10 @@ function MediaUploadZone({
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const accentBorder = accent === "orange" ? "border-orange-500/50" : "border-[#1D4ED8]/50";
-  const accentBg = accent === "orange" ? "bg-orange-500/8" : "bg-[#1D4ED8]/8";
-  const accentText = accent === "orange" ? "text-orange-400" : "text-[#1D4ED8]";
-  const accentHover = accent === "orange" ? "hover:border-orange-400/80" : "hover:border-[#1D4ED8]/80";
+  const accentBorder = accent === "orange" ? "border-orange-500/50" : "border-white/20";
+  const accentBg = accent === "orange" ? "bg-orange-500/8" : "bg-white/5";
+  const accentText = accent === "orange" ? "text-orange-400" : "text-white/90";
+  const accentHover = accent === "orange" ? "hover:border-orange-400/80" : "hover:border-white/40";
 
   const handleFiles = (incoming: FileList | null) => {
     if (!incoming) return;
@@ -958,7 +958,7 @@ const CreatePost = ({ open, onClose, communityId, communityName, onPostCreated }
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-12 sm:pt-16 bg-transparent backdrop-blur-xl"
+          className="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-12 sm:pt-16 bg-black/40 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

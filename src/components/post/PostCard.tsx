@@ -1033,8 +1033,8 @@ export default function PostCard({
   const syncedSavedRef = useRef(!!((post as any).isSavedByCurrentUser ?? (post as any).isSaved ?? false));
 
   // Debounce timers
-  const pendingLikeTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const pendingSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingLikeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Ref to prevent duplicate simultaneous share clicks
   const isSharingRef = useRef(false);

@@ -12,6 +12,8 @@ import {
   Users,
   BarChart2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Image as ImageIcon,
   X,
   Inbox,
@@ -749,6 +751,7 @@ const AnalyticsPanel = ({ username }: { username: string }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const DepartmentDashboard = () => {
   const { username, loading: userLoading } = useCurrentUser();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<DashboardTab>("issues");
   const [issueFilter, setIssueFilter] = useState<IssueFilter>("active");
   const [posts, setPosts] = useState<TaggedPost[]>([]);
@@ -831,35 +834,47 @@ const DepartmentDashboard = () => {
 
       <div className="grid grid-cols-12 gap-5 pb-8">
         {/* ── Left Sidebar ── */}
-        <div className="col-span-12 lg:col-span-4 xl:col-span-3">
-          <div className="sticky top-4">
-            <DepartmentSidebar
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              activeBadge={activePendingCount}
-            />
+        {sidebarOpen && (
+          <div className="col-span-12 lg:col-span-4 xl:col-span-3 transition-all duration-300">
+            <div className="sticky top-4">
+              <DepartmentSidebar
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                activeBadge={activePendingCount}
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── Main Panel ── */}
-        <div className="col-span-12 lg:col-span-8 xl:col-span-9 space-y-5">
+        <div className={`col-span-12 ${sidebarOpen ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12"} space-y-5 transition-all duration-300`}>
 
           {/* Page header */}
           <div className="flex items-center justify-between gap-4 rounded-2xl border border-base-300 bg-base-100 px-6 py-4">
-            <div>
-              <p className="text-[11px] font-semibold opacity-40 uppercase tracking-widest">
-                Department Portal
-              </p>
-              <h1 className="text-lg font-extrabold leading-tight mt-0.5">
-                {activeTab === "issues"
-                  ? "Issues Inbox"
-                  : activeTab === "broadcasts"
-                    ? "Official Broadcasts"
-                    : "Analytics & Impact"}
-              </h1>
-              <p className="text-xs opacity-50 mt-0.5">
-                @{username}
-              </p>
+            <div className="flex items-center gap-3.5">
+              <button
+                id="dept-sidebar-toggle"
+                onClick={() => setSidebarOpen(!sidebarOpen)}
+                className="btn btn-sm btn-ghost btn-circle bg-base-200 hover:bg-base-300 text-base-content transition-all shrink-0 cursor-pointer"
+                title={sidebarOpen ? "Hide Control Panel" : "Show Control Panel"}
+              >
+                {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+              </button>
+              <div>
+                <p className="text-[11px] font-semibold opacity-40 uppercase tracking-widest">
+                  Department Portal
+                </p>
+                <h1 className="text-lg font-extrabold leading-tight mt-0.5">
+                  {activeTab === "issues"
+                    ? "Issues Inbox"
+                    : activeTab === "broadcasts"
+                      ? "Official Broadcasts"
+                      : "Analytics & Impact"}
+                </h1>
+                <p className="text-xs opacity-50 mt-0.5">
+                  @{username}
+                </p>
+              </div>
             </div>
 
             {/* Quick refresh for issues */}

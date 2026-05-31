@@ -100,6 +100,12 @@ const Login = () => {
         subtitle="Access your Govlyx portal"
       />
 
+      {/* Spam Folder Warning Note */}
+      <div className="mb-4 rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3 text-xs flex items-start gap-3 animate-subtle-blink">
+        <Info size={16} className="shrink-0 mt-0.5 glow-red-text" />
+        <span className="glow-red-text">If you do not see the verification email in your inbox, please check your <strong>Spam</strong> or <strong>Junk</strong> folder.</span>
+      </div>
+
             {/* Session Expired Message */}
       {showExpiredMsg && !error && (
         <div className="mb-4 rounded-xl bg-amber-500/10 border border-amber-500/30 px-4 py-3 text-sm text-amber-500 flex items-center gap-3">

@@ -132,10 +132,10 @@ const ReportModal = ({ isOpen, onClose, targetType, targetId }: ReportModalProps
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="w-full max-w-lg overflow-hidden rounded-3xl border border-base-300 bg-base-100 shadow-2xl"
+            className="w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden rounded-3xl border border-base-300 bg-base-100 shadow-2xl"
           >
             {/* Header */}
-            <div className="relative h-28 bg-gradient-to-r from-red-600 to-rose-500 p-6 flex items-end">
+            <div className="relative h-28 bg-gradient-to-r from-red-600 to-rose-500 p-6 flex items-end shrink-0">
               <button
                 onClick={handleClose}
                 className="absolute top-4 right-4 p-2 rounded-full bg-black/20 text-white hover:bg-black/40 transition-all"
@@ -151,7 +151,7 @@ const ReportModal = ({ isOpen, onClose, targetType, targetId }: ReportModalProps
               </div>
             </div>
 
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
+            <div className="p-6 flex-1 overflow-y-auto">
               {submitted ? (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
@@ -285,7 +285,7 @@ const ReportModal = ({ isOpen, onClose, targetType, targetId }: ReportModalProps
               )}
             </div>
 
-            <div className="bg-base-200/50 px-6 py-3 border-t border-base-300/50 flex justify-between items-center text-[9px] opacity-50 font-bold uppercase tracking-widest">
+            <div className="bg-base-200/50 px-6 py-3 border-t border-base-300/50 flex justify-between items-center text-[9px] opacity-50 font-bold uppercase tracking-widest shrink-0">
               <span>Indian IT Act Compliance</span>
               <span>Govlyx Moderation</span>
             </div>

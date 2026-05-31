@@ -1,8 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
+import axiosInstance from "../api/axiosConfig";
+import { showToast } from "../utils/toast";
+import ImageEditorModal from "../components/modals/ImageEditorModal";
 import {
   ShieldCheck,
   CheckCircle,
   Clock,
+  Edit,
+  Camera,
+  X,
 } from "lucide-react";
 import EmptyState from "../components/ui/EmptyState";
 import ProfileTabs from "../components/profile/ProfileTabs";
@@ -86,8 +94,102 @@ function mapIssuePost(p: any): AnyPost {
 // Profile page
 // ═══════════════════════════════════════════════════════════════════════════════
 const Profile = () => {
+  const queryClient = useQueryClient();
+
+  // Profile Details Edit State
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editEmail, setEditEmail] = useState("");
+  const [editPincode, setEditPincode] = useState("");
+  const [savingDetails, setSavingDetails] = useState(false);
+
+  // Profile Photo Upload State
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorImageSrc, setEditorImageSrc] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [tab, setTab] = useState<Tab>("posts");
   const [postFilter, setPostFilter] = useState<PostFilter>("active");
+
+  const openEditModal = () => {
+    setEditEmail(user?.email || "");
+    setEditPincode(user?.pincode || "");
+    setEditModalOpen(true);
+  };
+
+  // Save details
+  const handleSaveDetails = async () => {
+    if (editEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editEmail)) {
+      return showToast.error("Enter a valid email address");
+    }
+    if (editPincode && !/^[1-9]\d{5}$/.test(editPincode)) {
+      return showToast.error("Enter a valid 6-digit Indian pincode");
+    }
+
+    setSavingDetails(true);
+    try {
+      // 1. Update Pincode
+      if (editPincode) {
+        await axiosInstance.put("/api/users/update-pincode", { pincode: editPincode });
+      }
+      
+      // 2. Update Email
+      if (editEmail) {
+        await axiosInstance.put("/api/users/profile", {
+          email: editEmail || undefined,
+        });
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      setEditModalOpen(false);
+      showToast.success("Profile updated successfully");
+    } catch (err: any) {
+      showToast.error(err.response?.data?.message || "Failed to update profile");
+    } finally {
+      setSavingDetails(false);
+    }
+  };
+
+  // Image Upload Methods
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      return showToast.error("Upload a JPEG, PNG, or WebP image");
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      return showToast.error("Image must be under 5 MB");
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEditorImageSrc(reader.result as string);
+      setEditorOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleEditorSave = async (editedBlob: Blob) => {
+    setUploadingImg(true);
+    setEditorOpen(false);
+    try {
+      const fd = new FormData();
+      const file = new File([editedBlob], "profile.jpg", { type: "image/jpeg" });
+      fd.append("file", file);
+      
+      await axiosInstance.post("/api/users/profile-image", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      showToast.success("Profile photo updated");
+    } catch (err: any) {
+      showToast.error(err.response?.data?.message || "Failed to upload photo");
+    } finally {
+      setUploadingImg(false);
+      setEditorImageSrc(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleDelete = (type: 'posts' | 'social-posts', id: number) => {
     // Parent only handles state removal. PostCard handles confirm + API.
@@ -348,14 +450,38 @@ const Profile = () => {
       {/* Profile Header */}
       <div className="rounded-xl border border-base-300 bg-base-200 p-3 sm:p-4">
         <div className="flex items-center gap-4">
-          <div className="avatar">
-            <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-primary shadow-lg bg-base-300">
-               <img 
-                src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(username)}`} 
-                alt="Profile Avatar" 
-                className="w-full h-full object-cover" 
-              />
+          <div className="relative group/avatar shrink-0">
+            <div className="avatar">
+              <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-primary shadow-lg bg-base-300 relative">
+                 <img 
+                  src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(username)}`} 
+                  alt="Profile Avatar" 
+                  className="w-full h-full object-cover" 
+                />
+                {uploadingImg && (
+                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white">
+                    <span className="loading loading-spinner loading-sm" />
+                  </div>
+                )}
+              </div>
             </div>
+            {!uploadingImg && (
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 p-1.5 rounded-full bg-primary hover:bg-primary/90 text-white shadow-md border border-base-100 hover:scale-110 transition cursor-pointer"
+                title="Change profile photo"
+              >
+                <Camera size={11} />
+              </button>
+            )}
+            <input 
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleImageUpload}
+              disabled={uploadingImg}
+            />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 overflow-hidden">
@@ -365,6 +491,15 @@ const Profile = () => {
             <p className="text-[9px] sm:text-xs opacity-70 truncate line-clamp-1">
               {memberSince ? `Member since ${memberSince}` : "Loading…"} • {location}
             </p>
+          </div>
+          <div className="flex-shrink-0">
+            <button
+              onClick={openEditModal}
+              className="btn btn-xs sm:btn-sm btn-outline rounded-xl border-base-300 hover:border-red-500 hover:bg-red-500/10 text-base-content hover:text-red-400 font-bold transition flex items-center gap-1 sm:gap-1.5 cursor-pointer"
+            >
+              <Edit size={12} className="sm:w-3.5 sm:h-3.5" />
+              <span className="hidden sm:inline">Edit Profile</span>
+            </button>
           </div>
         </div>
       </div>
@@ -475,6 +610,89 @@ const Profile = () => {
             ))
           )}
         </div>
+      )}
+
+      {/* Edit Profile Details Modal */}
+      <AnimatePresence>
+        {editModalOpen && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-sm bg-black/40" onClick={() => setEditModalOpen(false)}>
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md overflow-hidden rounded-3xl border border-base-300 bg-base-100 shadow-2xl p-6 space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-base-content/10 pb-3">
+                <h3 className="text-sm font-bold text-base-content uppercase tracking-wider">Edit Profile Details</h3>
+                <button 
+                  onClick={() => setEditModalOpen(false)}
+                  className="btn btn-ghost btn-xs btn-circle bg-base-300 cursor-pointer"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-black opacity-60 uppercase tracking-widest">Email Address</label>
+                  <input
+                    type="email"
+                    className="input input-bordered input-sm w-full bg-base-200/50"
+                    placeholder="Enter email address"
+                    value={editEmail}
+                    onChange={(e) => setEditEmail(e.target.value)}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-black opacity-60 uppercase tracking-widest">Pincode (Location)</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    className="input input-bordered input-sm w-full bg-base-200/50"
+                    placeholder="Enter 6-digit pincode"
+                    value={editPincode}
+                    onChange={(e) => setEditPincode(e.target.value.replace(/\D/g, ""))}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2 border-t border-base-content/5">
+                <button
+                  type="button"
+                  onClick={() => setEditModalOpen(false)}
+                  className="btn btn-sm flex-1 bg-base-200 hover:bg-base-300 text-base-content border-none rounded-xl cursor-pointer"
+                  disabled={savingDetails}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveDetails}
+                  className="btn btn-sm flex-1 bg-primary hover:bg-primary/95 text-white border-none rounded-xl font-bold cursor-pointer"
+                  disabled={savingDetails}
+                >
+                  {savingDetails ? <span className="loading loading-spinner loading-xs" /> : "Save Changes"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Image Editor Modal */}
+      {editorOpen && editorImageSrc && (
+        <ImageEditorModal
+          isOpen={editorOpen}
+          imageSrc={editorImageSrc}
+          onSave={handleEditorSave}
+          onClose={() => {
+            setEditorOpen(false);
+            setEditorImageSrc(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
+        />
       )}
     </div>
   );

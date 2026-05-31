@@ -4,7 +4,7 @@ import AuthLayout from "../components/auth/AuthLayout";
 import AuthHeader from "../components/auth/AuthHeader";
 import AuthInput from "../components/auth/AuthInput";
 import { registerCitizen } from "../api/authService";
-import { Mail, Eye, EyeOff } from "lucide-react";
+import { Mail, Eye, EyeOff, Info } from "lucide-react";
 import { parseError } from "../utils/error-handler";
 
 type RegisterType = "citizen" | "department";
@@ -91,6 +91,12 @@ const Register = () => {
         subtitle={type === "citizen" ? "Join Govlyx anonymously" : "Register a verified government body"}
       />
 
+      {/* Spam Folder Warning Note */}
+      <div className="mb-4 rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3 text-xs flex items-start gap-3 animate-subtle-blink">
+        <Info size={16} className="shrink-0 mt-0.5 glow-red-text" />
+        <span className="glow-red-text">If you do not see the verification email in your inbox, please check your <strong>Spam</strong> or <strong>Junk</strong> folder.</span>
+      </div>
+
       {/* Error Message */}
       {error && (
         <div className="mb-4 rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-2.5 text-sm text-red-400 flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
@@ -108,6 +114,10 @@ const Register = () => {
           <p className="text-sm opacity-80 px-2 leading-relaxed whitespace-pre-line">
             {success}
           </p>
+          <div className="rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3 text-xs flex items-start gap-3 text-left w-full animate-subtle-blink">
+            <Info size={16} className="shrink-0 mt-0.5 glow-red-text" />
+            <span className="glow-red-text">If the message is not in your inbox, please make sure to check your <strong>Spam</strong> folder.</span>
+          </div>
           <button
             onClick={() => navigate("/login")}
             className="btn bg-[#1D4ED8] hover:bg-[#1D4ED8]/90 text-white border-none rounded-xl h-11 px-6 font-bold flex items-center gap-2 mt-4 shadow-lg shadow-[#1D4ED8]/20 w-full"

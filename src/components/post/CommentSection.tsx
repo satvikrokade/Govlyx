@@ -658,7 +658,7 @@ function SingleComment({
                         className="w-4.5 h-4.5 rounded-full object-cover border border-base-content/5 bg-base-200 shrink-0"
                       />
                     )}
-                    <span className="text-xs font-bold text-primary tracking-tight">{authorName}</span>
+                    <span className="text-xs font-bold text-red-500 dark:text-red-400 tracking-tight">{authorName}</span>
                     {comment.author?.username === "admin" && (
                       <span className="bg-[#1D4ED8]/10 text-primary text-[9px] font-bold px-1.5 py-0.5 rounded-full">STAFF</span>
                     )}

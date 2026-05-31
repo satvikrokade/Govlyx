@@ -469,8 +469,8 @@ const Settings = () => {
         </div>
 
 
-        {/* Save button (shown when any field is being edited) */}
-        {editField && (
+        {/* Save button (shown when an account field is being edited) */}
+        {(editField === "email" || editField === "pincode") && (
           <button
             id="save-profile-btn"
             className="btn btn-sm w-full bg-[#1D4ED8] text-white hover:bg-blue-800 border-none"
