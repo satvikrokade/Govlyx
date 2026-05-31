@@ -11,7 +11,7 @@ import {
   Save, Archive, MessageSquare, Calendar,
   Tag, Rocket, PartyPopper, Plus, ChevronLeft, ChevronRight,
   XCircle, Home, Link, Eye, Image as ImageIcon, RefreshCw,
-  Activity, Radio, FileText
+  Activity, Radio, FileText, Upload, Sparkles, Flame, Check, Clock
 } from "lucide-react";
 
 import CommunityCard from "../components/community/CommunityCard";
@@ -21,11 +21,14 @@ import CommunitySidebar from "../components/community/CommunitySidebar";
 import CreatePost from "../components/ui/CreatePost";
 import PostCard from "../components/post/PostCard";
 import PostSkeleton from "../components/post/PostSkeleton";
+import ImageEditorModal from "../components/modals/ImageEditorModal";
 import type { CurrentUser as CardUser } from "../components/post/PostCard";
 import { toPostCardPost } from "../utils/postUtils";
 import { jwtDecode } from "jwt-decode";
 import { cacheSuggestion } from "../utils/searchCache";
 import { apiUrl } from "../utils/apiUrl";
+import { communityService } from "../api/communityService";
+import { showToast } from "../utils/toast";
 
 
 /* ════════════════════════════════════════════════════════════════════════════
@@ -231,7 +234,7 @@ function highlight(text: string, query: string): React.ReactNode {
   const parts = text.split(new RegExp(`(${esc})`, "gi"));
   return parts.map((p, i) =>
     p.toLowerCase() === query.toLowerCase()
-      ? <mark key={i} className="bg-blue-700/25 text-blue-700 rounded px-0.5">{p}</mark>
+      ? <mark key={i} className="bg-red-500/20 text-red-500 rounded px-0.5">{p}</mark>
       : p
   );
 }
@@ -1120,6 +1123,7 @@ function AdminPanel({
     description: c.description,
     privacy: c.privacy,
     avatarUrl: c.avatarUrl || "",
+    coverImageUrl: c.coverImageUrl || "",
     allowMemberPosts: c.allowMemberPosts ?? true,
     requirePostApproval: c.requirePostApproval ?? false,
     feedEligible: c.feedEligible ?? false,
@@ -1127,6 +1131,102 @@ function AdminPanel({
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsMsg, setSettingsMsg] = useState<string | null>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const [uploadingImg, setUploadingImg] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorImageSrc, setEditorImageSrc] = useState<string | null>(null);
+
+  async function handleCoverUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validation
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      showToast.error("Please upload a JPEG, PNG, or WebP image.");
+      return;
+    }
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      showToast.error("File size exceeds 5MB limit.");
+      return;
+    }
+
+    setUploadingCover(true);
+    try {
+      const data = await communityService.uploadCommunityImage(c.id, file, "cover");
+      const updatedUrl = data?.coverImageUrl || data?.data?.coverImageUrl || data?.data?.data?.coverImageUrl;
+      if (updatedUrl) {
+        setSettingsForm(prev => ({ ...prev, coverImageUrl: updatedUrl }));
+        setC(prev => ({ ...prev, coverImageUrl: updatedUrl }));
+        onCommunityUpdated({ ...c, coverImageUrl: updatedUrl, isOwner: true, isMember: true });
+        showToast.success("Community cover image uploaded successfully!");
+      } else {
+        showToast.error("Upload succeeded but no cover image URL was returned.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast.error(err.response?.data?.message || err.message || "Failed to upload cover image.");
+    } finally {
+      setUploadingCover(false);
+      if (coverFileInputRef.current) {
+        coverFileInputRef.current.value = "";
+      }
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validation
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      showToast.error("Please upload a JPEG, PNG, or WebP image.");
+      return;
+    }
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      showToast.error("File size exceeds 5MB limit.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEditorImageSrc(reader.result as string);
+      setEditorOpen(true);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function handleEditorSave(editedBlob: Blob) {
+    setUploadingImg(true);
+    setEditorOpen(false);
+    try {
+      const file = new File([editedBlob], "community_avatar.jpg", { type: "image/jpeg" });
+      const data = await communityService.uploadCommunityImage(c.id, file, "avatar");
+      const updatedUrl = data?.avatarUrl || data?.data?.avatarUrl || data?.data?.data?.avatarUrl;
+      if (updatedUrl) {
+        setSettingsForm(prev => ({ ...prev, avatarUrl: updatedUrl }));
+        setC(prev => ({ ...prev, avatarUrl: updatedUrl }));
+        onCommunityUpdated({ ...c, avatarUrl: updatedUrl, isOwner: true, isMember: true });
+        showToast.success("Community image uploaded successfully!");
+      } else {
+        showToast.error("Upload succeeded but no image URL was returned.");
+      }
+    } catch (err: any) {
+      console.error(err);
+      showToast.error(err.response?.data?.message || err.message || "Failed to upload image.");
+    } finally {
+      setUploadingImg(false);
+      setEditorImageSrc(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  }
 
   async function saveSettings() {
     setSettingsBusy(true); setSettingsMsg(null);
@@ -1355,8 +1455,13 @@ function AdminPanel({
           {tab === "settings" && (
             <div className="p-4 space-y-4">
               {settingsMsg && (
-                <div className={`text-sm rounded-xl px-4 py-2 border ${settingsMsg.startsWith("✅") ? "bg-success/10 border-success/30 text-success" : "bg-error/10 border-error/30 text-error"}`}>
-                  {settingsMsg}
+                <div className={`text-sm rounded-xl px-4 py-2 border flex items-center gap-2 shadow-sm ${settingsMsg.startsWith("✅") ? "bg-success/10 border-success/30 text-success" : "bg-error/10 border-error/30 text-error"}`}>
+                  {settingsMsg.startsWith("✅") ? (
+                    <CheckCircle2 size={16} className="shrink-0 text-success" />
+                  ) : (
+                    <AlertTriangle size={16} className="shrink-0 text-error" />
+                  )}
+                  <span className="text-base-content font-medium">{settingsMsg.replace(/^[✅❌]\s*/, "")}</span>
                 </div>
               )}
               <div>
@@ -1366,11 +1471,101 @@ function AdminPanel({
                   onChange={e => setSettingsForm(f => ({ ...f, name: e.target.value }))} />
               </div>
               <div>
-                <label className="block text-sm font-semibold mb-1">Image URL</label>
-                <input className="input input-bordered w-full" placeholder="https://..."
-                  value={settingsForm.avatarUrl}
-                  onChange={e => setSettingsForm(f => ({ ...f, avatarUrl: e.target.value }))} />
-                <p className="text-xs opacity-40 mt-1">Leave blank to use an auto-generated robot avatar.</p>
+                <label className="block text-sm font-semibold mb-1.5">Community Avatar</label>
+                <div className="flex items-center gap-4 p-3 bg-base-200/50 rounded-2xl border border-base-300">
+                  <div className="shrink-0 w-16 h-16 rounded-full overflow-hidden border border-base-300 shadow-sm relative group bg-base-100">
+                    <img
+                      src={settingsForm.avatarUrl || `https://robohash.org/${encodeURIComponent(settingsForm.name || "avatar")}`}
+                      alt="Avatar"
+                      className="w-full h-full object-cover"
+                    />
+                    {uploadingImg && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Spin xs />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1.5">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingImg}
+                        className="btn btn-sm btn-outline rounded-xl font-bold uppercase tracking-wider text-[10px] gap-1.5"
+                      >
+                        <Upload size={12} /> {uploadingImg ? "Uploading..." : "Upload Pic"}
+                      </button>
+                      {settingsForm.avatarUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSettingsForm(f => ({ ...f, avatarUrl: "" }))}
+                          className="btn btn-sm btn-ghost text-error rounded-xl font-bold uppercase tracking-wider text-[10px] gap-1.5"
+                        >
+                          <Trash2 size={12} /> Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] opacity-50">JPG, PNG, or WebP. Max 5MB.</p>
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-1.5">Community Cover Image</label>
+                <div className="flex flex-col gap-3 p-3 bg-base-200/50 rounded-2xl border border-base-300">
+                  <div className="w-full h-24 rounded-xl overflow-hidden border border-base-300 shadow-sm relative group bg-base-100">
+                    {settingsForm.coverImageUrl ? (
+                      <img
+                        src={settingsForm.coverImageUrl}
+                        alt="Cover"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-r from-blue-700/10 to-blue-500/5" />
+                    )}
+                    {uploadingCover && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                        <Spin xs />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => coverFileInputRef.current?.click()}
+                        disabled={uploadingCover}
+                        className="btn btn-sm btn-outline rounded-xl font-bold uppercase tracking-wider text-[10px] gap-1.5"
+                      >
+                        <Upload size={12} /> {uploadingCover ? "Uploading..." : "Upload Cover"}
+                      </button>
+                      {settingsForm.coverImageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setSettingsForm(f => ({ ...f, coverImageUrl: "" }))}
+                          className="btn btn-sm btn-ghost text-error rounded-xl font-bold uppercase tracking-wider text-[10px] gap-1.5"
+                        >
+                          <Trash2 size={12} /> Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[10px] opacity-50">JPG, PNG, or WebP. Max 5MB.</p>
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  ref={coverFileInputRef}
+                  onChange={handleCoverUpload}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                />
               </div>
               <div>
                 <label className="block text-sm font-semibold mb-1">Description</label>
@@ -1384,15 +1579,15 @@ function AdminPanel({
                   {(["PUBLIC", "PRIVATE", "SECRET"] as const).map(p => (
                     <button key={p} type="button"
                       onClick={() => setSettingsForm(f => ({ ...f, privacy: p }))}
-                      className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${settingsForm.privacy === p ? "border-blue-700 bg-blue-700/10" : "border-base-300 hover:border-base-400"}`}>
+                      className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${settingsForm.privacy === p ? "border-blue-600 bg-blue-500/10" : "border-base-300 hover:border-base-400"}`}>
                       <span className="text-xl">{PRIV_ICON[p]}</span>
                       <div className="flex-1">
-                        <p className={`text-sm font-semibold ${settingsForm.privacy === p ? "text-blue-700" : ""}`}>
+                        <p className={`text-sm font-semibold ${settingsForm.privacy === p ? "text-blue-600 dark:text-blue-400" : "text-base-content"}`}>
                           {p.charAt(0) + p.slice(1).toLowerCase()}
                         </p>
-                        <p className="text-xs opacity-50">{PRIV_DESC[p]}</p>
+                        <p className="text-xs opacity-80 text-base-content">{PRIV_DESC[p]}</p>
                       </div>
-                      {settingsForm.privacy === p && <span className="text-blue-700">✓</span>}
+                      {settingsForm.privacy === p && <span className="text-blue-600 dark:text-blue-400"><Check size={16} /></span>}
                     </button>
                   ))}
                 </div>
@@ -1407,7 +1602,7 @@ function AdminPanel({
                   <label key={key} className="flex items-center justify-between gap-3 rounded-xl border border-base-300 p-3 cursor-pointer hover:border-base-400">
                     <div>
                       <p className="text-sm font-medium">{label}</p>
-                      <p className="text-xs opacity-50">{desc}</p>
+                      <p className="text-xs opacity-80">{desc}</p>
                     </div>
                     <input type="checkbox" className="toggle border-[#1D4ED8] bg-[#1D4ED8] checked:bg-[#1D4ED8] toggle-sm"
                       checked={settingsForm[key as keyof typeof settingsForm] as boolean}
@@ -1489,6 +1684,18 @@ function AdminPanel({
               )}
             </div>
           )}
+      {editorImageSrc && (
+        <ImageEditorModal
+          isOpen={editorOpen}
+          onClose={() => {
+            setEditorOpen(false);
+            setEditorImageSrc(null);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+          }}
+          imageSrc={editorImageSrc}
+          onSave={handleEditorSave}
+        />
+      )}
         </div>
       </div>
     </div>
@@ -1507,7 +1714,66 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
   });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  
+  // Image Upload & Editor States (Avatar)
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editorImageSrc, setEditorImageSrc] = useState<string | null>(null);
+  const [selectedBlob, setSelectedBlob] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Cover Image Upload States
+  const [selectedCoverBlob, setSelectedCoverBlob] = useState<Blob | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const coverFileInputRef = useRef<HTMLInputElement>(null);
+
   const canNext = form.name.trim().length >= 3 && form.description.trim().length >= 10;
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      showToast.error("Please upload a JPEG, PNG, or WebP image.");
+      return;
+    }
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      showToast.error("File size exceeds 5MB limit.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setEditorImageSrc(reader.result as string);
+      setEditorOpen(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleEditorSave = async (editedBlob: Blob) => {
+    setSelectedBlob(editedBlob);
+    setPreviewUrl(URL.createObjectURL(editedBlob));
+    setEditorOpen(false);
+    setEditorImageSrc(null);
+  };
+
+  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      showToast.error("Please upload a JPEG, PNG, or WebP image.");
+      return;
+    }
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    if (file.size > maxSize) {
+      showToast.error("File size exceeds 5MB limit.");
+      return;
+    }
+    setSelectedCoverBlob(file);
+    setCoverPreviewUrl(URL.createObjectURL(file));
+  };
 
   async function submit() {
     setBusy(true); setErr(null);
@@ -1517,15 +1783,54 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
         body: JSON.stringify({
           name: form.name.trim(), description: form.description.trim(),
           category: form.category, tags: form.tags.trim(), privacy: form.privacy,
-          avatarUrl: form.avatarUrl.trim() || null,
+          avatarUrl: null,
           locationRestricted: form.locationRestricted,
           allowMemberPosts: form.allowMemberPosts, requirePostApproval: form.requirePostApproval,
         }),
       });
       if (res.status === 401 || res.status === 403) { setErr("Please log in."); return; }
       if (!res.ok) { const d = await res.json().catch(() => ({})); setErr(d?.message || `Error ${res.status}`); return; }
-      const d = await res.json(); const raw = d?.data ?? d;
-      onDone({ ...raw, isMember: true, isOwner: true, postCount: raw.postCount ?? 0, memberCount: raw.memberCount ?? 1, createdAt: raw.createdAt ?? new Date().toISOString() });
+      const d = await res.json(); 
+      let raw = d?.data ?? d;
+
+      // Upload avatar image if a blob was selected
+      if (selectedBlob) {
+        try {
+          const file = new File([selectedBlob], "community_avatar.jpg", { type: "image/jpeg" });
+          const uploadData = await communityService.uploadCommunityImage(raw.id, file, "avatar");
+          const updatedUrl = uploadData?.avatarUrl || uploadData?.data?.avatarUrl || uploadData?.data?.data?.avatarUrl;
+          if (updatedUrl) {
+            raw = { ...raw, avatarUrl: updatedUrl };
+          }
+        } catch (uploadErr: any) {
+          console.error("Failed to upload community avatar image during creation:", uploadErr);
+          showToast.error("Community created, but avatar image upload failed.");
+        }
+      }
+
+      // Upload cover image if selected
+      if (selectedCoverBlob) {
+        try {
+          const file = new File([selectedCoverBlob], "community_cover.jpg", { type: selectedCoverBlob.type || "image/jpeg" });
+          const uploadData = await communityService.uploadCommunityImage(raw.id, file, "cover");
+          const updatedUrl = uploadData?.coverImageUrl || uploadData?.data?.coverImageUrl || uploadData?.data?.data?.coverImageUrl;
+          if (updatedUrl) {
+            raw = { ...raw, coverImageUrl: updatedUrl };
+          }
+        } catch (uploadErr: any) {
+          console.error("Failed to upload community cover image during creation:", uploadErr);
+          showToast.error("Community created, but cover image upload failed.");
+        }
+      }
+
+      onDone({ 
+        ...raw, 
+        isMember: true, 
+        isOwner: true, 
+        postCount: raw.postCount ?? 0, 
+        memberCount: raw.memberCount ?? 1, 
+        createdAt: raw.createdAt ?? new Date().toISOString() 
+      });
     } catch { setErr("Server unreachable."); }
     finally { setBusy(false); }
   }
@@ -1536,44 +1841,138 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
         <div className="flex justify-center pt-3 sm:hidden"><div className="w-10 h-1 rounded-full bg-base-300" /></div>
         <div className="flex items-center justify-between px-6 py-5 border-b border-base-content/5 shrink-0">
           <div>
-            <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2">
+            <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2 text-base-content">
               <Plus size={16} className="text-blue-700" /> Community
             </h2>
             <div className="flex gap-1 mt-2">
               {[1, 2].map(s => <div key={s} className={`h-1 w-6 rounded-full transition-all duration-500 ${step >= s ? "bg-blue-700 w-10" : "bg-base-300"}`} />)}
             </div>
           </div>
-          <button onClick={onClose} className="btn btn-ghost btn-circle btn-xs bg-base-300/50"><X size={16} /></button>
+          <button onClick={onClose} className="btn btn-ghost btn-circle btn-xs bg-base-300/50 text-base-content"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {err && <div className="bg-error/10 border border-error/30 text-error text-sm rounded-xl px-4 py-2 flex items-center gap-2"><AlertTriangle size={16} /> {err}</div>}
+          {err && (
+            <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-2 flex items-center gap-2 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse">
+              <AlertTriangle size={16} className="text-red-500 shrink-0" />
+              <span>{err}</span>
+            </div>
+          )}
+          
           {step === 1 && (
             <>
               <div>
-                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/50 mb-1">Name <span className="text-error">*</span></label>
-                <input autoFocus className="input input-bordered input-sm w-full rounded-xl font-medium" placeholder="e.g. Pune Cyclists Club" maxLength={60}
+                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/80 mb-1">Name <span className="text-error">*</span></label>
+                <input autoFocus className="input input-bordered input-sm w-full rounded-xl font-medium text-base-content" placeholder="e.g. Pune Cyclists Club" maxLength={60}
                   value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
-                <p className="text-[9px] font-bold opacity-30 mt-1 uppercase tracking-tighter">{form.name.length}/60 · min 3</p>
+                <p className="text-[9px] font-bold opacity-65 mt-1 uppercase tracking-tighter text-base-content">{form.name.length}/60 · min 3</p>
               </div>
+              
               <div>
-                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/50 mb-1">Image URL <span className="opacity-40 font-normal">(optional)</span></label>
-                <input className="input input-bordered input-sm w-full rounded-xl" placeholder="https://..."
-                  value={form.avatarUrl} onChange={e => setForm(f => ({ ...f, avatarUrl: e.target.value }))} />
-                <p className="text-[9px] font-bold opacity-40 mt-1 text-blue-700 uppercase tracking-tighter italic">Random robot avatar if blank</p>
+                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/80 mb-1.5">Community Avatar</label>
+                <div className="flex items-center gap-4 p-3 bg-base-200/50 rounded-2xl border border-base-300">
+                  <div className="avatar shrink-0">
+                    <div className="h-16 w-16 rounded-2xl overflow-hidden border-2 border-primary/20 shadow-md bg-base-300 relative flex items-center justify-center font-bold text-2xl text-blue-700 uppercase">
+                      {previewUrl ? (
+                        <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        (form.name?.[0] || "?").toUpperCase()
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="btn btn-xs bg-blue-700 text-white border-none hover:bg-blue-800 rounded-lg font-bold uppercase tracking-wider text-[9px] px-3 py-1.5 h-auto cursor-pointer"
+                      >
+                        Upload Pic
+                      </button>
+                      {previewUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedBlob(null);
+                            setPreviewUrl(null);
+                            if (fileInputRef.current) fileInputRef.current.value = "";
+                          }}
+                          className="btn btn-xs btn-ghost text-error rounded-lg font-bold uppercase tracking-wider text-[9px] px-3 py-1.5 h-auto cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[9px] opacity-65 mt-1.5 text-base-content">JPG, PNG, or WebP. Max 5MB.</p>
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                />
               </div>
+
               <div>
-                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/50 mb-1">Description <span className="text-error">*</span></label>
-                <textarea className="textarea textarea-bordered transition-all focus:textarea-primary w-full resize-none text-sm rounded-xl min-h-[80px]" rows={3} maxLength={500}
+                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/80 mb-1.5">Community Cover Image</label>
+                <div className="flex flex-col gap-3 p-3 bg-base-200/50 rounded-2xl border border-base-300">
+                  <div className="w-full h-24 rounded-xl overflow-hidden border border-base-300 shadow-sm relative bg-base-100 flex items-center justify-center">
+                    {coverPreviewUrl ? (
+                      <img src={coverPreviewUrl} alt="Cover Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-r from-blue-700/10 to-blue-500/5" />
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => coverFileInputRef.current?.click()}
+                        className="btn btn-xs bg-blue-700 text-white border-none hover:bg-blue-800 rounded-lg font-bold uppercase tracking-wider text-[9px] px-3 py-1.5 h-auto cursor-pointer"
+                      >
+                        Upload Cover
+                      </button>
+                      {coverPreviewUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCoverBlob(null);
+                            setCoverPreviewUrl(null);
+                            if (coverFileInputRef.current) coverFileInputRef.current.value = "";
+                          }}
+                          className="btn btn-xs btn-ghost text-error rounded-lg font-bold uppercase tracking-wider text-[9px] px-3 py-1.5 h-auto cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-[9px] opacity-65 text-base-content">JPG, PNG, or WebP. Max 5MB.</p>
+                  </div>
+                </div>
+                <input
+                  type="file"
+                  ref={coverFileInputRef}
+                  onChange={handleCoverUpload}
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/80 mb-1">Description <span className="text-error">*</span></label>
+                <textarea className="textarea textarea-bordered transition-all focus:textarea-primary w-full resize-none text-sm rounded-xl min-h-[80px] text-base-content" rows={3} maxLength={500}
                   placeholder="What's this community about?"
                   value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-                <p className="text-[9px] font-bold opacity-30 mt-1 uppercase tracking-tighter">{form.description.length}/500</p>
+                <p className="text-[9px] font-bold opacity-65 mt-1 uppercase tracking-tighter text-base-content">{form.description.length}/500</p>
               </div>
+              
               <div>
-                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/50 mb-2">Category</label>
+                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/80 mb-2">Category</label>
                 <div className="grid grid-cols-3 gap-1.5">
                   {CATS.map(cat => (
                     <button key={cat} type="button" onClick={() => setForm(f => ({ ...f, category: cat }))}
-                      className={`rounded-xl border py-2 px-1 text-center transition-all duration-300 ${form.category === cat ? "border-blue-700 bg-blue-700/15 text-blue-700 scale-[1.02] shadow-sm" : "border-base-300 hover:border-base-400 opacity-60"}`}>
+                      className={`rounded-xl border py-2 px-1 text-center transition-all duration-300 cursor-pointer ${form.category === cat ? "border-red-500 bg-red-500/15 text-red-500 scale-[1.02] shadow-[0_0_15px_rgba(239,68,68,0.4)]" : "border-base-300 hover:border-base-400 opacity-90 text-base-content"}`}>
                       <div className="text-base mb-0.5">{CAT_ICON[cat]}</div>
                       <div className="text-[9px] font-black uppercase tracking-tighter leading-none">{cat.replace(/_/g, " ")}</div>
                     </button>
@@ -1585,28 +1984,28 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
           {step === 2 && (
             <>
               <div>
-                <label className="block text-sm font-semibold mb-2">Privacy</label>
+                <label className="block text-sm font-semibold mb-2 text-base-content">Privacy</label>
                 <div className="space-y-2">
                   {(["PUBLIC", "PRIVATE", "SECRET"] as const).map(p => (
                     <button key={p} type="button" onClick={() => setForm(f => ({ ...f, privacy: p }))}
-                      className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-all ${form.privacy === p ? "border-blue-700 bg-blue-700/5 shadow-sm scale-[1.01]" : "border-base-content/5 hover:border-base-content/10"}`}>
-                      <span className="text-xl opacity-60">{PRIV_ICON[p]}</span>
+                      className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-all cursor-pointer ${form.privacy === p ? "border-blue-700 bg-blue-700/5 shadow-sm scale-[1.01]" : "border-base-content/5 hover:border-base-content/10"}`}>
+                      <span className="text-xl opacity-80">{PRIV_ICON[p]}</span>
                       <div className="flex-1">
-                        <p className={`text-[11px] font-black uppercase tracking-tight ${form.privacy === p ? "text-blue-700" : "text-base-content/80"}`}>{p}</p>
-                        <p className="text-[9px] font-medium opacity-40 uppercase tracking-tighter leading-none">{PRIV_DESC[p]}</p>
+                        <p className={`text-[11px] font-black uppercase tracking-tight ${form.privacy === p ? "text-blue-700" : "text-base-content/95"}`}>{p}</p>
+                        <p className="text-[9px] font-medium opacity-65 uppercase tracking-tighter leading-none text-base-content">{PRIV_DESC[p]}</p>
                       </div>
-                      {form.privacy === p && <span className="text-blue-700 text-xs shadow-sm">✓</span>}
+                      {form.privacy === p && <span className="text-blue-700 text-xs shadow-sm"><Check size={14} /></span>}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/50 mb-1">Tags <span className="opacity-40 font-normal">(optional)</span></label>
-                <input className="input input-bordered input-sm w-full rounded-xl" placeholder="civic, roads, water"
+                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/80 mb-1">Tags <span className="opacity-65 font-normal">(optional)</span></label>
+                <input className="input input-bordered input-sm w-full rounded-xl text-base-content" placeholder="civic, roads, water"
                   value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
-                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/50 mb-1">Settings</label>
+                <label className="block text-[10px] uppercase font-black tracking-widest text-base-content/80 mb-1">Settings</label>
                 {[
                   { key: "allowMemberPosts", label: "Members can post", desc: "Allow anyone to create posts" },
                   { key: "requirePostApproval", label: "Approve posts", desc: "Moderator must review" },
@@ -1614,8 +2013,8 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
                 ].map(({ key, label, desc }) => (
                   <label key={key} className="flex items-center justify-between gap-3 rounded-xl border border-base-content/5 p-2 px-3 cursor-pointer hover:bg-base-200/50 transition-colors">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-black uppercase tracking-tight text-base-content/70 truncate">{label}</p>
-                      <p className="text-[9px] font-medium opacity-40 uppercase tracking-tighter leading-none">{desc}</p>
+                      <p className="text-[11px] font-black uppercase tracking-tight text-base-content/90 truncate">{label}</p>
+                      <p className="text-[9px] font-medium opacity-65 uppercase tracking-tighter leading-none text-base-content">{desc}</p>
                     </div>
                     <input type="checkbox" className="toggle toggle-primary toggle-sm scale-90"
                       checked={form[key as keyof CreateForm] as boolean}
@@ -1629,7 +2028,7 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
         <div className="shrink-0 px-6 py-4 border-t border-base-content/5 bg-white/5 flex gap-3">
           {step === 2 && (
             <button
-              className="btn btn-sm btn-ghost rounded-xl text-[11px] font-black uppercase tracking-widest flex-1"
+              className="btn btn-sm btn-ghost rounded-xl text-[11px] font-black uppercase tracking-widest flex-1 text-base-content cursor-pointer"
               onClick={() => setStep(1)}
               disabled={busy}
             >
@@ -1639,7 +2038,7 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
           {step === 1
             ? (
               <button
-                className={`btn btn-sm flex-1 rounded-xl text-white text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${!canNext ? "opacity-50" : "bg-blue-700 hover:bg-blue-800 shadow-lg shadow-blue-700/20"}`}
+                className={`btn btn-sm flex-1 rounded-xl text-white text-[11px] font-black uppercase tracking-widest transition-all duration-300 cursor-pointer ${!canNext ? "opacity-50" : "bg-blue-700 hover:bg-blue-800 shadow-lg shadow-blue-700/20"}`}
                 disabled={!canNext}
                 onClick={() => setStep(2)}
               >
@@ -1647,7 +2046,7 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
               </button>
             ) : (
               <button
-                className={`btn btn-sm flex-1 rounded-xl text-white text-[11px] font-black uppercase tracking-widest transition-all duration-300 ${busy ? "opacity-70" : "bg-blue-700 hover:bg-blue-800 shadow-lg shadow-blue-700/20"}`}
+                className={`btn btn-sm flex-1 rounded-xl text-white text-[11px] font-black uppercase tracking-widest transition-all duration-300 cursor-pointer ${busy ? "opacity-70" : "bg-blue-700 hover:bg-blue-800 shadow-lg shadow-blue-700/20"}`}
                 disabled={busy}
                 onClick={submit}
               >
@@ -1657,6 +2056,20 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
           }
         </div>
       </div>
+      {editorImageSrc && (
+        <div onClick={e => e.stopPropagation()}>
+          <ImageEditorModal
+            isOpen={editorOpen}
+            onClose={() => {
+              setEditorOpen(false);
+              setEditorImageSrc(null);
+              if (fileInputRef.current) fileInputRef.current.value = "";
+            }}
+            imageSrc={editorImageSrc}
+            onSave={handleEditorSave}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1671,7 +2084,7 @@ function DetailPanel({
 }: {
   community: CommunityData;
   onClose: () => void;
-  onMembershipChange: (id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean) => void;
+  onMembershipChange: (id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean, communityData?: CommunityData) => void;
 }) {
   const normalise = (raw: CommunityData): CommunityData =>
     raw.isOwner ? { ...raw, isMember: true } : raw;
@@ -1781,12 +2194,12 @@ function DetailPanel({
         const res = await fetch(apiUrl(`/api/communities/${c.id}/leave`), { method: "DELETE", headers: hdrs() });
         if (!res.ok) { alert((await res.json().catch(() => ({}))).message || "Could not leave."); return; }
         setC(p => ({ ...p, isMember: false, memberCount: p.memberCount - 1 }));
-        onMembershipChange(c.id, false, -1);
+        onMembershipChange(c.id, false, -1, false, { ...c, isMember: false, memberCount: c.memberCount - 1 });
       } else if (c.hasPendingRequest) {
         await fetch(apiUrl(`/api/communities/${c.id}/join-requests/me`), { method: "DELETE", headers: hdrs() });
         removePendingLocal(c.id);
         setC(p => ({ ...p, hasPendingRequest: false }));
-        onMembershipChange(c.id, false, 0, false);
+        onMembershipChange(c.id, false, 0, false, { ...c, hasPendingRequest: false });
       } else {
         const res = await fetch(apiUrl(`/api/communities/${c.id}/join`), { method: "POST", headers: hdrs(), body: JSON.stringify({}) });
         if (res.status === 401) { alert("Please log in."); return; }
@@ -1795,7 +2208,7 @@ function DetailPanel({
         if (newHasPending) addPendingLocal(c.id);
         else if (joined) removePendingLocal(c.id);
         setC(p => ({ ...p, isMember: joined, hasPendingRequest: newHasPending, memberCount: joined ? p.memberCount + 1 : p.memberCount }));
-        onMembershipChange(c.id, joined, joined ? 1 : 0, newHasPending);
+        onMembershipChange(c.id, joined, joined ? 1 : 0, newHasPending, { ...c, isMember: joined, hasPendingRequest: newHasPending, memberCount: joined ? c.memberCount + 1 : c.memberCount });
         
         // Cache the community if we successfully joined it
         if (joined) {
@@ -1827,9 +2240,24 @@ function DetailPanel({
           <button className="btn btn-ghost btn-sm gap-1" onClick={onClose}>← Back</button>
           {!c.isOwner
             ? <button
-              className={`btn btn-sm ${c.isMember ? "btn-ghost btn-outline" : c.hasPendingRequest ? "btn-warning btn-outline" : isSecret ? "btn-disabled" : "bg-blue-700 text-white font-semibold border-none hover:bg-blue-800"}`}
+              className={`btn btn-sm flex items-center gap-1.5 ${c.isMember ? "btn-ghost btn-outline" : c.hasPendingRequest ? "btn-warning btn-outline" : isSecret ? "btn-disabled" : "bg-blue-700 text-white font-semibold border-none hover:bg-blue-800"}`}
               onClick={toggleMembership} disabled={acting || isSecret}>
-              {acting ? <Spin xs /> : c.isMember ? "Leave" : c.hasPendingRequest ? "⏳ Pending · Cancel" : isSecret ? "Invite Only" : c.privacy === "PRIVATE" ? "Request to Join" : "Join Community"}
+              {acting ? (
+                <Spin xs />
+              ) : c.isMember ? (
+                "Leave"
+              ) : c.hasPendingRequest ? (
+                <>
+                  <Clock size={14} />
+                  <span>Pending · Cancel</span>
+                </>
+              ) : isSecret ? (
+                "Invite Only"
+              ) : c.privacy === "PRIVATE" ? (
+                "Request to Join"
+              ) : (
+                "Join Community"
+              )}
             </button>
             : <div className="flex items-center gap-2">
               <span className="badge badge-warning gap-1.5 font-bold py-3"><Crown size={14} /> Owner</span>
@@ -1839,7 +2267,15 @@ function DetailPanel({
 
         <div className="flex-1 overflow-y-auto">
           <div className="p-4 space-y-4">
-            <CommunityHeader community={c} acting={acting} onJoinClick={toggleMembership} />
+            <CommunityHeader
+              community={c}
+              acting={acting}
+              onJoinClick={toggleMembership}
+              onImageUploaded={(type, url) => {
+                setC(prev => ({ ...prev, [type === "avatar" ? "avatarUrl" : "coverImageUrl"]: url }));
+                onMembershipChange(c.id, c.isMember ?? false, 0, c.hasPendingRequest, { ...c, [type === "avatar" ? "avatarUrl" : "coverImageUrl"]: url });
+              }}
+            />
             <CommunityTabs active={tab} onChange={setTab} />
 
             {tab === "posts" && (
@@ -1875,18 +2311,20 @@ function DetailPanel({
                       <span className="text-sm font-semibold opacity-80">Feed</span>
                       <div className="flex bg-base-200 rounded-lg p-0.5 border border-base-300">
                         <button
-                          className={`btn btn-xs rounded-md border-none ${postSort === "NEW" ? "bg-base-100 shadow-sm text-base-content" : "btn-ghost text-base-content/60"}`}
+                          className={`btn btn-xs rounded-md border-none flex items-center gap-1 ${postSort === "NEW" ? "bg-base-100 shadow-sm text-base-content" : "btn-ghost text-base-content/60"}`}
                           onClick={() => setPostSort("NEW")}
                           disabled={loading}
                         >
-                          ✨ New
+                          <Sparkles size={12} className="text-amber-500" />
+                          <span>New</span>
                         </button>
                         <button
-                          className={`btn btn-xs rounded-md border-none ${postSort === "TOP" ? "bg-base-100 shadow-sm text-base-content" : "btn-ghost text-base-content/60"}`}
+                          className={`btn btn-xs rounded-md border-none flex items-center gap-1 ${postSort === "TOP" ? "bg-base-100 shadow-sm text-base-content" : "btn-ghost text-base-content/60"}`}
                           onClick={() => setPostSort("TOP")}
                           disabled={loading}
                         >
-                          🔥 Trending
+                          <Flame size={12} className="text-orange-500" />
+                          <span>Trending</span>
                         </button>
                       </div>
                     </div>
@@ -2573,14 +3011,46 @@ const Community = () => {
     if (t) doSearch(t, null, true);
   }
 
-  function syncMembership(id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean) {
+  function syncMembership(id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean, communityData?: CommunityData) {
     const upd = (c: CommunityData): CommunityData => c.id === id ? { ...c, isMember, memberCount: c.memberCount + delta, hasPendingRequest: hasPendingRequest ?? c.hasPendingRequest } : c;
     setSearchResults(p => p.map(upd));
+    setRecommended(p => p.map(upd));
+    setSelected(prev => prev && prev.id === id ? { ...prev, isMember, memberCount: prev.memberCount + delta, hasPendingRequest: hasPendingRequest ?? prev.hasPendingRequest } : prev);
     setMyCommunities(p => {
       const e = p.some(c => c.id === id);
-      if (e) return p.map(upd);
-      const f = searchResults.find(c => c.id === id);
-      return f ? [...p, { ...f, isMember: isMember, memberCount: f.memberCount + delta, hasPendingRequest }] : p;
+      if (e) {
+        if (!isMember && !hasPendingRequest) {
+          const item = p.find(c => c.id === id);
+          if (item && !item.isOwner) {
+            return p.filter(c => c.id !== id);
+          }
+        }
+        return p.map(upd);
+      }
+      const f = communityData ||
+                searchResults.find(c => c.id === id) ||
+                recommended.find(c => c.id === id) ||
+                (selected && selected.id === id ? selected : null);
+      if (f) {
+        const normalized: CommunityData = {
+          id: f.id,
+          name: f.name || "",
+          slug: f.slug || String(f.id),
+          description: f.description || "",
+          category: f.category || "General",
+          privacy: f.privacy || "PUBLIC",
+          avatarUrl: f.avatarUrl || null,
+          coverImageUrl: f.coverImageUrl || null,
+          memberCount: f.memberCount + delta,
+          postCount: f.postCount ?? 0,
+          isMember: isMember,
+          isOwner: f.isOwner ?? false,
+          createdAt: f.createdAt ?? new Date().toISOString(),
+          hasPendingRequest: hasPendingRequest ?? false
+        };
+        return [...p, normalized];
+      }
+      return p;
     });
   }
 
@@ -2635,7 +3105,7 @@ const Community = () => {
                 {suggestions.map(c => (
                   <button key={c.id} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-base-200 text-left transition-colors"
                     onMouseDown={e => { e.preventDefault(); commitSearch(c.name); }}>
-                    <span className="text-[#1D4ED8] shrink-0"><Home size={18} /></span>
+                    <span className="text-[#1D4ED8] dark:text-white shrink-0"><Users size={18} /></span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{highlight(c.name, query)}</p>
                       {c.description && <p className="text-xs opacity-50 truncate">{c.description}</p>}

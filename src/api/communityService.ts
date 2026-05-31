@@ -36,5 +36,15 @@ export const communityService = {
       `/api/communities/${communityId}/join-requests/${requestId}/${approve ? "approve" : "reject"}`
     );
     return response.data;
+  },
+
+  uploadCommunityImage: async (id: number, file: File, type: "avatar" | "cover" = "avatar") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("type", type);
+    const response = await axiosInstance.post(`/api/communities/${id}/image`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
   }
 };
