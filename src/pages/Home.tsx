@@ -375,6 +375,16 @@ const Home = () => {
                 onShare={handleShare}
                 onComment={handleComment}
                 onDelete={handleDelete}
+                onResolve={(id, resolved, message) => {
+                  updatePost(id, {
+                    status: resolved ? "RESOLVED" : "ACTIVE",
+                    isResolved: resolved,
+                    resolutionMessage: resolved ? message : undefined,
+                    reopened: !resolved,
+                    isReopened: !resolved,
+                    reopenedReason: !resolved ? message : undefined,
+                  } as Partial<AnyPost>);
+                }}
               />
             </div>
           ))

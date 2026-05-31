@@ -30,6 +30,43 @@ import { apiUrl } from "../utils/apiUrl";
 import { communityService } from "../api/communityService";
 import { showToast } from "../utils/toast";
 
+/* ────────────────────────────────────────────────────────────────────────────
+   useBackNavigation – intercept the browser/hardware back button so it
+   closes the overlay instead of navigating away from the page.
+   ──────────────────────────────────────────────────────────────────────────── */
+function useBackNavigation(onClose: () => void) {
+  const closedByUI = useRef(false);
+
+  useEffect(() => {
+    // Push a marker state so pressing back lands here first
+    window.history.pushState({ overlay: true }, "");
+
+    const handlePop = () => {
+      // Browser back was pressed — close the overlay
+      onClose();
+    };
+
+    window.addEventListener("popstate", handlePop);
+    return () => {
+      window.removeEventListener("popstate", handlePop);
+      // If the component unmounted because the UI closed it (not back-nav),
+      // we need to remove the extra history entry we pushed.
+      if (!closedByUI.current) return;
+      // go back to consume the pushed state
+      window.history.go(-1);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Call this instead of onClose() when the user presses the UI close button */
+  const closeViaUI = useCallback(() => {
+    closedByUI.current = true;
+    onClose();
+  }, [onClose]);
+
+  return { closeViaUI };
+}
+
 
 /* ════════════════════════════════════════════════════════════════════════════
    TYPES & CONSTANTS
@@ -969,6 +1006,7 @@ function AdminPanel({
   onCommunityUpdated: (c: CommunityData) => void;
   onMembershipChange?: (id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean) => void;
 }) {
+  const { closeViaUI } = useBackNavigation(onClose);
   const [tab, setTab] = useState<AdminTab>("requests");
   const [c, setC] = useState(community);
 
@@ -1307,7 +1345,7 @@ function AdminPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
+    <div className="fixed inset-0 z-[110] flex" onClick={closeViaUI}>
       <div className="absolute inset-0 bg-black/60" />
       <div
         className="relative ml-auto w-full max-w-lg h-full bg-base-100 flex flex-col shadow-2xl"
@@ -1318,17 +1356,17 @@ function AdminPanel({
 
         <div className="shrink-0 px-4 py-3 border-b border-base-300 bg-base-100">
           <div className="flex items-center justify-between mb-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <Settings size={18} className="text-base-content/70" />
-                <h2 className="font-bold text-base truncate max-w-[220px]">{c.name}</h2>
+            <button onClick={closeViaUI} className="btn btn-ghost btn-sm gap-1 -ml-2 shrink-0"><ChevronLeft size={18} /> Back</button>
+            <div className="text-right">
+              <div className="flex items-center justify-end gap-2">
                 <span className="badge badge-warning badge-xs">Admin</span>
+                <h2 className="font-bold text-sm truncate max-w-[160px]">{c.name}</h2>
+                <Settings size={14} className="text-base-content/70 shrink-0" />
               </div>
               <p className="text-xs opacity-50 mt-0.5">
                 {c.memberCount} members · {c.privacy.toLowerCase()} community
               </p>
             </div>
-            <button onClick={onClose} className="btn btn-ghost btn-sm btn-circle"><X size={18} /></button>
           </div>
           <div className="flex gap-1">
             {TABS.map(t => (
@@ -1706,6 +1744,7 @@ function AdminPanel({
    CREATE COMMUNITY MODAL
 ════════════════════════════════════════════════════════════════════════════ */
 function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: CommunityData) => void }) {
+  const { closeViaUI } = useBackNavigation(onClose);
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState<CreateForm>({
     name: "", description: "", category: "OTHER", tags: "",
@@ -1836,21 +1875,20 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-transparent backdrop-blur-xl p-0 sm:p-4" onClick={onClose}>
-      <div className="w-full sm:max-w-md bg-base-100/80 rounded-t-[2.5rem] sm:rounded-[2rem] border border-white/20 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.3)] max-h-[94vh] flex flex-col overflow-hidden backdrop-blur-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-center pt-3 sm:hidden"><div className="w-10 h-1 rounded-full bg-base-300" /></div>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-base-content/5 shrink-0">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={closeViaUI}>
+      <div className="w-full max-w-sm bg-base-100/95 rounded-2xl border border-white/10 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.4)] max-h-[85vh] flex flex-col overflow-hidden backdrop-blur-2xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-base-content/5 shrink-0">
           <div>
-            <h2 className="font-black text-lg uppercase tracking-tight flex items-center gap-2 text-base-content">
-              <Plus size={16} className="text-blue-700" /> Community
+            <h2 className="font-black text-base uppercase tracking-tight flex items-center gap-2 text-base-content">
+              <Plus size={15} className="text-blue-700" /> Community
             </h2>
-            <div className="flex gap-1 mt-2">
-              {[1, 2].map(s => <div key={s} className={`h-1 w-6 rounded-full transition-all duration-500 ${step >= s ? "bg-blue-700 w-10" : "bg-base-300"}`} />)}
+            <div className="flex gap-1 mt-1.5">
+              {[1, 2].map(s => <div key={s} className={`h-1 w-5 rounded-full transition-all duration-500 ${step >= s ? "bg-blue-700 w-8" : "bg-base-300"}`} />)}
             </div>
           </div>
-          <button onClick={onClose} className="btn btn-ghost btn-circle btn-xs bg-base-300/50 text-base-content"><X size={16} /></button>
+          <button onClick={closeViaUI} className="btn btn-ghost btn-circle btn-sm text-base-content/60 hover:text-base-content hover:bg-base-300/50"><X size={18} /></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {err && (
             <div className="bg-red-500/10 border border-red-500/30 text-red-400 text-sm rounded-xl px-4 py-2 flex items-center gap-2 shadow-[0_0_15px_rgba(239,68,68,0.4)] animate-pulse">
               <AlertTriangle size={16} className="text-red-500 shrink-0" />
@@ -2025,7 +2063,7 @@ function CreateModal({ onClose, onDone }: { onClose: () => void; onDone: (c: Com
             </>
           )}
         </div>
-        <div className="shrink-0 px-6 py-4 border-t border-base-content/5 bg-white/5 flex gap-3">
+        <div className="shrink-0 px-4 py-3 border-t border-base-content/5 bg-white/5 flex gap-3">
           {step === 2 && (
             <button
               className="btn btn-sm btn-ghost rounded-xl text-[11px] font-black uppercase tracking-widest flex-1 text-base-content cursor-pointer"
@@ -2086,6 +2124,7 @@ function DetailPanel({
   onClose: () => void;
   onMembershipChange: (id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean, communityData?: CommunityData) => void;
 }) {
+  const { closeViaUI } = useBackNavigation(onClose);
   const normalise = (raw: CommunityData): CommunityData =>
     raw.isOwner ? { ...raw, isMember: true } : raw;
 
@@ -2231,13 +2270,13 @@ function DetailPanel({
   const canViewPosts = c.isMember || c.isOwner || c.privacy === "PUBLIC";
 
   return (
-    <div className="fixed inset-0 z-40 flex" onClick={onClose}>
+    <div className="fixed inset-0 z-[110] flex" onClick={closeViaUI}>
       <div className="absolute inset-0 bg-black/60" />
       <div className="relative ml-auto w-full max-w-xl h-full bg-base-100 flex flex-col shadow-2xl overflow-hidden"
         style={{ animation: "slideR .22s ease-out" }} onClick={e => e.stopPropagation()}>
 
         <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-base-300">
-          <button className="btn btn-ghost btn-sm gap-1" onClick={onClose}>← Back</button>
+          <button className="btn btn-ghost btn-sm gap-1" onClick={closeViaUI}><ChevronLeft size={18} /> Back</button>
           {!c.isOwner
             ? <button
               className={`btn btn-sm flex items-center gap-1.5 ${c.isMember ? "btn-ghost btn-outline" : c.hasPendingRequest ? "btn-warning btn-outline" : isSecret ? "btn-disabled" : "bg-blue-700 text-white font-semibold border-none hover:bg-blue-800"}`}
@@ -3121,7 +3160,7 @@ const Community = () => {
       </div>
 
       {!isSearching && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => setView(v => v === "joined" ? "default" : "joined")}
             className={`btn btn-sm rounded-full gap-1.5 transition-all ${view === "joined" ? "bg-[#1D4ED8] text-white font-semibold border-none hover:bg-[#1D4ED8]/90" : "btn-ghost border border-base-300 hover:border-[#1D4ED8]/50"}`}
@@ -3146,6 +3185,13 @@ const Community = () => {
             {ownedList.length > 0 && (
               <span className={`badge badge-xs ${view === "owned" ? "badge-warning-content bg-white/30" : "badge-ghost"}`}>{ownedList.length}</span>
             )}
+          </button>
+          <button
+            onClick={() => setView("default")}
+            className={`btn btn-sm rounded-full gap-1.5 transition-all ${view === "default" ? "bg-emerald-600 text-white font-semibold border-none hover:bg-emerald-700" : "btn-ghost border border-base-300 hover:border-emerald-500/50"}`}
+          >
+            <Sparkles size={13} />
+            Recommended
           </button>
         </div>
       )}

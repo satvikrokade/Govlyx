@@ -119,14 +119,18 @@ const IssueCard = ({
 
         {/* Status badge */}
         <span
-          className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider
+          className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border
             ${post.isResolved
-              ? "bg-success/10 text-success"
-              : "bg-amber-400/10 text-amber-500"
+              ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
+              : (post.isReopened || post.reopened)
+                ? "bg-red-500/10 text-red-500 border-red-500/20 shadow-[0_0_8px_rgba(239,68,68,0.25)] animate-pulse"
+                : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
             }`}
         >
           {post.isResolved ? (
             <><CheckCircle2 size={11} /> Resolved</>
+          ) : (post.isReopened || post.reopened) ? (
+            <><AlertCircle size={11} className="text-red-500" /> Reopened</>
           ) : (
             <><Clock size={11} /> Pending</>
           )}
@@ -143,11 +147,11 @@ const IssueCard = ({
         </span>
       )}
 
-      {/* Resolution message (if resolved) */}
-      {post.isResolved && post.resolutionMessage && (
+      {/* Resolution message (if resolved or has past response) */}
+      {(post.isResolved || post.isReopened || post.reopened) && post.resolutionMessage && (
         <div className="mb-3 rounded-xl bg-success/5 border border-success/20 px-4 py-3">
           <p className="text-[11px] font-semibold text-success mb-1 uppercase tracking-wide">
-            Official Response
+            {post.isResolved ? "Official Response" : "Previous Official Response"}
           </p>
           <p className="text-xs leading-relaxed opacity-70">{post.resolutionMessage}</p>
           {post.resolvedAt && (
@@ -156,6 +160,18 @@ const IssueCard = ({
               {post.resolvedByUsername ? ` by @${post.resolvedByUsername}` : ""}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Reopened context */}
+      {(post.isReopened || post.reopened) && (post.reopenedReason || post.reopenReason) && (
+        <div className="mb-3 rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3 shadow-[0_0_8px_rgba(239,68,68,0.05)]">
+          <p className="text-[11px] font-semibold text-red-500 mb-1 uppercase tracking-wide flex items-center gap-1">
+            <AlertCircle size={12} className="text-red-500" /> Reason for Reopening
+          </p>
+          <p className="text-xs leading-relaxed text-base-content/90 font-medium">
+            {post.reopenedReason || post.reopenReason}
+          </p>
         </div>
       )}
 

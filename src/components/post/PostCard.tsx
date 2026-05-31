@@ -138,6 +138,10 @@ export type IssuePost = BasePost & {
   isLikedByCurrentUser?: boolean;
   isDislikedByCurrentUser?: boolean;
   isSaved?: boolean;
+  isReopened?: boolean;
+  reopened?: boolean;
+  reopenReason?: string | null;
+  reopenedReason?: string | null;
 };
 
 export type SocialPost = BasePost & {
@@ -619,15 +623,25 @@ function AuthorRow({
 }
 
 // ─── Status Badge ───────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: PostStatus }) {
+function StatusBadge({ status, reopened }: { status: PostStatus; reopened?: boolean }) {
   if (status === "RESOLVED")
     return (
       <motion.span
         initial={{ scale: 0, rotate: -90 }}
         animate={{ scale: 1, rotate: 0 }}
-        className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 px-3 py-1.5 text-xs font-semibold text-emerald-700 border border-emerald-200"
+        className="inline-flex items-center gap-1 rounded-lg bg-blue-500/10 px-3 py-1.5 text-xs font-semibold text-blue-600 dark:text-blue-400 border border-blue-500/20 shadow-[0_0_8px_rgba(59,130,246,0.1)]"
       >
         <CheckCircle2 size={13} /> Resolved
+      </motion.span>
+    );
+  if (reopened)
+    return (
+      <motion.span
+        initial={{ scale: 0, rotate: -90 }}
+        animate={{ scale: 1, rotate: 0 }}
+        className="inline-flex items-center gap-1 rounded-lg bg-red-500/10 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 border border-red-500/20 shadow-[0_0_8px_rgba(239,68,68,0.1)] animate-pulse"
+      >
+        <AlertCircle size={13} className="text-red-500" /> Reopened
       </motion.span>
     );
   if (status === "ACTIVE")
@@ -635,7 +649,7 @@ function StatusBadge({ status }: { status: PostStatus }) {
       <motion.span
         initial={{ scale: 0, rotate: -90 }}
         animate={{ scale: 1, rotate: 0 }}
-        className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-3 py-1.5 text-xs font-semibold text-amber-700 border border-amber-200"
+        className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shadow-[0_0_8px_rgba(16,185,129,0.1)]"
       >
         <Clock size={13} /> Active
       </motion.span>
@@ -720,6 +734,92 @@ function ResolveModal({
                 className="px-4 py-2 rounded-lg font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-emerald-600/30"
               >
                 Confirm
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+// ─── Reopen Modal ───────────────────────────────────────────────────────────
+function ReopenModal({
+  isOpen,
+  onClose,
+  onConfirm,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState("");
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+          onClick={onClose}
+        >
+          <motion.div
+            initial={{ scale: 0.95, y: 10, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.95, y: 10, opacity: 0 }}
+            className="w-full max-w-sm rounded-2xl border border-base-300 bg-base-100 p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <motion.h3
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-2 flex items-center gap-2 text-lg font-bold text-base-content"
+            >
+              <AlertCircle size={20} className="text-red-600 animate-pulse" />
+              Reopen Resolved Issue
+            </motion.h3>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.1 }}
+              className="mb-4 text-sm text-base-content/70 font-medium"
+            >
+              Are you sure you want to reopen this issue? Please provide a reason.
+            </motion.p>
+            <motion.textarea
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="w-full p-3 rounded-lg border border-base-300 bg-base-100 focus:border-red-500 focus:ring-2 focus:ring-red-200 resize-none text-sm font-medium placeholder-base-content/40 transition-all text-base-content"
+              rows={4}
+              placeholder="Provide a reason why the resolution is insufficient…"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+            />
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="mt-5 flex justify-end gap-3"
+            >
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={onClose}
+                className="px-4 py-2 rounded-lg font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                disabled={!reason.trim()}
+                onClick={() => onConfirm(reason.trim())}
+                className="px-4 py-2 rounded-lg font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-red-600/30"
+              >
+                Reopen
               </motion.button>
             </motion.div>
           </motion.div>
@@ -1014,8 +1114,10 @@ export default function PostCard({
   const [commentCount, setCommentCount] = useState(post?.commentCount ?? 0);
   const [hasSharedLocally, setHasSharedLocally] = useState(false);
   const [resolveOpen, setResolveOpen] = useState(false);
+  const [reopenOpen, setReopenOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [isJoined, setIsJoined] = useState((post as any).isMember ?? false);
@@ -1130,7 +1232,7 @@ export default function PostCard({
     (post as IssuePost).status === "ACTIVE" &&
     canUpdateResolution(post as IssuePost, currentUser);
 
-  const showStatusBadge = isIssue && canUpdateResolution(post as IssuePost, currentUser);
+  const showStatusBadge = isIssue;
 
   const postHasCommunity = isCommunityPost(post);
 
@@ -1316,6 +1418,25 @@ export default function PostCard({
     }
   }
 
+  async function handleReopenConfirm(reason: string) {
+    if (checkProfanity(reason)) {
+      showToast.error("Content contains prohibited language/profanity. Please check your words.");
+      return;
+    }
+    setReopening(true);
+    try {
+      await apiPut(`/api/posts/${post.id}/reopen`, { reason });
+      setReopenOpen(false);
+      onResolve?.(post.id, false, reason);
+      showToast.success("Issue reopened successfully!");
+    } catch (err) {
+      console.error("Reopen error:", err);
+      showToast.error(parseError(err));
+    } finally {
+      setReopening(false);
+    }
+  }
+
   async function handleDelete() {
     setIsDeleting(true);
     try {
@@ -1457,7 +1578,7 @@ export default function PostCard({
                 scope={"broadcastScope" in post ? (post as IssuePost).broadcastScope : undefined}
                 desc={"broadcastScopeDescription" in post ? (post as IssuePost).broadcastScopeDescription : undefined}
               />
-              {showStatusBadge && <StatusBadge status={(post as IssuePost).status} />}
+              {showStatusBadge && <StatusBadge status={(post as IssuePost).status} reopened={(post as IssuePost).reopened || (post as IssuePost).isReopened} />}
             </motion.div>
           )}
 
@@ -1557,8 +1678,31 @@ export default function PostCard({
               )}
 
               {isResolved && (
-                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center gap-2 text-xs font-bold text-emerald-600">
-                  <CheckCircle2 size={14} /> Issue resolved
+                <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-between gap-2 text-xs font-bold text-blue-600 dark:text-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.05)]">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} className="text-blue-500" /> Issue resolved
+                  </div>
+                  {currentUser && post.username === currentUser.username && (
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      disabled={reopening}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReopenOpen(true);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-red-600 text-white font-semibold text-[11px] hover:bg-red-700 transition-colors shadow-sm cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                    >
+                      {reopening && <span className="loading loading-spinner loading-xs" />}
+                      Reopen Issue
+                    </motion.button>
+                  )}
+                </div>
+              )}
+
+              {((post as IssuePost).reopened || (post as IssuePost).isReopened) && !isResolved && (
+                <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center gap-2 text-xs font-bold text-red-600 dark:text-red-400">
+                  <AlertCircle size={14} className="text-red-500" /> Issue Reopened: {((post as IssuePost).reopenedReason || (post as IssuePost).reopenReason) ?? "Reason not specified"}
                 </div>
               )}
 
@@ -1648,6 +1792,12 @@ export default function PostCard({
         isOpen={resolveOpen}
         onClose={() => setResolveOpen(false)}
         onConfirm={handleResolveConfirm}
+      />
+
+      <ReopenModal
+        isOpen={reopenOpen}
+        onClose={() => setReopenOpen(false)}
+        onConfirm={handleReopenConfirm}
       />
 
       <ShareModal

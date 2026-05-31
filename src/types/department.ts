@@ -24,6 +24,10 @@ export interface TaggedPost {
   resolutionMessage?: string | null;
   resolvedAt?: string | null;
   resolvedByUsername?: string | null;
+  isReopened?: boolean;
+  reopened?: boolean;
+  reopenReason?: string | null;
+  reopenedReason?: string | null;
 
   // Timestamps
   createdAt?: string;

@@ -119,6 +119,17 @@ const PostDetail: React.FC = () => {
           onDelete={() => {
             navigate("/", { replace: true });
           }}
+          onResolve={(resolveId, resolved, message) => {
+            setPost(prev => prev && prev.id === resolveId ? {
+              ...prev,
+              status: resolved ? "RESOLVED" : "ACTIVE",
+              isResolved: resolved,
+              resolutionMessage: resolved ? message : undefined,
+              reopened: !resolved,
+              isReopened: !resolved,
+              reopenedReason: !resolved ? message : undefined,
+            } as any : prev);
+          }}
         />
       </div>
     </div>

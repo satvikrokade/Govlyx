@@ -204,6 +204,66 @@ const Profile = () => {
     }
   };
 
+  const handleResolve = (id: number, resolved: boolean, message: string) => {
+    const updateList = (prev: AnyPost[]) =>
+      prev.map((p) => {
+        if (p.id === id && p.variant === "issue") {
+          return {
+            ...p,
+            status: resolved ? "RESOLVED" : "ACTIVE",
+            isResolved: resolved,
+            resolutionMessage: resolved ? message : (p as any).resolutionMessage,
+            reopened: !resolved,
+            isReopened: !resolved,
+            reopenedReason: !resolved ? message : (p as any).reopenedReason,
+          } as any as AnyPost;
+        }
+        return p;
+      });
+
+    setAllPosts(updateList);
+    setActivePosts((prev) => {
+      const updated = updateList(prev);
+      if (resolved) {
+        return updated.filter((p) => p.id !== id);
+      } else {
+        const exists = updated.some((p) => p.id === id);
+        if (exists) return updated;
+        const postFromAll = allPosts.find((p) => p.id === id);
+        if (postFromAll) {
+          return [...updated, {
+            ...postFromAll,
+            status: "ACTIVE",
+            isResolved: false,
+            reopened: true,
+            isReopened: true,
+            reopenedReason: message,
+          } as any as AnyPost];
+        }
+        return updated;
+      }
+    });
+    setResolvedPosts((prev) => {
+      const updated = updateList(prev);
+      if (!resolved) {
+        return updated.filter((p) => p.id !== id);
+      } else {
+        const exists = updated.some((p) => p.id === id);
+        if (exists) return updated;
+        const postFromAll = allPosts.find((p) => p.id === id);
+        if (postFromAll) {
+          return [...updated, {
+            ...postFromAll,
+            status: "RESOLVED",
+            isResolved: true,
+            resolutionMessage: message,
+          } as any as AnyPost];
+        }
+        return updated;
+      }
+    });
+  };
+
   const [username, setUsername] = useState<string>("...");
   const [memberSince, setMemberSince] = useState("");
   const [location, setLocation] = useState("India");
@@ -552,6 +612,7 @@ const Profile = () => {
                 post={p} 
                 currentUser={currentUser} 
                 onDelete={(id) => handleDelete('posts', id)} 
+                onResolve={handleResolve}
               />
             ))
           )}
@@ -606,6 +667,7 @@ const Profile = () => {
                 post={post}
                 currentUser={currentUser}
                 hideDelete={true}
+                onResolve={handleResolve}
               />
             ))
           )}
