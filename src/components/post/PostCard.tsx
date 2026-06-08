@@ -1132,7 +1132,36 @@ export default function PostCard({
   const [reportOpen, setReportOpen] = useState(false);
   // Translation toggle — when true shows the original untranslated text
   const [showOriginal, setShowOriginal] = useState(false);
+  const [dynamicTranslation, setDynamicTranslation] = useState<string | null>(null);
+  const [isTranslating, setIsTranslating] = useState(false);
   const { copied, flash } = useCopied();
+
+  const handleTranslateDynamic = async () => {
+    if (dynamicTranslation) {
+      setShowOriginal((v) => !v);
+      return;
+    }
+    setIsTranslating(true);
+    try {
+      const res = await fetch(
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(post.content || "")}`
+      );
+      if (!res.ok) throw new Error("Translation request failed");
+      const data = await res.json();
+      if (Array.isArray(data) && data[0]) {
+        const translatedText = data[0].map((item: any) => item[0]).join("");
+        setDynamicTranslation(translatedText);
+        setShowOriginal(false);
+      } else {
+        throw new Error("Invalid response format");
+      }
+    } catch (err) {
+      console.error("Translation failed", err);
+      showToast.error("Failed to translate post. Please try again.");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
 
   // Synced backend states to resolve optimistic updates on network errors / debouncing
   const syncedLikedRef = useRef(!!(post as AnyPost)?.isLikedByCurrentUser);
@@ -1188,6 +1217,8 @@ export default function PostCard({
       setIsJoined((post as any).isMember ?? false);
       setCommentCount(post.commentCount ?? 0);
       setIsContentRevealed(false);
+      setDynamicTranslation(null);
+      setShowOriginal(false);
     }
   }, [post]);
 
@@ -1626,14 +1657,15 @@ export default function PostCard({
 
             {/* Determine which text to display based on translation state */}
             {(() => {
-              const hasTranslation = !!(post as BasePost).isTranslated && !!(post as BasePost).translatedContent;
+              const hasBackendTranslation = !!(post as BasePost).isTranslated && !!(post as BasePost).translatedContent;
+              const hasTranslation = hasBackendTranslation || !!dynamicTranslation;
               const displayText = hasTranslation && !showOriginal
-                ? (post as BasePost).translatedContent!
+                ? (dynamicTranslation || (post as BasePost).translatedContent!)
                 : post.content;
               return (
                 <>
-                  {/* Translation badge */}
-                  {hasTranslation && (
+                  {/* Translation badge / Translate button */}
+                  {hasTranslation ? (
                     <div className="flex items-center gap-1.5 mb-1">
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-500/80 bg-blue-500/8 border border-blue-500/15 rounded-full px-2 py-0.5">
                         <Globe size={10} /> Translated
@@ -1643,6 +1675,25 @@ export default function PostCard({
                         className="text-[10px] font-bold text-base-content/40 hover:text-base-content/70 transition-colors underline-offset-2 hover:underline"
                       >
                         {showOriginal ? "See Translation" : "See Original"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center mb-1">
+                      <button
+                        disabled={isTranslating}
+                        onClick={(e) => { e.stopPropagation(); handleTranslateDynamic(); }}
+                        className="inline-flex items-center gap-1 text-[10px] font-bold text-base-content/40 hover:text-blue-500 transition-colors hover:underline disabled:opacity-50"
+                      >
+                        {isTranslating ? (
+                          <>
+                            <span className="loading loading-spinner w-3 h-3 shrink-0" />
+                            Translating...
+                          </>
+                        ) : (
+                          <>
+                            <Globe size={10} /> Translate
+                          </>
+                        )}
                       </button>
                     </div>
                   )}

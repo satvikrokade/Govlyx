@@ -145,9 +145,13 @@ const NewsWidgetCard = () => {
   const [loading, setLoading] = useState(false);
 
   const fetchNews = async () => {
+    const apiKey = import.meta.env.VITE_NEWS_API_KEY;
+    if (!apiKey) {
+      setArticles(getRandomFallbackNews());
+      return;
+    }
     setLoading(true);
     try {
-      const apiKey = "317ca04ba4c6425b99b4402122ec53eb";
       const res = await fetch(`https://newsapi.org/v2/top-headlines?country=in&category=technology&apiKey=${apiKey}`);
       const data = await res.json();
       if (data.status === "ok" && Array.isArray(data.articles) && data.articles.length > 0) {
