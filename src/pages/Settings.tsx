@@ -10,6 +10,7 @@ import axiosInstance from "../api/axiosConfig";
 import { useCurrentUser } from "../hooks/useUser";
 import { clearAuthTokens } from "../utils/auth";
 import ImageEditorModal from "../components/modals/ImageEditorModal";
+import { useLanguage, type LangCode, SUPPORTED_LANGUAGES } from "../context/LanguageContext";
 
 // ─── Inline Toast ──────────────────────────────────────────────────────────────
 function InlineToast({
@@ -136,6 +137,7 @@ const Settings = () => {
   const [pincode, setPincode] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("en");
   const [autoTranslate, setAutoTranslate] = useState(false);
+  const { setLanguage: setGlobalLanguage } = useLanguage();
   const [profanityFilterLevel, setProfanityFilterLevel] = useState("STRICT");
   const [mutedWords, setMutedWords] = useState("");
   const [saving, setSaving] = useState(false);
@@ -172,6 +174,11 @@ const Settings = () => {
     setAutoTranslate(u.autoTranslate || false);
     setProfanityFilterLevel(u.profanityFilterLevel || "STRICT");
     setMutedWords(u.mutedWords || "");
+    // Sync global language from user profile
+    const savedLang = localStorage.getItem("govlyx_ui_language");
+    if (!savedLang) {
+      setGlobalLanguage((u.preferredLanguage || "en") as LangCode);
+    }
   }, [user]);
 
   // ── Scenario B Hooks & Methods ──
@@ -500,15 +507,17 @@ const Settings = () => {
               className="select select-bordered select-sm text-sm"
               value={preferredLanguage}
               onChange={(e) => {
-                setPreferredLanguage(e.target.value);
+                const lang = e.target.value as LangCode;
+                setPreferredLanguage(lang);
+                setGlobalLanguage(lang);
                 setEditField("localization");
               }}
             >
-              <option value="en">English</option>
-              <option value="hi">Hindi (हिंदी)</option>
-              <option value="mr">Marathi (मराठी)</option>
-              <option value="te">Telugu (తెలుగు)</option>
-              <option value="ta">Tamil (தமிழ்)</option>
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.code === "en" ? "English" : `${l.label} (${l.nativeLabel})`}
+                </option>
+              ))}
             </select>
           </div>
 

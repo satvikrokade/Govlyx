@@ -17,6 +17,7 @@ import { useState, useRef, useEffect, type JSX } from "react";
 
 // ─── API CONFIG ───────────────────────────────────────────────────────────────
 import { apiUrl } from "../../utils/apiUrl";
+import { showToast } from "../../utils/toast";
 
 /**
  * Gets the JWT stored by your auth flow (localStorage key is configurable).
@@ -169,10 +170,46 @@ function MediaUploadZone({
   const accentText = accent === "orange" ? "text-orange-400" : "text-white/90";
   const accentHover = accent === "orange" ? "hover:border-orange-400/80" : "hover:border-white/40";
 
-  const handleFiles = (incoming: FileList | null) => {
+  const handleFiles = async (incoming: FileList | null) => {
     if (!incoming) return;
-    const arr = Array.from(incoming).slice(0, 4 - files.length);
-    onChange([...files, ...arr].slice(0, 4));
+    
+    const validFiles: File[] = [];
+    let hasTooLongVideo = false;
+
+    for (let i = 0; i < incoming.length; i++) {
+      const file = incoming[i];
+      if (file.type.startsWith("video/")) {
+        try {
+          const duration = await new Promise<number>((resolve, reject) => {
+            const video = document.createElement("video");
+            video.preload = "metadata";
+            video.onloadedmetadata = () => {
+              window.URL.revokeObjectURL(video.src);
+              resolve(video.duration);
+            };
+            video.onerror = () => reject();
+            video.src = URL.createObjectURL(file);
+          });
+
+          if (duration > 300) {
+            hasTooLongVideo = true;
+            continue;
+          }
+        } catch (e) {
+          console.error("Error reading video duration:", e);
+        }
+      }
+      validFiles.push(file);
+    }
+
+    if (hasTooLongVideo) {
+      showToast.error("check the file size it must be lesser than equal to 5 min");
+    }
+
+    if (validFiles.length > 0) {
+      const arr = validFiles.slice(0, 4 - files.length);
+      onChange([...files, ...arr].slice(0, 4));
+    }
   };
 
   const removeFile = (i: number) => onChange(files.filter((_, idx) => idx !== i));
@@ -196,6 +233,9 @@ function MediaUploadZone({
         </p>
         <p className="text-base-content/50 text-xs">
           Photos, videos, documents · up to 4 files
+        </p>
+        <p className="text-red-500 font-bold text-[10px] uppercase tracking-wider animate-pulse drop-shadow-[0_0_4px_rgba(239,68,68,0.7)] text-center">
+          Video clips length must be of max 5 min
         </p>
         <input
           ref={inputRef}

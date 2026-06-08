@@ -1,10 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
-  ThumbsDown,
-  Heart,
-  MessageSquare,
-  Share2,
-  Bookmark,
   BadgeCheck,
   CheckCircle2,
   Clock,
@@ -25,6 +20,12 @@ import {
   Link,
   Instagram,
   Flag,
+  Maximize2,
+  Flame,
+  MessagesSquare,
+  Send,
+  BookMarked,
+  HeartCrack,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CommentSection from "./CommentSection";
@@ -32,6 +33,7 @@ import { apiUrl } from "../../utils/apiUrl";
 import type { PostType } from "./CommentSection";
 import { resolveMediaUrl, toPostCardPost } from "../../utils/postUtils";
 import ConfirmModal from "./ConfirmModal";
+import { useCurrentUser } from "../../hooks/useUser";
 import ReportModal from "../modals/ReportModal";
 import { checkProfanity } from "../../utils/profanity";
 import { showToast } from "../../utils/toast";
@@ -279,13 +281,227 @@ function getCommunityId(post: AnyPost): number | null {
   return null;
 }
 
+// ─── Zoom Viewer (Fullscreen Lightbox with Zoom) ─────────────────────────────
+function ZoomViewer({
+  mediaUrls,
+  startIndex,
+  onClose,
+}: {
+  mediaUrls: string[];
+  startIndex: number;
+  onClose: () => void;
+}) {
+  const [index, setIndex] = useState(startIndex);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const dragStart = useRef<{ mx: number; my: number; px: number; py: number } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const isVideo = (url: string) => /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(url);
+
+  const resetZoom = () => { setZoom(1); setPan({ x: 0, y: 0 }); };
+  const zoomIn  = () => setZoom(z => Math.min(z + 0.5, 5));
+  const zoomOut = () => setZoom(z => { const next = Math.max(z - 0.5, 1); if (next === 1) setPan({ x: 0, y: 0 }); return next; });
+
+  const goNext = () => { setIndex(i => (i + 1) % mediaUrls.length); resetZoom(); };
+  const goPrev = () => { setIndex(i => (i - 1 + mediaUrls.length) % mediaUrls.length); resetZoom(); };
+
+  // Mouse-wheel zoom
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.deltaY < 0) zoomIn();
+    else zoomOut();
+  };
+
+  // Drag / pan support
+  const onMouseDown = (e: React.MouseEvent) => {
+    if (zoom <= 1) return;
+    e.preventDefault();
+    setDragging(true);
+    dragStart.current = { mx: e.clientX, my: e.clientY, px: pan.x, py: pan.y };
+  };
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging || !dragStart.current) return;
+    const dx = e.clientX - dragStart.current.mx;
+    const dy = e.clientY - dragStart.current.my;
+    setPan({ x: dragStart.current.px + dx, y: dragStart.current.py + dy });
+  };
+  const onMouseUp = () => { setDragging(false); dragStart.current = null; };
+
+  // Touch pan
+  const touchStart = useRef<{ tx: number; ty: number; px: number; py: number } | null>(null);
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (zoom <= 1 || e.touches.length !== 1) return;
+    touchStart.current = { tx: e.touches[0].clientX, ty: e.touches[0].clientY, px: pan.x, py: pan.y };
+  };
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (!touchStart.current || e.touches.length !== 1) return;
+    setPan({
+      x: touchStart.current.px + (e.touches[0].clientX - touchStart.current.tx),
+      y: touchStart.current.py + (e.touches[0].clientY - touchStart.current.ty),
+    });
+  };
+  const onTouchEnd = () => { touchStart.current = null; };
+
+  // Keyboard support
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowRight") goNext();
+      if (e.key === "ArrowLeft") goPrev();
+      if (e.key === "+" || e.key === "=") zoomIn();
+      if (e.key === "-") zoomOut();
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index, zoom]);
+
+  const current = mediaUrls[index];
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[9999] flex flex-col bg-black/95 backdrop-blur-md"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      {/* Top Bar */}
+      <div className="flex items-center justify-between px-5 py-3 shrink-0">
+        <span className="text-white/50 text-xs font-mono">
+          {mediaUrls.length > 1 ? `${index + 1} / ${mediaUrls.length}` : ""}
+        </span>
+
+        {/* Zoom controls */}
+        <div className="flex items-center gap-2">
+          <motion.button
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            onClick={zoomOut}
+            disabled={zoom <= 1}
+            title="Zoom out (−)"
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 flex items-center justify-center text-white text-lg font-bold transition-all"
+          >−</motion.button>
+
+          <button
+            onClick={resetZoom}
+            title="Reset zoom"
+            className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-white text-xs font-mono transition-all min-w-[52px] text-center"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+
+          <motion.button
+            whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+            onClick={zoomIn}
+            disabled={zoom >= 5}
+            title="Zoom in (+)"
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-30 flex items-center justify-center text-white text-lg font-bold transition-all"
+          >+</motion.button>
+        </div>
+
+        <motion.button
+          whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}
+          onClick={onClose}
+          className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-all"
+        >
+          <X size={18} />
+        </motion.button>
+      </div>
+
+      {/* Media area */}
+      <div
+        ref={containerRef}
+        className="flex-1 flex items-center justify-center overflow-hidden relative select-none"
+        onWheel={onWheel}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={onMouseUp}
+        onMouseLeave={onMouseUp}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
+        onTouchEnd={onTouchEnd}
+        style={{ cursor: zoom > 1 ? (dragging ? "grabbing" : "grab") : "default" }}
+      >
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={index}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.96 }}
+            transition={{ duration: 0.25 }}
+            style={{
+              transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+              transformOrigin: "center center",
+              transition: dragging ? "none" : "transform 0.18s ease",
+            }}
+            className="max-h-[80vh] max-w-[90vw] flex items-center justify-center"
+          >
+            {isVideo(current) ? (
+              <video
+                src={current}
+                controls
+                autoPlay
+                className="max-h-[80vh] max-w-[90vw] rounded-xl shadow-2xl"
+                style={{ pointerEvents: zoom > 1 ? "none" : "auto" }}
+              />
+            ) : (
+              <img
+                src={current}
+                alt={`Media ${index + 1}`}
+                draggable={false}
+                className="max-h-[80vh] max-w-[90vw] object-contain rounded-xl shadow-2xl"
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* Prev / Next navigation */}
+        {mediaUrls.length > 1 && (
+          <>
+            <motion.button
+              whileHover={{ scale: 1.1, x: -3 }} whileTap={{ scale: 0.9 }}
+              onClick={(e) => { e.stopPropagation(); goPrev(); }}
+              className="absolute left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 backdrop-blur-md hover:bg-white/25 flex items-center justify-center text-white shadow-lg z-10"
+            >
+              <ChevronLeft size={22} />
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.1, x: 3 }} whileTap={{ scale: 0.9 }}
+              onClick={(e) => { e.stopPropagation(); goNext(); }}
+              className="absolute right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 backdrop-blur-md hover:bg-white/25 flex items-center justify-center text-white shadow-lg z-10"
+            >
+              <ChevronRight size={22} />
+            </motion.button>
+          </>
+        )}
+      </div>
+
+      {/* Dot indicators */}
+      {mediaUrls.length > 1 && (
+        <div className="flex justify-center gap-2 pb-4 shrink-0">
+          {mediaUrls.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => { setIndex(i); resetZoom(); }}
+              className={`rounded-full transition-all duration-300 ${i === index ? "w-6 h-2 bg-white" : "w-2 h-2 bg-white/30 hover:bg-white/60"}`}
+            />
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 // ─── Modern Carousel Component ───────────────────────────────────────────────
 function ModernMediaCarousel({
   mediaUrls,
   onExpand,
 }: {
   mediaUrls: string[];
-  onExpand: () => void;
+  onExpand: (index: number) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [imgError, setImgError] = useState<Record<number, boolean>>({});
@@ -326,7 +542,7 @@ function ModernMediaCarousel({
     <div className="relative w-full overflow-hidden rounded-2xl bg-base-300 shadow-inner group">
       <motion.div
         className="relative h-64 sm:h-80 w-full bg-black/50 flex items-center justify-center cursor-pointer"
-        onClick={isCurrentVideo ? togglePlay : onExpand}
+        onClick={isCurrentVideo ? togglePlay : () => onExpand(activeIndex)}
         transition={{ duration: 0.3 }}
       >
         <AnimatePresence mode="wait">
@@ -445,7 +661,7 @@ function ModernMediaCarousel({
         </div>
       )}
 
-      {/* Counter & Video controls */}
+      {/* Counter, Video controls & Zoom button */}
       <div className="absolute top-3 right-3 flex items-center gap-2 z-20">
         {isCurrentVideo && (
           <motion.button
@@ -465,6 +681,19 @@ function ModernMediaCarousel({
             {activeIndex + 1}/{mediaUrls.length}
           </div>
         )}
+        {/* Zoom / fullscreen button */}
+        <motion.button
+          onClick={(e) => {
+            e.stopPropagation();
+            onExpand(activeIndex);
+          }}
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.9 }}
+          title="View fullscreen"
+          className="w-8 h-8 rounded-full bg-white/20 backdrop-blur-md hover:bg-white/35 flex items-center justify-center text-white transition-all opacity-0 group-hover:opacity-100"
+        >
+          <Maximize2 size={15} />
+        </motion.button>
       </div>
     </div>
   );
@@ -947,6 +1176,7 @@ function ActionPill({
   children,
   vertical = false,
   activeClass = "bg-primary/10 border-primary/20 text-primary",
+  hoverGlow = "rgba(99,102,241,0.5)",
 }: {
   onClick: () => void;
   active?: boolean;
@@ -954,19 +1184,61 @@ function ActionPill({
   children: React.ReactNode;
   vertical?: boolean;
   activeClass?: string;
+  hoverGlow?: string;
 }) {
+  const [burst, setBurst] = useState(false);
+
+  const handleClick = () => {
+    if (disabled) return;
+    setBurst(true);
+    setTimeout(() => setBurst(false), 400);
+    onClick();
+  };
+
   return (
     <motion.button
-      onClick={onClick}
+      onClick={handleClick}
       disabled={disabled}
-      whileHover={{ scale: disabled ? 1 : 1.05 }}
-      whileTap={{ scale: disabled ? 1 : 0.95 }}
-      className={`flex items-center gap-1 sm:gap-1.5 rounded-2xl transition-all duration-200 disabled:opacity-30 select-none border ${vertical ? "p-2 sm:p-2.5 flex-col min-w-[48px] sm:min-w-[54px]" : "px-2 sm:px-3 py-1 sm:py-2"
-        } text-[9px] sm:text-[10px] font-black uppercase tracking-tighter ${active
+      whileHover={disabled ? {} : { scale: 1.08 }}
+      whileTap={disabled ? {} : { scale: 0.88 }}
+      transition={{ type: "spring", stiffness: 500, damping: 20 }}
+      style={{
+        position: "relative",
+        overflow: "hidden",
+      }}
+      className={`flex items-center gap-1 sm:gap-1.5 rounded-2xl transition-colors duration-200 disabled:opacity-30 select-none border ${
+        vertical ? "p-2 sm:p-2.5 flex-col min-w-[48px] sm:min-w-[54px]" : "px-2 sm:px-3 py-1 sm:py-2"
+      } text-[9px] sm:text-[10px] font-black uppercase tracking-tighter group/pill ${
+        active
           ? `${activeClass} shadow-sm`
-          : "text-base-content/70 hover:text-base-content bg-base-200 hover:bg-base-300 border-base-content/5"
-        }`}
+          : "text-base-content/70 bg-base-200 border-base-content/5"
+      }`}
+      onMouseEnter={(e) => {
+        if (!disabled) {
+          (e.currentTarget as HTMLElement).style.boxShadow = `0 0 0 1.5px ${hoverGlow}, 0 0 12px 2px ${hoverGlow}55`;
+          (e.currentTarget as HTMLElement).style.borderColor = hoverGlow;
+        }
+      }}
+      onMouseLeave={(e) => {
+        (e.currentTarget as HTMLElement).style.boxShadow = "";
+        (e.currentTarget as HTMLElement).style.borderColor = "";
+      }}
     >
+      {/* Burst ripple on click */}
+      {burst && (
+        <motion.span
+          initial={{ scale: 0, opacity: 0.6 }}
+          animate={{ scale: 3.5, opacity: 0 }}
+          transition={{ duration: 0.38, ease: "easeOut" }}
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "inherit",
+            background: hoverGlow,
+            pointerEvents: "none",
+          }}
+        />
+      )}
       {children}
     </motion.button>
   );
@@ -1106,6 +1378,7 @@ export default function PostCard({
   hideCommunityStrip,
   hideDelete,
 }: PostCardProps) {
+  const { data: currentUserProfile } = useCurrentUser();
   const [liked, setLiked] = useState(!!(post as AnyPost)?.isLikedByCurrentUser);
   const [disliked, setDisliked] = useState(!!(post as IssuePost)?.isDislikedByCurrentUser);
   const [saved, setSaved] = useState(
@@ -1127,6 +1400,7 @@ export default function PostCard({
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isContentRevealed, setIsContentRevealed] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
@@ -1142,9 +1416,10 @@ export default function PostCard({
       return;
     }
     setIsTranslating(true);
+    const preferredLang = currentUserProfile?.preferredLanguage || "en";
     try {
       const res = await fetch(
-        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(post.content || "")}`
+        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${preferredLang}&dt=t&q=${encodeURIComponent(post.content || "")}`
       );
       if (!res.ok) throw new Error("Translation request failed");
       const data = await res.json();
@@ -1546,6 +1821,12 @@ export default function PostCard({
       ? "border-emerald-500/20 bg-base-100"
       : "border-base-300 bg-base-100";
 
+  const hasBackendTranslation = !!(post as BasePost).isTranslated && !!(post as BasePost).translatedContent;
+  const hasTranslation = hasBackendTranslation || !!dynamicTranslation;
+  const displayText = hasTranslation && !showOriginal
+    ? (dynamicTranslation || (post as BasePost).translatedContent!)
+    : post.content;
+
   return (
     <>
       <motion.div
@@ -1555,7 +1836,32 @@ export default function PostCard({
         transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
         className={`rounded-[2rem] border-2 ${borderClass} shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col backdrop-blur-md relative group/card transition-all duration-500`}
       >
-        <div className="p-5 sm:p-6 flex flex-col gap-4 flex-1">
+        <div className="p-5 sm:p-6 flex flex-col gap-4 flex-1 relative">
+          {/* Translation toggle — Desktop: absolute top-right, single button */}
+          <div className="hidden sm:flex absolute top-5 right-5 z-20">
+            {hasTranslation ? (
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowOriginal(v => !v); }}
+                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/18 border border-white/20 hover:border-white/35 rounded-full px-2.5 py-0.5 transition-all cursor-pointer backdrop-blur-sm"
+              >
+                <Globe size={10} />
+                {showOriginal ? "See Translation" : "Show Original"}
+              </button>
+            ) : (
+              <button
+                disabled={isTranslating}
+                onClick={(e) => { e.stopPropagation(); handleTranslateDynamic(); }}
+                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/18 border border-white/20 hover:border-white/35 rounded-full px-2.5 py-0.5 transition-all disabled:opacity-40 cursor-pointer backdrop-blur-sm"
+              >
+                {isTranslating ? (
+                  <><span className="loading loading-spinner w-3 h-3 shrink-0" /> Translating...</>
+                ) : (
+                  <><Globe size={10} /> Translate</>
+                )}
+              </button>
+            )}
+          </div>
+
           {/* Community Strip at top */}
           {postHasCommunity && !hideCommunityStrip && (
             <CommunityStrip post={post} isJoined={isJoined} onJoin={handleJoinCommunity} />
@@ -1655,59 +1961,14 @@ export default function PostCard({
               </div>
             )}
 
-            {/* Determine which text to display based on translation state */}
-            {(() => {
-              const hasBackendTranslation = !!(post as BasePost).isTranslated && !!(post as BasePost).translatedContent;
-              const hasTranslation = hasBackendTranslation || !!dynamicTranslation;
-              const displayText = hasTranslation && !showOriginal
-                ? (dynamicTranslation || (post as BasePost).translatedContent!)
-                : post.content;
-              return (
-                <>
-                  {/* Translation badge / Translate button */}
-                  {hasTranslation ? (
-                    <div className="flex items-center gap-1.5 mb-1">
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-500/80 bg-blue-500/8 border border-blue-500/15 rounded-full px-2 py-0.5">
-                        <Globe size={10} /> Translated
-                      </span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setShowOriginal(v => !v); }}
-                        className="text-[10px] font-bold text-base-content/40 hover:text-base-content/70 transition-colors underline-offset-2 hover:underline"
-                      >
-                        {showOriginal ? "See Translation" : "See Original"}
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center mb-1">
-                      <button
-                        disabled={isTranslating}
-                        onClick={(e) => { e.stopPropagation(); handleTranslateDynamic(); }}
-                        className="inline-flex items-center gap-1 text-[10px] font-bold text-base-content/40 hover:text-blue-500 transition-colors hover:underline disabled:opacity-50"
-                      >
-                        {isTranslating ? (
-                          <>
-                            <span className="loading loading-spinner w-3 h-3 shrink-0" />
-                            Translating...
-                          </>
-                        ) : (
-                          <>
-                            <Globe size={10} /> Translate
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  )}
-                  <motion.p className={`text-[13px] leading-relaxed font-medium text-base-content/90 ${!expanded ? "line-clamp-3" : ""} ${post.contentHidden && !isContentRevealed ? "blur-sm opacity-50 select-none" : ""}`}>
-                    {displayText}
-                  </motion.p>
-                  {(!post.contentHidden || isContentRevealed) && (displayText?.length ?? 0) > 160 && (
-                    <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline">
-                      {expanded ? "Less ↑" : "More ↓"}
-                    </button>
-                  )}
-                </>
-              );
-            })()}
+            <motion.p className={`text-[13px] leading-relaxed font-medium text-base-content/90 ${!expanded ? "line-clamp-3" : ""} ${post.contentHidden && !isContentRevealed ? "blur-sm opacity-50 select-none" : ""}`}>
+              {displayText}
+            </motion.p>
+            {(!post.contentHidden || isContentRevealed) && (displayText?.length ?? 0) > 160 && (
+              <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline">
+                {expanded ? "Less ↑" : "More ↓"}
+              </button>
+            )}
           </motion.div>
 
           {/* Hashtags / Tagged depts */}
@@ -1749,7 +2010,7 @@ export default function PostCard({
             <div className="flex-1 min-w-0 flex flex-col gap-4 w-full lg:order-1">
               {hasMedia && (
                 <div className="-mx-1">
-                  <ModernMediaCarousel mediaUrls={allMediaUrls} onExpand={() => setLightboxOpen(true)} />
+                  <ModernMediaCarousel mediaUrls={allMediaUrls} onExpand={(idx) => { setLightboxIndex(idx); setLightboxOpen(true); }} />
                 </div>
               )}
 
@@ -1787,29 +2048,54 @@ export default function PostCard({
                 </div>
               )}
 
-              {/* Horizontal Action Bar: Shown for all posts on mobile, and on desktop if NO media */}
+              {/* Mobile-only Translation toggle — single button at bottom */}
+              <div className="sm:hidden flex items-center border-t border-base-300 pt-3">
+                {hasTranslation ? (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowOriginal(v => !v); }}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/18 border border-white/20 hover:border-white/35 rounded-full px-3 py-1 transition-all cursor-pointer backdrop-blur-sm"
+                  >
+                    <Globe size={10} />
+                    {showOriginal ? "See Translation" : "Show Original"}
+                  </button>
+                ) : (
+                  <button
+                    disabled={isTranslating}
+                    onClick={(e) => { e.stopPropagation(); handleTranslateDynamic(); }}
+                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/18 border border-white/20 hover:border-white/35 rounded-full px-3 py-1 transition-all disabled:opacity-40 cursor-pointer backdrop-blur-sm"
+                  >
+                    {isTranslating ? (
+                      <><span className="loading loading-spinner w-3 h-3 shrink-0" /> Translating...</>
+                    ) : (
+                      <><Globe size={10} /> Translate</>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Horizontal Action Bar */}
               <div className={`flex items-center gap-1 sm:gap-2 border-t border-base-300 pt-3 ${hasMedia ? "lg:hidden" : "flex"}`}>
-                <ActionPill onClick={handleLike} active={liked} disabled={isResolved} activeClass="text-pink-600 bg-pink-500/10 border-pink-500/20">
-                  <Heart size={16} className={liked ? "fill-current" : ""} />
+                <ActionPill onClick={handleLike} active={liked} disabled={isResolved} activeClass="text-pink-500 bg-pink-500/10 border-pink-500/30" hoverGlow="rgba(236,72,153,0.65)">
+                  <Flame size={16} className={liked ? "fill-pink-500 text-pink-500" : ""} />
                   <span>{likeCount || "0"}</span>
                 </ActionPill>
-                <ActionPill onClick={() => setCommentsOpen(!commentsOpen)} active={commentsOpen} activeClass="text-sky-600 bg-sky-500/10 border-sky-500/20">
-                  <MessageSquare size={16} className={commentsOpen ? "fill-current" : ""} />
+                <ActionPill onClick={() => setCommentsOpen(!commentsOpen)} active={commentsOpen} activeClass="text-sky-400 bg-sky-500/10 border-sky-500/30" hoverGlow="rgba(56,189,248,0.65)">
+                  <MessagesSquare size={16} className={commentsOpen ? "fill-sky-400/30 text-sky-400" : ""} />
                   <span>{commentCount ?? 0}</span>
                 </ActionPill>
-                <ActionPill onClick={() => setShareMenuOpen(true)} active={copied} activeClass="text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
-                  <Share2 size={16} />
+                <ActionPill onClick={() => setShareMenuOpen(true)} active={copied} activeClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/30" hoverGlow="rgba(52,211,153,0.65)">
+                  <Send size={16} />
                   <span>{copied ? "Copied!" : (shareCount || "0")}</span>
                 </ActionPill>
                 <div className="flex-1" />
                 {!isIssue && (
-                  <ActionPill onClick={handleSave} active={saved} activeClass="text-amber-600 bg-amber-500/10 border-amber-500/20">
-                    <Bookmark size={16} className={saved ? "fill-current" : ""} />
+                  <ActionPill onClick={handleSave} active={saved} activeClass="text-amber-400 bg-amber-500/10 border-amber-500/30" hoverGlow="rgba(251,191,36,0.65)">
+                    <BookMarked size={16} className={saved ? "fill-amber-400/30 text-amber-400" : ""} />
                   </ActionPill>
                 )}
                 {isIssue && (
-                  <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} activeClass="text-rose-600 bg-rose-500/10 border-rose-500/20">
-                    <ThumbsDown size={16} className={disliked ? "fill-current" : ""} />
+                  <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} activeClass="text-rose-500 bg-rose-500/10 border-rose-500/30" hoverGlow="rgba(244,63,94,0.65)">
+                    <HeartCrack size={16} className={disliked ? "fill-rose-500/30 text-rose-500" : ""} />
                     <span>{dislikeCount || "0"}</span>
                   </ActionPill>
                 )}
@@ -1823,26 +2109,26 @@ export default function PostCard({
                 animate={{ opacity: 1, x: 0 }}
                 className="hidden lg:flex flex-col gap-2 p-1 rounded-2xl bg-base-200/50 border border-base-300 lg:order-2 shrink-0 sticky top-0"
               >
-                <ActionPill onClick={handleLike} active={liked} disabled={isResolved} vertical activeClass="text-pink-600 bg-pink-500/10 border-pink-500/20">
-                  <Heart size={18} className={liked ? "fill-current" : ""} />
+                <ActionPill onClick={handleLike} active={liked} disabled={isResolved} vertical activeClass="text-pink-500 bg-pink-500/10 border-pink-500/30" hoverGlow="rgba(236,72,153,0.65)">
+                  <Flame size={18} className={liked ? "fill-pink-500 text-pink-500" : ""} />
                   <span>{likeCount || "0"}</span>
                 </ActionPill>
-                <ActionPill onClick={() => setCommentsOpen(!commentsOpen)} active={commentsOpen} vertical activeClass="text-sky-600 bg-sky-500/10 border-sky-500/20">
-                  <MessageSquare size={18} className={commentsOpen ? "fill-current" : ""} />
+                <ActionPill onClick={() => setCommentsOpen(!commentsOpen)} active={commentsOpen} vertical activeClass="text-sky-400 bg-sky-500/10 border-sky-500/30" hoverGlow="rgba(56,189,248,0.65)">
+                  <MessagesSquare size={18} className={commentsOpen ? "fill-sky-400/30 text-sky-400" : ""} />
                   <span>{commentCount ?? 0}</span>
                 </ActionPill>
-                <ActionPill onClick={() => setShareMenuOpen(true)} active={copied} vertical activeClass="text-emerald-600 bg-emerald-500/10 border-emerald-500/20">
-                  <Share2 size={18} />
+                <ActionPill onClick={() => setShareMenuOpen(true)} active={copied} vertical activeClass="text-emerald-400 bg-emerald-500/10 border-emerald-500/30" hoverGlow="rgba(52,211,153,0.65)">
+                  <Send size={18} />
                   <span className="text-[9px] leading-tight mt-0.5">{copied ? "Copied" : (shareCount || "0")}</span>
                 </ActionPill>
                 {!isIssue && (
-                  <ActionPill onClick={handleSave} active={saved} vertical activeClass="text-amber-600 bg-amber-500/10 border-amber-500/20">
-                    <Bookmark size={18} className={saved ? "fill-current" : ""} />
+                  <ActionPill onClick={handleSave} active={saved} vertical activeClass="text-amber-400 bg-amber-500/10 border-amber-500/30" hoverGlow="rgba(251,191,36,0.65)">
+                    <BookMarked size={18} className={saved ? "fill-amber-400/30 text-amber-400" : ""} />
                   </ActionPill>
                 )}
                 {isIssue && (
-                  <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} vertical activeClass="text-rose-600 bg-rose-500/10 border-rose-500/20">
-                    <ThumbsDown size={18} className={disliked ? "fill-current" : ""} />
+                  <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} vertical activeClass="text-rose-500 bg-rose-500/10 border-rose-500/30" hoverGlow="rgba(244,63,94,0.65)">
+                    <HeartCrack size={18} className={disliked ? "fill-rose-500/30 text-rose-500" : ""} />
                     <span>{dislikeCount || "0"}</span>
                   </ActionPill>
                 )}
@@ -1904,37 +2190,14 @@ export default function PostCard({
         targetId={post.id}
       />
 
-      {/* Lightbox */}
+      {/* Lightbox / Zoom Viewer */}
       <AnimatePresence>
         {lightboxOpen && hasMedia && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
-            onClick={() => setLightboxOpen(false)}
-          >
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setLightboxOpen(false)}
-              className="absolute top-4 right-4 w-10 h-10 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-all z-10"
-            >
-              <X size={20} />
-            </motion.button>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="relative max-h-[90vh] max-w-[90vw]"
-            >
-              <ModernMediaCarousel
-                mediaUrls={allMediaUrls}
-                onExpand={() => { }}
-              />
-            </motion.div>
-          </motion.div>
+          <ZoomViewer
+            mediaUrls={allMediaUrls}
+            startIndex={lightboxIndex}
+            onClose={() => setLightboxOpen(false)}
+          />
         )}
       </AnimatePresence>
     </>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { clearAuthTokens, getAuthToken, isDepartmentUser } from "../utils/auth";
 import { ModalProvider } from "../context/ModalContext";
+import { LanguageProvider } from "../context/LanguageContext";
 
 import MainLayout from "../components/layout/MainLayout";
 
@@ -124,11 +125,27 @@ const DashboardRedirect = () => {
 
 // Custom mouse cursor follow effect
 const CustomCursor = () => {
+  const location = useLocation();
   const [position, setPosition] = useState({ x: -100, y: -100 });
   const [isHovered, setIsHovered] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
+  const isCursorPage = location.pathname === "/" || location.pathname === "/upcoming-updates";
+
   useEffect(() => {
+    if (isCursorPage) {
+      document.body.classList.add("custom-cursor-active");
+    } else {
+      document.body.classList.remove("custom-cursor-active");
+    }
+    return () => {
+      document.body.classList.remove("custom-cursor-active");
+    };
+  }, [isCursorPage]);
+
+  useEffect(() => {
+    if (!isCursorPage) return;
+
     const handleMouseMove = (e: MouseEvent) => {
       setPosition({ x: e.clientX, y: e.clientY });
       if (!isVisible) setIsVisible(true);
@@ -162,9 +179,9 @@ const CustomCursor = () => {
       window.removeEventListener("mouseover", handleMouseOver);
       document.removeEventListener("mouseleave", handleMouseLeave);
     };
-  }, [isVisible]);
+  }, [isVisible, isCursorPage]);
 
-  if (!isVisible) return null;
+  if (!isCursorPage || !isVisible) return null;
 
   return (
     <div
@@ -191,6 +208,7 @@ const AppRouter = () => {
   };
 
   return (
+    <LanguageProvider>
     <ModalProvider>
       <CustomCursor />
       <AnimatePresence mode="wait">
@@ -280,6 +298,7 @@ const AppRouter = () => {
       </Routes>
     </AnimatePresence>
     </ModalProvider>
+    </LanguageProvider>
   );
 };
 

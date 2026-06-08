@@ -234,15 +234,8 @@ html.scrollable-page #root {
   background-size: 24px 24px;
 }
 
-/* Hide default mouse cursor globally to prioritize custom site cursor */
-*,
-html,
-body,
-a,
-button,
-input,
-select,
-textarea,
-[role="button"] {
+/* Hide default mouse cursor only on specific layout pages where custom cursor is active */
+.custom-cursor-active,
+.custom-cursor-active * {
   cursor: none !important;
 }
