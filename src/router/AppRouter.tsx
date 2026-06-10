@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { clearAuthTokens, getAuthToken, isDepartmentUser } from "../utils/auth";
 import { ModalProvider } from "../context/ModalContext";

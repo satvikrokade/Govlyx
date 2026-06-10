@@ -2121,6 +2121,7 @@ function DetailPanel({
   onClose: () => void;
   onMembershipChange: (id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean, communityData?: CommunityData) => void;
 }) {
+  const navigate = useNavigate();
   const { closeViaUI } = useBackNavigation(onClose);
   const normalise = (raw: CommunityData): CommunityData =>
     raw.isOwner ? { ...raw, isMember: true } : raw;
