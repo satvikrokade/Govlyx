@@ -239,3 +239,9 @@ html.scrollable-page #root {
 .custom-cursor-active * {
   cursor: none !important;
 } */
+
+/* Hide Microsoft Edge native password reveal and clear buttons */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}

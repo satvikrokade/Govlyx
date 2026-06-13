@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Newspaper, RefreshCw, Lightbulb } from "lucide-react";
 import { motion } from "framer-motion";
 import govlyxLogo from "../../assets/govlyx.svg";
@@ -15,17 +15,71 @@ const FALLBACK_QUOTES = [
 ];
 
 const QuoteWidgetCard = () => {
-  const [quote, setQuote] = useState(() => FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)]);
+  const [quote, setQuote] = useState(() => {
+    try {
+      const cached = localStorage.getItem("govlyx_cached_quote");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.q && parsed.a) {
+          return parsed;
+        }
+      }
+    } catch (e) {}
+    return FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
+  });
   const [loading, setLoading] = useState(false);
+  const lastFetchTimeRef = useRef(0);
 
   const fetchQuote = async () => {
     setLoading(true);
+    const now = Date.now();
+    
+    // Global/Session rate limit bypass (30 seconds) to prevent 429 errors from ZenQuotes
     try {
-      const res = await fetch("https://zenquotes.io/api/quotes");
+      const cached = localStorage.getItem("govlyx_cached_quote");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.timestamp && (now - parsed.timestamp < 30000)) {
+          // If it was a manual click (not mount), serve a random fallback to make it interactive
+          if (lastFetchTimeRef.current > 0) {
+            const randomQuote = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
+            setQuote(randomQuote);
+          } else {
+            setQuote({ q: parsed.q, a: parsed.a });
+          }
+          setLoading(false);
+          return;
+        }
+      }
+    } catch (e) {}
+
+    // Cooldown check (3 seconds) for rapid clicks on the current instance
+    if (now - lastFetchTimeRef.current < 3000) {
+      const randomQuote = FALLBACK_QUOTES[Math.floor(Math.random() * FALLBACK_QUOTES.length)];
+      setQuote(randomQuote);
+      setLoading(false);
+      return;
+    }
+    lastFetchTimeRef.current = now;
+
+    try {
+      const res = await fetch("/external-api/api/quotes");
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const randomIndex = Math.floor(Math.random() * data.length);
-        setQuote({ q: data[randomIndex].q, a: data[randomIndex].a || "Unknown" });
+        const item = data[randomIndex];
+        // If ZenQuotes returns a rate-limit message instead of a quote, reject it
+        if (item.q?.includes("Too many requests") || item.a === "zenquotes.io") {
+          throw new Error("ZenQuotes rate limited");
+        }
+        const newQuote = { q: item.q, a: item.a || "Unknown" };
+        setQuote(newQuote);
+        
+        // Cache it in localStorage
+        localStorage.setItem("govlyx_cached_quote", JSON.stringify({
+          ...newQuote,
+          timestamp: Date.now()
+        }));
       } else {
         throw new Error("Invalid response format");
       }
@@ -65,10 +119,10 @@ const QuoteWidgetCard = () => {
             <RefreshCw size={11} className={loading ? "animate-spin" : ""} />
           </button>
         </div>
-        <p className="text-[11px] font-bold text-base-content/85 italic leading-snug">
+        <p className="text-[11px] font-bold text-base-content/85 italic leading-snug notranslate">
           "{quote.q}"
         </p>
-        <span className="text-[8px] font-black text-base-content/40 uppercase tracking-wider self-end mt-0.5">
+        <span className="text-[8px] font-black text-base-content/40 uppercase tracking-wider self-end mt-0.5 notranslate">
           — {quote.a}
         </span>
       </div>
@@ -145,14 +199,9 @@ const NewsWidgetCard = () => {
   const [loading, setLoading] = useState(false);
 
   const fetchNews = async () => {
-    const apiKey = import.meta.env.VITE_NEWS_API_KEY;
-    if (!apiKey) {
-      setArticles(getRandomFallbackNews());
-      return;
-    }
     setLoading(true);
     try {
-      const res = await fetch(`https://newsapi.org/v2/top-headlines?country=in&category=technology&apiKey=${apiKey}`);
+      const res = await fetch("https://saurav.tech/NewsAPI/top-headlines/category/technology/in.json");
       const data = await res.json();
       if (data.status === "ok" && Array.isArray(data.articles) && data.articles.length > 0) {
         const validArticles = data.articles
@@ -211,7 +260,7 @@ const NewsWidgetCard = () => {
           {articles.map((art, idx) => (
             <div
               key={idx}
-              className="flex flex-col gap-0.5 p-1.5 px-2 rounded-xl border border-base-200/50 bg-base-200/20 hover:bg-base-200/40 transition-colors"
+              className="flex flex-col gap-0.5 p-1.5 px-2 rounded-xl border border-base-200/50 bg-base-200/20 hover:bg-base-200/40 transition-colors notranslate"
             >
               <p className="text-[10px] font-semibold text-base-content/85 line-clamp-2 leading-snug">
                 {art.title}
@@ -266,7 +315,7 @@ const SidebarRight = () => {
               transition={{ duration: 0.8 }}
             />
           </motion.div>
-          <p className="mt-2 text-center text-[10px] font-black tracking-[0.4em] opacity-40 uppercase">
+          <p className="mt-2 text-center text-[10px] font-black tracking-[0.4em] opacity-40 uppercase notranslate">
             Govlyx
           </p>
         </div>

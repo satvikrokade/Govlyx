@@ -739,6 +739,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
                 onMediaClick={(items, index) => setFullscreenMedia({ items, index })}
                 onUnlockPrivateMedia={(msg) => setPrivateMedia(msg)}
                 sessionId={chat.session?.sessionId ?? ""}
+                status={chat.status}
               />
             </motion.div>
           )}
@@ -1042,7 +1043,7 @@ function SearchingScreen({ queueSize, onCancel }: { queueSize: number | null; on
       </div>
       <div className="mt-12 space-y-3">
         <h3 className="text-2xl font-black text-base-content tracking-tight">Finding a match...</h3>
-        <p className="text-sm text-base-content/40 font-bold uppercase tracking-widest">{queueSize != null ? `${queueSize} people discoverying` : "Scanning network..."}</p>
+        <p key={queueSize} className="text-sm text-base-content/40 font-bold uppercase tracking-widest">{queueSize != null ? `${queueSize} people discoverying` : "Scanning network..."}</p>
       </div>
       <button onClick={onCancel} className="btn btn-ghost mt-16 px-10 h-12 rounded-xl text-base-content/40 hover:text-base-content font-black text-[10px] uppercase tracking-[0.3em]">Stop Search</button>
     </div>
@@ -1069,7 +1070,8 @@ function MessageArea({
   onReply, 
   onMediaClick,
   onUnlockPrivateMedia,
-  sessionId
+  sessionId,
+  status
 }: { 
   messages: ChatMessageDto[]; 
   myId: string; 
@@ -1078,6 +1080,7 @@ function MessageArea({
   onMediaClick: (items: { url: string, type: MessageType }[], index: number) => void;
   onUnlockPrivateMedia: (msg: ChatMessageDto) => void;
   sessionId: string;
+  status: ChatStatus;
 }) {
   const [contextMenu, setContextMenu] = useState<{
     messageId: string;
@@ -1202,6 +1205,20 @@ function MessageArea({
         !hasUserMessages ? "justify-center" : ""
       }`}
     >
+      {messages.length === 0 && status === "CONNECTED" && (
+        <motion.div 
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex justify-center w-full my-4 px-4 select-none"
+        >
+          <div className="bg-base-300/40 backdrop-blur-md border border-base-content/10 px-5 py-3 rounded-2xl text-center max-w-[85%] shadow-sm">
+            <p className="text-xs font-semibold text-base-content/70 leading-relaxed">
+              You are now connected. Say hello!
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       {hasUserMessages && <div className="mt-auto" />}
 
       {groupedMessages.map((group, i) => (
@@ -1520,7 +1537,7 @@ function Bubble({
               <p className={`text-[8px] font-black uppercase tracking-[0.1em] mb-0.5 ${isMine ? "text-white/60" : "text-[#1D4ED8]/70"}`}>
                 {repliedMsg.senderId === (isMine ? msg.senderId : "STRANGER") ? "You" : "Stranger"}
               </p>
-              <p className={`text-[11px] ${isMine ? "text-white/80" : "text-base-content/50"} truncate leading-none`}>
+              <p className={`text-[11px] ${isMine ? "text-white/80" : "text-base-content/50"} truncate leading-none notranslate`}>
                 {repliedMsg.messageType === "TEXT" ? truncate(repliedMsg.content || "") : `[${repliedMsg.messageType}]`}
               </p>
             </div>
@@ -1528,7 +1545,7 @@ function Bubble({
 
           {isMultiMedia ? renderMultiMedia() : isSingleMedia ? renderSingleMedia() : (
             <div className="flex items-end justify-between gap-3 min-w-[50px] relative">
-              <p className="text-[13px] whitespace-pre-wrap break-words leading-[1.4] font-medium tracking-tight flex-1 text-left py-0.5">{msg.content}</p>
+              <p className="text-[13px] whitespace-pre-wrap break-words leading-[1.4] font-medium tracking-tight flex-1 text-left py-0.5 notranslate">{msg.content}</p>
               <span className={`shrink-0 text-[8px] font-bold uppercase tracking-widest translate-y-[-2px] ${isMine ? "text-white/60" : "text-base-content/40"}`}>{time}</span>
             </div>
           )}

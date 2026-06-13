@@ -32,6 +32,11 @@ export default defineConfig({
 
   server: {
     proxy: {
+      '/external-api': {
+        target: 'https://zenquotes.io',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/external-api/, ''),
+      },
       '/api': {
         target: 'https://jan-sahayak-ai-84vh.onrender.com',
         changeOrigin: true,

@@ -52,6 +52,7 @@ function normaliseTaggedPage(raw: unknown): TaggedPostsPage {
     likeCount: p.likeCount ?? 0,
     commentCount: p.commentCount ?? 0,
     shareCount: p.shareCount ?? 0,
+    viewCount: p.viewCount ?? 0,
     taggedUsernames: p.taggedUsernames ?? [],
   }));
 

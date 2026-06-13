@@ -2,6 +2,10 @@
   "cleanUrls": true,
   "rewrites": [
     {
+      "source": "/external-api/:path*",
+      "destination": "https://zenquotes.io/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://jan-sahayak-ai-84vh.onrender.com/api/:path*"
     },

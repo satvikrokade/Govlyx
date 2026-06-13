@@ -73,9 +73,21 @@ export const useNotificationActions = () => {
     },
   });
 
+  // Delete all notifications
+  const deleteAllNotifications = useMutation({
+    mutationFn: async () => {
+      await axiosInstance.delete("/api/notifications/all");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["unreadNotificationsCount"] });
+      queryClient.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
+
   return {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    deleteAllNotifications,
   };
 };

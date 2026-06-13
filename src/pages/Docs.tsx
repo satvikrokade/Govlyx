@@ -281,7 +281,7 @@ export default function Docs() {
                     <path d="M260 118l35 16l-35-6z" fill="#FFFFFF" opacity="0.4"/>
                   </g>
                 </svg>
-                <span className="font-extrabold text-slate-900 dark:text-white text-lg">Govlyx</span>
+                <span className="font-extrabold text-slate-900 dark:text-white text-lg notranslate">Govlyx</span>
               </div>
               <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-sm text-slate-500 dark:text-slate-400 font-semibold">
                 <button onClick={() => navigate("/")} className="hover:text-red-600 dark:hover:text-red-400 transition-colors bg-transparent border-none p-0 cursor-pointer font-semibold">Home</button>

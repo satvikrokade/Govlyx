@@ -51,7 +51,7 @@ const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privac
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-0.5">
-            <h3 className="font-bold text-sm leading-tight truncate">
+            <h3 className="font-bold text-sm leading-tight truncate notranslate">
               {name}
             </h3>
             {privacy && privacy !== "PUBLIC" && (

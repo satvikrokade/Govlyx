@@ -89,16 +89,18 @@ function useFeed(sourceTab: string, sortTab: string) {
     refetch();
   }, [refetch]);
 
-  const updatePost = useCallback((postId: number, changes: Partial<AnyPost>) => {
+  const updatePost = useCallback((postId: number, updater: Partial<AnyPost> | ((p: AnyPost) => Partial<AnyPost>)) => {
     queryClient.setQueryData(queryKey, (oldData: any) => {
       if (!oldData) return oldData;
       return {
         ...oldData,
         pages: oldData.pages.map((page: any) => ({
           ...page,
-          posts: page.posts.map((p: AnyPost) =>
-            p.id === postId ? { ...p, ...changes } : p
-          )
+          posts: page.posts.map((p: AnyPost) => {
+            if (p.id !== postId) return p;
+            const changes = typeof updater === "function" ? updater(p) : updater;
+            return { ...p, ...changes };
+          })
         }))
       };
     });
@@ -171,8 +173,17 @@ const SORT_TABS: { key: "hot" | "new" | "top"; label: string; icon: any }[] = [
 ];
 
 const Home = () => {
-  const [sourceTab, setSourceTab] = useState<"all" | "location" | "following" | "official">("all");
+  const [sourceTab, setSourceTab] = useState<"all" | "location" | "following" | "official">(() => {
+    const saved = sessionStorage.getItem("active_home_tab");
+    return (saved === "all" || saved === "location" || saved === "following" || saved === "official")
+      ? saved
+      : "all";
+  });
   const [sortTab, setSortTab] = useState<"hot" | "new" | "top">("hot");
+
+  useEffect(() => {
+    sessionStorage.setItem("active_home_tab", sourceTab);
+  }, [sourceTab]);
   const [sortDropdownOpen, setSortDropdownOpen] = useState(false);
   const [sourceDropdownOpen, setSourceDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -202,10 +213,33 @@ const Home = () => {
   } : undefined;
 
   const handleLike = useCallback((postId: number, liked: boolean) => {
-    const post = posts.find((p) => p.id === postId);
-    if (!post) return;
-    updatePost(postId, { isLikedByCurrentUser: liked, likeCount: post.likeCount + (liked ? 1 : -1) });
-  }, [posts, updatePost]);
+    updatePost(postId, (post) => {
+      const hasDislikeSupport = post.variant === "issue" || post.variant === "government";
+      const isPreviouslyDisliked = hasDislikeSupport && !!(post as any).isDislikedByCurrentUser;
+      return {
+        isLikedByCurrentUser: liked,
+        likeCount: post.likeCount + (liked ? 1 : -1),
+        ...(isPreviouslyDisliked && liked && {
+          isDislikedByCurrentUser: false,
+          dislikeCount: Math.max(0, ((post as any).dislikeCount ?? 0) - 1)
+        })
+      } as Partial<AnyPost>;
+    });
+  }, [updatePost]);
+
+  const handleDislike = useCallback((postId: number, disliked: boolean) => {
+    updatePost(postId, (post) => {
+      const isPreviouslyLiked = !!post.isLikedByCurrentUser;
+      return {
+        isDislikedByCurrentUser: disliked,
+        dislikeCount: ((post as any).dislikeCount ?? 0) + (disliked ? 1 : -1),
+        ...(isPreviouslyLiked && disliked && {
+          isLikedByCurrentUser: false,
+          likeCount: Math.max(0, post.likeCount - 1)
+        })
+      } as Partial<AnyPost>;
+    });
+  }, [updatePost]);
 
   const handleSave = useCallback((postId: number, saved: boolean) => {
     updatePost(postId, { isSaved: saved } as Partial<AnyPost>);
@@ -257,7 +291,7 @@ const Home = () => {
               onClick={() => setSourceDropdownOpen(!sourceDropdownOpen)}
               className="flex items-center justify-between w-full px-4 py-2 h-[36px] sm:h-[38px] rounded-xl border border-base-300 bg-base-200/50 hover:bg-base-300/50 transition-all text-sm font-bold text-base-content cursor-pointer"
             >
-              <span>{SOURCE_TABS.find((t) => t.key === sourceTab)?.label}</span>
+              <span key={sourceTab}>{SOURCE_TABS.find((t) => t.key === sourceTab)?.label}</span>
               <ChevronDown size={14} className={`transition-transform duration-200 ${sourceDropdownOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -293,7 +327,7 @@ const Home = () => {
               className={`flex items-center gap-1.5 px-3 py-1.5 h-[36px] sm:h-[38px] rounded-xl border border-base-300 bg-base-200/50 hover:bg-base-300/50 transition-all text-xs sm:text-sm font-bold text-base-content/70 hover:text-base-content cursor-pointer ${sortDropdownOpen ? "border-[#1D4ED8]/30 bg-[#1D4ED8]/5 text-[#1D4ED8]" : ""}`}
             >
               <SlidersHorizontal size={14} className="sm:w-4 sm:h-4" />
-              <span className="capitalize">{sortTab}</span>
+              <span key={sortTab} className="capitalize">{sortTab}</span>
               <ChevronDown size={12} className={`transition-transform duration-200 ${sortDropdownOpen ? "rotate-180" : ""}`} />
             </button>
 
@@ -371,6 +405,7 @@ const Home = () => {
                 post={post}
                 currentUser={currentUser}
                 onLike={handleLike}
+                onDislike={handleDislike}
                 onSave={handleSave}
                 onShare={handleShare}
                 onComment={handleComment}

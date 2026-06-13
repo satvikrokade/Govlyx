@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   ShieldCheck,
   TrendingUp,
@@ -13,19 +14,17 @@ import {
   MapPin,
   Heart,
   MessageSquare,
-  ChevronLeft,
-  ChevronRight,
   ShieldAlert,
-  Radio,
-  Activity
+  User,
+  Shield,
+  Building
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { departmentRegisterSchema, adminRegisterSchema } from "../utils/validation";
 import { showToast } from "../utils/toast";
 import axiosInstance from "../api/axiosConfig";
-import { getBroadcastStatistics } from "../api/departmentService";
-import govlyxLogo from "../assets/govlyx.svg";
-import { useCurrentUser } from "../hooks/useUser";
+
+
 import DOMPurify from "dompurify";
 
 const inferDepartmentType = (name: string) => {
@@ -107,14 +106,15 @@ const DepartmentBroadcastCount = ({ userId }: { userId: number }) => {
 };
 
 const AdminDashboard = () => {
-  // Navigation State
-  const [activeTab, setActiveTab] = useState<string>("dashboard");
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState<boolean>(false);
+  // Navigation State — tab is driven by URL ?tab= param so the left sidebar can control it
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "dashboard";
+  const setActiveTab = (tab: string) => setSearchParams({ tab }, { replace: true });
 
   // Stats State
   const [liveSessions, setLiveSessions] = useState<number | null>(null);
-  const [broadcastStats, setBroadcastStats] = useState<any>(null);
   const [overviewStats, setOverviewStats] = useState<any>(null);
+  const [broadcastStats, setBroadcastStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
   const [onlineCount, setOnlineCount] = useState<number | null>(null);
   const [recentActivities, setRecentActivities] = useState<any[]>([]);
@@ -134,6 +134,7 @@ const AdminDashboard = () => {
   // Broadcasts Tab State
   const [broadcastsList, setBroadcastsList] = useState<any[]>([]);
   const [loadingBroadcasts, setLoadingBroadcasts] = useState<boolean>(false);
+  const [broadcastSearch, setBroadcastSearch] = useState<string>("");
 
   // System Health Tab State
   const [healthData, setHealthData] = useState<any>(null);
@@ -141,11 +142,7 @@ const AdminDashboard = () => {
   const [apiLatency, setApiLatency] = useState<number | null>(null);
   const [executingAction, setExecutingAction] = useState<string | null>(null);
 
-  // Current user logic for dynamic admin profile footer
-  const { data: currentUser } = useCurrentUser();
-  const userEmail = currentUser?.email || "";
-  const userDisplayName = currentUser?.actualUsername || currentUser?.username || "Admin";
-  const avatarInitials = userDisplayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2) || "AD";
+
 
   // Onboarding Requests State (localStorage based)
   const [requests, setRequests] = useState<any[]>([]);
@@ -235,12 +232,7 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     setLoadingStats(true);
     try {
-      // Fetch broadcast statistics
-      const bStats = await getBroadcastStatistics().catch(err => {
-        console.warn("Failed fetching broadcast statistics:", err);
-        return null;
-      });
-      if (bStats) setBroadcastStats(bStats);
+
 
       // Fetch chat statistics (fail-safe)
       const chatRes = await axiosInstance.get("/api/chat/admin/statistics").catch(() => null);
@@ -282,6 +274,13 @@ const AdminDashboard = () => {
       if (commStatsRes && commStatsRes.data) {
         const data = commStatsRes.data?.data ?? commStatsRes.data;
         setCommunityStats(data);
+      }
+
+      // Fetch broadcast statistics
+      const broadcastStatsRes = await axiosInstance.get("/api/posts/broadcast/statistics").catch(() => null);
+      if (broadcastStatsRes && broadcastStatsRes.data) {
+        const data = broadcastStatsRes.data?.data ?? broadcastStatsRes.data;
+        setBroadcastStats(data);
       }
     } catch (e) {
       console.warn("Failed fetching dashboard stats from backend, displaying simulations.");
@@ -485,63 +484,85 @@ const AdminDashboard = () => {
     }
   }, [activeTab]);
 
+  // Fetch all broadcasts from the dedicated endpoint (active + resolved)
+  // GET /api/posts/broadcast already returns every broadcast regardless of status.
   const fetchLiveBroadcasts = async () => {
+    console.log("[fetchLiveBroadcasts] start fetching...");
     setLoadingBroadcasts(true);
     try {
-      const activeRes = await axiosInstance.get("/api/posts/broadcast?limit=100").catch(() => null);
-      const activeData = activeRes?.data?.data?.data ?? activeRes?.data?.data?.content ?? (Array.isArray(activeRes?.data?.data) ? activeRes?.data?.data : null) ?? activeRes?.data?.content ?? [];
-      const activeList: any[] = (Array.isArray(activeData) ? activeData : []).filter((p: any) => p.isGovernmentBroadcast);
-
-      const allResolvedBroadcasts: any[] = [];
-      let cursor: number | null = null;
-      let hasMore = true;
       const PAGE_SIZE = 100;
-      const MAX_PAGES = 20;
-      let page = 0;
+      const MAX_PAGES = 10; // 10 pages per status is plenty (up to 1000 items each)
 
-      while (hasMore && page < MAX_PAGES) {
-        const url: string = cursor
-          ? `/api/posts/resolved?limit=${PAGE_SIZE}&beforeId=${cursor}`
-          : `/api/posts/resolved?limit=${PAGE_SIZE}`;
-        const res: any = await axiosInstance.get(url).catch(() => null);
-        if (!res) break;
+      // Helper to fetch paginated posts from a given endpoint prefix
+      const fetchFromEndpoint = async (endpoint: string) => {
+        let beforeId: number | null = null;
+        let hasMore = true;
+        let page = 0;
+        let results: any[] = [];
 
-        const pageData = res.data?.data?.data ?? res.data?.data?.content ?? res.data?.data ?? res.data?.content ?? [];
-        const pageList: any[] = Array.isArray(pageData) ? pageData : [];
+        while (hasMore && page < MAX_PAGES) {
+          const url = beforeId
+            ? `${endpoint}?limit=${PAGE_SIZE}&beforeId=${beforeId}`
+            : `${endpoint}?limit=${PAGE_SIZE}`;
+          console.log(`[fetchLiveBroadcasts] requesting ${url}`);
+          const res: any = await axiosInstance.get(url).catch((err) => {
+            console.error(`[fetchLiveBroadcasts] request error for ${url}:`, err);
+            return null;
+          });
+          if (!res) break;
 
-        const broadcasts = pageList.filter((p: any) => p.isGovernmentBroadcast);
-        allResolvedBroadcasts.push(...broadcasts);
+          const pageData = res.data?.data?.data ?? res.data?.data?.content ?? res.data?.data ?? res.data?.content ?? [];
+          const pageList: any[] = Array.isArray(pageData) ? pageData : [];
+          if (pageList.length === 0) break;
 
-        cursor = res.data?.data?.nextCursor ?? (pageList.length > 0 ? pageList[pageList.length - 1].id : null);
-        page++;
+          results.push(...pageList);
 
-        if (pageList.length < PAGE_SIZE) hasMore = false;
-      }
+          beforeId = res.data?.data?.nextCursor ?? (pageList.length > 0 ? pageList[pageList.length - 1].id : null);
+          page++;
 
+          const serverHasMore = res.data?.data?.hasMore ?? res.data?.hasMore ?? false;
+          if (!serverHasMore || pageList.length < PAGE_SIZE) hasMore = false;
+        }
+        return results;
+      };
+
+      // Fetch active and resolved in parallel
+      const [activeRaw, resolvedRaw] = await Promise.all([
+        fetchFromEndpoint("/api/posts/active"),
+        fetchFromEndpoint("/api/posts/resolved")
+      ]);
+
+      const combinedRaw = [...activeRaw, ...resolvedRaw];
+
+      // Filter to keep posts with a broadcast scope
+      const broadcasts = combinedRaw.filter((p: any) => p.isGovernmentBroadcast || p.broadcastScope);
+
+      // Deduplicate by id
       const seen = new Set<number>();
       const combined: any[] = [];
-      for (const item of [...activeList, ...allResolvedBroadcasts]) {
-        if (!seen.has(item.id)) {
+      for (const item of broadcasts) {
+        if (item?.id && !seen.has(item.id)) {
           seen.add(item.id);
           combined.push(item);
         }
       }
-
-      combined.sort((a: any, b: any) => (b.id - a.id));
+      combined.sort((a: any, b: any) => b.id - a.id);
 
       const mapped = combined.map((b: any) => ({
         id: b.id,
-        username: b.username || b.author?.username || "System",
+        username: b.username || b.author?.username || b.author?.actualUsername || "System",
         scope: b.broadcastScope || "AREA",
         target: b.targetPincodes?.join(", ") || b.targetDistricts?.join(", ") || b.targetStates?.join(", ") || b.targetCountry || "N/A",
         posted: b.createdAt ? new Date(b.createdAt).toLocaleString() : "N/A",
-        resolved: b.isResolved || b.resolved ? "Yes" : "No",
-        content: b.content
+        resolved: b.isResolved || b.status === "RESOLVED" || b.resolved ? "Yes" : "No",
+        content: b.content,
+        isGovernmentBroadcast: b.isGovernmentBroadcast
       }));
 
+      console.log("[fetchLiveBroadcasts] final mapped broadcasts:", mapped);
       setBroadcastsList(mapped);
     } catch (err) {
-      console.warn("Failed fetching live broadcasts:", err);
+      console.warn("Failed fetching broadcasts:", err);
     } finally {
       setLoadingBroadcasts(false);
     }
@@ -550,6 +571,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (activeTab === "broadcast") {
       fetchLiveBroadcasts();
+      fetchStats();
     }
   }, [activeTab]);
 
@@ -1117,200 +1139,7 @@ const AdminDashboard = () => {
           width: 100%;
         }
 
-        .admin-sidebar {
-          background: var(--bg-surface);
-          border-left: 1px solid var(--border);
-          width: var(--sidebar-w);
-          flex-shrink: 0;
-          display: flex;
-          flex-direction: column;
-          min-height: 0;
-          transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
 
-        /* Mobile specific styles for the admin sidebar drawer */
-        @media (max-width: 767px) {
-          .admin-sidebar {
-            position: fixed;
-            top: 0;
-            right: 0;
-            bottom: 0;
-            height: 100vh;
-            z-index: 1000;
-            transform: translateX(100%);
-            box-shadow: -4px 0 25px rgba(0, 0, 0, 0.5);
-            border-left: 1px solid var(--border-strong);
-          }
-          .admin-sidebar.open {
-            transform: translateX(0);
-          }
-        }
-
-        .admin-sidebar-toggle {
-          position: fixed;
-          right: 0;
-          top: 50%;
-          transform: translateY(-50%);
-          z-index: 1001;
-          background: var(--accent);
-          color: #fff;
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-right: none;
-          border-radius: 8px 0 0 8px;
-          width: 36px;
-          height: 48px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          box-shadow: -2px 0 10px rgba(0, 0, 0, 0.3);
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .admin-sidebar-toggle.open {
-          right: var(--sidebar-w);
-        }
-
-        @media (min-width: 768px) {
-          .admin-sidebar-toggle {
-            display: none !important;
-          }
-        }
-
-        .admin-sidebar-logo {
-          padding: 20px 20px 16px;
-          border-bottom: 1px solid var(--border);
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .admin-logo-mark {
-          width: 34px; height: 34px;
-          background: var(--accent);
-          border-radius: 8px;
-          display: flex; align-items: center; justify-content: center;
-          font-family: var(--font-head);
-          font-weight: 800;
-          font-size: 15px;
-          color: #fff;
-          letter-spacing: -0.5px;
-          flex-shrink: 0;
-        }
-
-        .admin-logo-text {
-          font-family: var(--font-head);
-          font-weight: 700;
-          font-size: 14px;
-          color: var(--text-primary);
-          line-height: 1.2;
-        }
-
-        .admin-logo-sub {
-          font-size: 10px;
-          color: var(--text-muted);
-          font-family: var(--font-mono);
-          letter-spacing: 0.5px;
-          text-transform: uppercase;
-        }
-
-        .admin-sidebar-nav {
-          flex: 1;
-          padding: 12px 10px;
-          overflow-y: auto;
-        }
-
-        .admin-nav-section {
-          margin-bottom: 20px;
-        }
-
-        .admin-nav-label {
-          font-size: 10px;
-          font-family: var(--font-mono);
-          letter-spacing: 1.2px;
-          text-transform: uppercase;
-          color: var(--text-muted);
-          padding: 0 10px 8px;
-        }
-
-        .admin-nav-item {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 9px 10px;
-          border-radius: 8px;
-          cursor: pointer;
-          font-size: 13.5px;
-          font-weight: 400;
-          color: var(--text-secondary);
-          transition: all 0.15s;
-          margin-bottom: 2px;
-          text-decoration: none;
-          border: none;
-          background: none;
-          width: 100%;
-          text-align: left;
-          font-family: var(--font-body);
-        }
-
-        .admin-nav-item:hover { background: rgba(255,255,255,0.05); color: var(--text-primary); }
-
-        .admin-nav-item.active {
-          background: var(--accent) !important;
-          color: #ffffff !important;
-          border: 1px solid rgba(249, 115, 22, 0.6) !important;
-          font-weight: 600 !important;
-        }
-
-        .admin-nav-item.active svg {
-          opacity: 1 !important;
-        }
-
-        .admin-nav-icon {
-          width: 18px; height: 18px;
-          flex-shrink: 0;
-          opacity: 0.8;
-        }
-
-        .admin-nav-badge {
-          margin-left: auto;
-          background: var(--accent);
-          color: #fff;
-          font-size: 10px;
-          font-family: var(--font-mono);
-          padding: 2px 6px;
-          border-radius: 20px;
-          font-weight: 500;
-        }
-
-        .admin-sidebar-footer {
-          padding: 14px;
-          border-top: 1px solid var(--border);
-        }
-
-        .admin-chip {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 9px 10px;
-          background: rgba(22, 163, 74, 0.08);
-          border: 1px solid rgba(22, 163, 74, 0.25);
-          border-radius: 9px;
-        }
-
-        .admin-avatar {
-          width: 30px; height: 30px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, #15803d, #166534);
-          display: flex; align-items: center; justify-content: center;
-          font-size: 11px; font-weight: 700;
-          color: #fff;
-          flex-shrink: 0;
-        }
-
-        .admin-info { flex: 1; min-width: 0; }
-        .admin-name { font-size: 12px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .admin-role { font-size: 10px; color: #16a34a; font-family: var(--font-mono); }
 
         .admin-main {
           flex: 1;
@@ -2255,34 +2084,41 @@ const AdminDashboard = () => {
 
                 {/* STAT GRID */}
                 <div className="admin-stat-grid">
-                  <div className="admin-stat-card orange">
-                    <div className="admin-stat-label">Total Citizens</div>
-                    <div className="admin-stat-val">
-                      {overviewStats?.totalCitizens !== undefined ? overviewStats.totalCitizens.toLocaleString() : "..."}
-                    </div>
-                    <div className="text-xs text-[var(--text-secondary)] mt-1">Total registered citizen accounts</div>
-                  </div>
-                  <div className="admin-stat-card blue">
-                    <div className="admin-stat-label">Active Chat Sessions</div>
-                    <div className="admin-stat-val">
-                      {liveSessions !== null ? liveSessions.toLocaleString() : "..."}
-                    </div>
-                    <div className="text-xs text-[var(--text-secondary)] mt-1">Live anonymous chat socket sessions</div>
-                  </div>
-                  <div className="admin-stat-card green">
-                    <div className="admin-stat-label">Active Issues</div>
-                    <div className="admin-stat-val">
-                      {overviewStats?.activeIssues !== undefined ? overviewStats.activeIssues.toLocaleString() : "..."}
-                    </div>
-                    <div className="text-xs text-[var(--text-secondary)] mt-1">Active citizen feedback posts</div>
-                  </div>
-                  <div className="admin-stat-card yellow">
-                    <div className="admin-stat-label">Resolved Posts</div>
-                    <div className="admin-stat-val">
-                      {overviewStats?.resolvedPosts !== undefined ? overviewStats.resolvedPosts.toLocaleString() : "..."}
-                    </div>
-                    <div className="text-xs text-[var(--text-secondary)] mt-1">Total citizen posts marked resolved</div>
-                  </div>
+                  {(() => {
+                    const allLiveOverviewLoaded = overviewStats !== null && liveSessions !== null;
+                    return (
+                      <>
+                        <div className="admin-stat-card orange">
+                          <div className="admin-stat-label">Total Citizens</div>
+                          <div className="admin-stat-val">
+                            {allLiveOverviewLoaded ? overviewStats.totalCitizens.toLocaleString() : "..."}
+                          </div>
+                          <div className="text-xs text-[var(--text-secondary)] mt-1">Total registered citizen accounts</div>
+                        </div>
+                        <div className="admin-stat-card blue">
+                          <div className="admin-stat-label">Active Chat Sessions</div>
+                          <div className="admin-stat-val">
+                            {allLiveOverviewLoaded ? liveSessions.toLocaleString() : "..."}
+                          </div>
+                          <div className="text-xs text-[var(--text-secondary)] mt-1">Live anonymous chat socket sessions</div>
+                        </div>
+                        <div className="admin-stat-card green">
+                          <div className="admin-stat-label">Active Issues</div>
+                          <div className="admin-stat-val">
+                            {allLiveOverviewLoaded ? overviewStats.activeIssues.toLocaleString() : "..."}
+                          </div>
+                          <div className="text-xs text-[var(--text-secondary)] mt-1">Active citizen feedback posts</div>
+                        </div>
+                        <div className="admin-stat-card yellow">
+                          <div className="admin-stat-label">Resolved Posts</div>
+                          <div className="admin-stat-val">
+                            {allLiveOverviewLoaded ? overviewStats.resolvedPosts.toLocaleString() : "..."}
+                          </div>
+                          <div className="text-xs text-[var(--text-secondary)] mt-1">Total citizen posts marked resolved</div>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <div className="admin-two-col">
@@ -2325,22 +2161,30 @@ const AdminDashboard = () => {
                         <div className="admin-qstat-row">
                           <div className="admin-qstat-icon" style={{ background: "rgba(249,115,22,0.12)" }}><Globe size={16} className="text-[#f97316]" /></div>
                           <div className="admin-qstat-label">Country-wide Broadcasts</div>
-                          <div className="admin-qstat-value" style={{ color: "var(--accent)" }}>{broadcastStats?.broadcastsCOUNTRY ?? broadcastStats?.countryWideBroadcasts ?? 0}</div>
+                          <div className="admin-qstat-value" style={{ color: "var(--accent)" }}>
+                            {broadcastStats !== null ? (broadcastStats.broadcastsCOUNTRY ?? 0).toLocaleString() : "..."}
+                          </div>
                         </div>
                         <div className="admin-qstat-row">
                           <div className="admin-qstat-icon" style={{ background: "rgba(59,130,246,0.12)" }}><Landmark size={16} className="text-[#3b82f6]" /></div>
                           <div className="admin-qstat-label">State-level Broadcasts</div>
-                          <div className="admin-qstat-value" style={{ color: "var(--accent2)" }}>{broadcastStats?.broadcastsSTATE ?? 0}</div>
+                          <div className="admin-qstat-value" style={{ color: "var(--accent2)" }}>
+                            {broadcastStats !== null ? (broadcastStats.broadcastsSTATE ?? 0).toLocaleString() : "..."}
+                          </div>
                         </div>
                         <div className="admin-qstat-row">
                           <div className="admin-qstat-icon" style={{ background: "rgba(34,197,94,0.12)" }}><Map size={16} className="text-[#22c55e]" /></div>
-                          <div className="admin-qstat-label">District-level Posts</div>
-                          <div className="admin-qstat-value" style={{ color: "var(--success)" }}>{broadcastStats?.broadcastsDISTRICT ?? 0}</div>
+                          <div className="admin-qstat-label">District-level Broadcasts</div>
+                          <div className="admin-qstat-value" style={{ color: "var(--success)" }}>
+                            {broadcastStats !== null ? (broadcastStats.broadcastsDISTRICT ?? 0).toLocaleString() : "..."}
+                          </div>
                         </div>
                         <div className="admin-qstat-row">
                           <div className="admin-qstat-icon" style={{ background: "rgba(234,179,8,0.12)" }}><MapPin size={16} className="text-[#eab308]" /></div>
-                          <div className="admin-qstat-label">Area (Pincode) Posts</div>
-                          <div className="admin-qstat-value" style={{ color: "var(--warn)" }}>{broadcastStats?.broadcastsAREA ?? 0}</div>
+                          <div className="admin-qstat-label">Area (Pincode) Broadcasts</div>
+                          <div className="admin-qstat-value" style={{ color: "var(--warn)" }}>
+                            {broadcastStats !== null ? (broadcastStats.broadcastsAREA ?? 0).toLocaleString() : "..."}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -3458,40 +3302,32 @@ const AdminDashboard = () => {
                 transition={{ duration: 0.15 }}
                 className="space-y-6"
               >
-                <div className="admin-section-header">
-                  <div>
-                    <div className="admin-section-title">Broadcast Management</div>
+                  <div className="admin-section-header">
+                    <div>
+                      <div className="admin-section-title">Broadcast Management</div>
+                    </div>
                   </div>
-                  <button className="admin-btn admin-btn-secondary admin-btn-sm" onClick={fetchLiveBroadcasts} disabled={loadingBroadcasts}>
-                    <RefreshCw size={13} className={loadingBroadcasts ? "animate-spin mr-1" : "mr-1"} /> Refresh Broadcasts
-                  </button>
-                </div>
 
+                {/* Scope stat cards derived from loaded list */}
                 <div className="admin-mini-stat-row" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
-                  <div className="admin-mini-stat">
-                    <div className="admin-mini-val" style={{ color: "var(--accent)" }}>
-                      {broadcastsList.filter((b: any) => b.scope === "COUNTRY").length}
+                  {[
+                    { label: "Country Wide", scope: "COUNTRY", color: "var(--accent)" },
+                    { label: "State Level", scope: "STATE", color: "var(--accent2)" },
+                    { label: "District Level", scope: "DISTRICT", color: "var(--success)" },
+                    { label: "Area (Pincode)", scope: "AREA", color: "var(--warn)" },
+                  ].map(({ label, scope, color }) => (
+                    <div
+                      key={scope}
+                      className="admin-mini-stat cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => setBroadcastSearch(scope.toLowerCase())}
+                      title={`Filter by ${label}`}
+                    >
+                      <div className="admin-mini-val" style={{ color }}>
+                        {broadcastStats !== null ? (broadcastStats["broadcasts" + scope] ?? 0).toLocaleString() : "..."}
+                      </div>
+                      <div className="admin-mini-label">{label}</div>
                     </div>
-                    <div className="admin-mini-label">Country Wide</div>
-                  </div>
-                  <div className="admin-mini-stat">
-                    <div className="admin-mini-val" style={{ color: "var(--accent2)" }}>
-                      {broadcastsList.filter((b: any) => b.scope === "STATE").length}
-                    </div>
-                    <div className="admin-mini-label">State Level</div>
-                  </div>
-                  <div className="admin-mini-stat">
-                    <div className="admin-mini-val" style={{ color: "var(--success)" }}>
-                      {broadcastsList.filter((b: any) => b.scope === "DISTRICT").length}
-                    </div>
-                    <div className="admin-mini-label">District Level</div>
-                  </div>
-                  <div className="admin-mini-stat">
-                    <div className="admin-mini-val" style={{ color: "var(--warn)" }}>
-                      {broadcastsList.filter((b: any) => b.scope === "AREA").length}
-                    </div>
-                    <div className="admin-mini-label">Area (Pincode)</div>
-                  </div>
+                  ))}
                 </div>
 
                 <div className="admin-card">
@@ -3504,34 +3340,73 @@ const AdminDashboard = () => {
                         <thead>
                           <tr>
                             <th>ID</th>
-                            <th>DEPT</th>
+                            <th>DEPT / USER</th>
                             <th>SCOPE</th>
                             <th>TARGET</th>
                             <th>POSTED</th>
                             <th>RESOLVED</th>
+                            <th>ACTION</th>
                           </tr>
                         </thead>
                         <tbody>
                           {loadingBroadcasts ? (
                             <tr>
-                              <td colSpan={6} className="text-center py-8 text-sm text-[var(--text-secondary)]">
+                              <td colSpan={7} className="text-center py-8 text-sm text-[var(--text-secondary)]">
                                 <div className="flex items-center justify-center gap-2">
                                   <RefreshCw className="animate-spin text-[var(--accent)]" size={14} />
-                                  <span>Syncing broadcasts database...</span>
+                                  <span>Loading broadcasts...</span>
                                 </div>
                               </td>
                             </tr>
-                          ) : broadcastsList.length === 0 ? (
+                          ) : (() => {
+                              const activeSearch = (broadcastSearch || searchQuery).trim().toLowerCase();
+                              const filtered = activeSearch
+                                ? broadcastsList.filter(b =>
+                                    b.username?.toLowerCase().includes(activeSearch) ||
+                                    b.scope?.toLowerCase().includes(activeSearch) ||
+                                    b.target?.toLowerCase().includes(activeSearch)
+                                  )
+                                : broadcastsList;
+                              return filtered.length === 0 ? (
                             <tr>
-                              <td colSpan={6} className="text-center py-8 text-sm text-[var(--text-muted)] italic">
-                                No active broadcasts found.
+                              <td colSpan={7} className="text-center py-8 text-sm text-[var(--text-muted)] italic">
+                                {activeSearch ? `No broadcasts matching "${activeSearch}".` : "No broadcasts found."}
                               </td>
                             </tr>
-                          ) : (
-                            broadcastsList.map(b => (
+                              ) : filtered.map(b => (
                               <tr key={b.id}>
                                 <td style={{ fontFamily: "var(--font-mono)" }}>#B-{b.id}</td>
-                                <td className="admin-td-name">{b.username}</td>
+                                <td className="admin-td-name">
+                                   {(() => {
+                                     const userObj = usersDb.find(u => u.username === b.username);
+                                     const role = userObj?.role || (b.isGovernmentBroadcast ? "ROLE_DEPARTMENT" : "ROLE_USER");
+                                     if (role === "ROLE_ADMIN") {
+                                       return (
+                                         <div className="flex items-center gap-1.5" title="Administrator">
+                                           <Shield size={13} className="text-[#fb923c]" />
+                                           <span className="text-[#fb923c] font-medium">{b.username}</span>
+                                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400 border border-orange-500/20 font-mono scale-90 origin-left">ADMIN</span>
+                                         </div>
+                                       );
+                                     } else if (role === "ROLE_DEPARTMENT") {
+                                       return (
+                                         <div className="flex items-center gap-1.5" title="Department User">
+                                           <Building size={13} className="text-[#60a5fa]" />
+                                           <span className="text-[#60a5fa] font-medium">{b.username}</span>
+                                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono scale-90 origin-left">DEPT</span>
+                                         </div>
+                                       );
+                                     } else {
+                                       return (
+                                         <div className="flex items-center gap-1.5" title="Citizen User">
+                                           <User size={13} className="text-gray-400" />
+                                           <span className="text-gray-400 font-normal">{b.username}</span>
+                                           <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-500/10 text-gray-400 border border-gray-500/20 font-mono scale-90 origin-left">CITIZEN</span>
+                                         </div>
+                                       );
+                                     }
+                                   })()}
+                                 </td>
                                 <td>
                                   <span className={`admin-badge ${
                                     b.scope === "COUNTRY" ? "admin-badge-pending" :
@@ -3547,9 +3422,25 @@ const AdminDashboard = () => {
                                     {b.resolved}
                                   </span>
                                 </td>
+                                <td>
+                                  <button
+                                    className="admin-btn admin-btn-sm"
+                                    style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)", padding: "3px 10px" }}
+                                    onClick={async () => {
+                                      if (!window.confirm(`Delete broadcast #${b.id}?`)) return;
+                                      try {
+                                        await axiosInstance.delete(`/api/posts/${b.id}`);
+                                        setBroadcastsList(prev => prev.filter(x => x.id !== b.id));
+                                        fetchStats();
+                                      } catch { alert("Failed to delete broadcast."); }
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                </td>
                               </tr>
-                            ))
-                          )}
+                            ));
+                          })()}
                         </tbody>
                       </table>
                     </div>
@@ -3687,163 +3578,6 @@ const AdminDashboard = () => {
           </AnimatePresence>
         </div>
       </div>
-
-      {/* Mobile Sidebar Backdrop */}
-      {mobileSidebarOpen && (
-        <div 
-          className="fixed inset-0 z-[999] bg-black/60 backdrop-blur-sm md:hidden"
-          onClick={() => setMobileSidebarOpen(false)}
-        />
-      )}
-
-      {/* Mobile Sidebar Toggle Button */}
-      <button 
-        className={`admin-sidebar-toggle ${mobileSidebarOpen ? "open" : ""}`}
-        onClick={() => setMobileSidebarOpen(prev => !prev)}
-      >
-        {mobileSidebarOpen ? <ChevronRight size={20} /> : <ChevronLeft size={20} />}
-      </button>
-
-      {/* ══ RIGHT SIDEBAR (NAV MENU) ══ */}
-      <aside className={`admin-sidebar ${mobileSidebarOpen ? "open" : ""}`}>
-        <div className="admin-sidebar-logo">
-          <img src={govlyxLogo} alt="Govlyx Logo" className="w-8.5 h-8.5 object-contain" />
-          <div>
-            <div className="admin-logo-text">Govlyx</div>
-            <div className="admin-logo-sub">Admin Centre</div>
-          </div>
-        </div>
-
-        <nav className="admin-sidebar-nav">
-          <div className="admin-nav-section">
-            <div className="admin-nav-label">Overview</div>
-            <button
-              className={`admin-nav-item ${activeTab === "dashboard" ? "active" : ""}`}
-              onClick={() => { setActiveTab("dashboard"); setMobileSidebarOpen(false); }}
-            >
-              <svg className="admin-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
-                <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
-              </svg>
-              Dashboard
-            </button>
-          </div>
-
-          <div className="admin-nav-section">
-            <div className="admin-nav-label">Registration</div>
-            <button
-              className={`admin-nav-item ${activeTab === "reg-dept" ? "active" : ""}`}
-              onClick={() => { setActiveTab("reg-dept"); setMobileSidebarOpen(false); }}
-            >
-              <svg className="admin-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11" />
-              </svg>
-              Register Department
-            </button>
-            <button
-              className={`admin-nav-item ${activeTab === "reg-admin" ? "active" : ""}`}
-              onClick={() => { setActiveTab("reg-admin"); setMobileSidebarOpen(false); }}
-            >
-              <svg className="admin-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <line x1="19" y1="8" x2="19" y2="14" />
-                <line x1="22" y1="11" x2="16" y2="11" />
-              </svg>
-              Register Admin
-            </button>
-          </div>
-
-          <div className="admin-nav-section">
-            <div className="admin-nav-label">User Management</div>
-            <button
-              className={`admin-nav-item ${activeTab === "users" ? "active" : ""}`}
-              onClick={() => { setActiveTab("users"); setMobileSidebarOpen(false); }}
-            >
-              <svg className="admin-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              All Users
-              <span className="admin-nav-badge">{usersDb.length}</span>
-            </button>
-            <button
-              className={`admin-nav-item ${activeTab === "departments" ? "active" : ""}`}
-              onClick={() => { setActiveTab("departments"); setMobileSidebarOpen(false); }}
-            >
-              <svg className="admin-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-              </svg>
-              Departments
-              <span className="admin-nav-badge">{deptsDb.length}</span>
-            </button>
-            <button
-              className={`admin-nav-item ${activeTab === "communities" ? "active" : ""}`}
-              onClick={() => { setActiveTab("communities"); setMobileSidebarOpen(false); }}
-            >
-              <svg className="admin-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path d="M17 20h5v-2a3 3 0 0 0-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 0 1 5.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 0 1 9.288 0M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM7 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
-              </svg>
-              Communities
-              <span className="admin-nav-badge">{communitiesDb.length}</span>
-            </button>
-          </div>
-
-          <div className="admin-nav-section">
-            <div className="admin-nav-label">Platform</div>
-            <button
-              className={`admin-nav-item ${activeTab === "content" ? "active" : ""}`}
-              onClick={() => { setActiveTab("content"); setMobileSidebarOpen(false); }}
-            >
-              <svg className="admin-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
-              Content Monitor
-            </button>
-            <button
-              className={`admin-nav-item ${activeTab === "chat" ? "active" : ""}`}
-              onClick={() => { setActiveTab("chat"); setMobileSidebarOpen(false); }}
-            >
-              <svg className="admin-nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              Chat Statistics
-            </button>
-            <button
-              className={`admin-nav-item ${activeTab === "broadcast" ? "active" : ""}`}
-              onClick={() => { setActiveTab("broadcast"); setMobileSidebarOpen(false); }}
-            >
-              <Radio className="admin-nav-icon" size={18} />
-              Broadcasts
-            </button>
-          </div>
-
-          <div className="admin-nav-section">
-            <div className="admin-nav-label">System</div>
-            <button
-              className={`admin-nav-item ${activeTab === "system" ? "active" : ""}`}
-              onClick={() => { setActiveTab("system"); setMobileSidebarOpen(false); }}
-            >
-              <Activity className="admin-nav-icon" size={18} />
-              System Health
-            </button>
-          </div>
-        </nav>
-
-        <div className="admin-sidebar-footer">
-          <div className="admin-chip">
-            <div className="admin-avatar">{avatarInitials}</div>
-            <div className="admin-info">
-              <div className="admin-name text-xs truncate" title={userEmail}>{userDisplayName}</div>
-              <div className="admin-role">Admin</div>
-            </div>
-          </div>
-        </div>
-      </aside>
 
       {/* Approval Modal (for department onboarding queue) */}
       <AnimatePresence>

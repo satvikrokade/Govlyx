@@ -123,7 +123,7 @@ const LandingLogo: React.FC<LogoProps> = ({ className = "", size = 36, showText 
         </g>
       </svg>
       {showText && (
-        <span className="font-bold text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-white transition-colors duration-300">
+        <span className="font-bold text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-white transition-colors duration-300 notranslate">
           Govlyx
         </span>
       )}
@@ -599,7 +599,7 @@ export default function LandingPage() {
           <span className="inline-flex items-center gap-1.5">Free health camp this Saturday <span className="text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-0.5"><MapPin className="w-3.5 h-3.5" /> Sangli</span></span>
           <span className="inline-flex items-center gap-1.5">New bus route approved by MSRTC <span className="text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-0.5"><MapPin className="w-3.5 h-3.5" /> Nashik</span></span>
           <span className="inline-flex items-center gap-1.5">Pothole on SH-10 repaired! <span className="text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-0.5"><MapPin className="w-3.5 h-3.5" /> Solapur</span></span>
-          <span className="inline-flex items-center gap-1.5">Power cut Sunday 9AM–1PM <span className="text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-0.5"><MapPin className="w-3.5 h-3.5" /> Aurangabad</span></span>
+          <span className="inline-flex items-center gap-1.5">Power cut Sunday 9AM–1PM <span className="text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-0.5"><MapPin className="w-3.5 h-3.5" /> Chh Sambhajinagar</span></span>
           {/* Duplicated for seamless loop */}
           <span className="inline-flex items-center gap-1.5">Street light fixed after 200+ reactions <span className="text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-0.5"><MapPin className="w-3.5 h-3.5" /> Kolhapur</span></span>
           <span className="inline-flex items-center gap-1.5">Free health camp this Saturday <span className="text-[#1D4ED8] dark:text-blue-400 inline-flex items-center gap-0.5"><MapPin className="w-3.5 h-3.5" /> Sangli</span></span>

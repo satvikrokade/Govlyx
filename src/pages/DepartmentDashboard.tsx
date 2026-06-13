@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -9,23 +10,19 @@ import {
   MapPin,
   MessageSquare,
   TrendingUp,
-  Users,
-  BarChart2,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Image as ImageIcon,
   X,
   Inbox,
+  Eye,
+  Megaphone,
 } from "lucide-react";
-import DepartmentSidebar from "../components/department/DepartmentSidebar";
 import ResolvePostModal from "../components/department/ResolvePostModal";
 import {
   getActiveTaggedPosts,
   getResolvedTaggedPosts,
   createBroadcast,
   getBroadcastAnalytics,
-  getBroadcastStatistics,
   getPincodeStates,
   getPincodeDistricts,
 } from "../api/departmentService";
@@ -36,7 +33,6 @@ import type {
   TaggedPost,
   BroadcastScope,
   BroadcastAnalytics,
-  BroadcastStatistics,
 } from "../types/department";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,37 +74,35 @@ const IssueCard = ({
 
   return (
     <motion.div
-      layout
+      layout="position"
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
-      className="group rounded-2xl border border-base-300 bg-base-100 p-5 hover:border-primary/30
-                 hover:shadow-md transition-all"
+      className="group rounded-2xl border border-base-300 bg-base-100 p-5 hover:border-[#1D4ED8]/30
+                 hover:shadow-md transition-all space-y-3"
     >
       {/* Author row */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <img
             src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(handle)}`}
             alt="Avatar"
-            className="h-8 w-8 rounded-full border border-base-300 bg-base-200 shrink-0"
+            className="h-9 w-9 rounded-full border border-base-300 bg-base-200 shrink-0"
           />
           <div className="min-w-0">
-            <p className="text-sm font-semibold truncate">{author}</p>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[11px] opacity-40">@{handle}</span>
+            <p className="text-sm font-extrabold truncate text-base-content">{author}</p>
+            <div className="flex items-center gap-1.5 flex-wrap text-xs opacity-50">
+              <span>@{handle}</span>
               {post.timeAgo && (
                 <>
-                  <span className="opacity-20">·</span>
-                  <span className="text-[11px] opacity-40 flex items-center gap-1">
-                    <Clock size={10} /> {post.timeAgo}
-                  </span>
+                  <span>·</span>
+                  <span>{post.timeAgo}</span>
                 </>
               )}
               {post.targetPincode && (
                 <>
-                  <span className="opacity-20">·</span>
-                  <span className="text-[11px] opacity-40 flex items-center gap-1">
+                  <span>·</span>
+                  <span className="flex items-center gap-0.5">
                     <MapPin size={10} /> {post.targetPincode}
                   </span>
                 </>
@@ -119,12 +113,12 @@ const IssueCard = ({
 
         {/* Status badge */}
         <span
-          className={`shrink-0 flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border
+          className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-wider border
             ${post.isResolved
               ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
               : (post.isReopened || post.reopened)
                 ? "bg-red-500/10 text-red-500 border-red-500/20 shadow-[0_0_8px_rgba(239,68,68,0.25)] animate-pulse"
-                : "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                : "bg-warning/10 text-warning border-warning/20"
             }`}
         >
           {post.isResolved ? (
@@ -138,22 +132,22 @@ const IssueCard = ({
       </div>
 
       {/* Content */}
-      <p className="text-sm leading-relaxed opacity-80 line-clamp-3 mb-3">{post.content}</p>
+      <p className="text-sm leading-relaxed text-base-content/85">{post.content}</p>
 
       {/* Issue type tag */}
       {post.issueType && (
-        <span className="mb-3 inline-block rounded-md bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
+        <span className="inline-block rounded-md bg-warning/10 px-2 py-0.5 text-[11px] font-semibold text-warning">
           {post.issueType}
         </span>
       )}
 
       {/* Resolution message (if resolved or has past response) */}
       {(post.isResolved || post.isReopened || post.reopened) && post.resolutionMessage && (
-        <div className="mb-3 rounded-xl bg-success/5 border border-success/20 px-4 py-3">
-          <p className="text-[11px] font-semibold text-success mb-1 uppercase tracking-wide">
+        <div className="rounded-xl bg-success/5 border border-success/20 px-4 py-3 text-xs">
+          <p className="font-extrabold text-success mb-1 uppercase tracking-wide">
             {post.isResolved ? "Official Response" : "Previous Official Response"}
           </p>
-          <p className="text-xs leading-relaxed opacity-70">{post.resolutionMessage}</p>
+          <p className="leading-relaxed opacity-80">{post.resolutionMessage}</p>
           {post.resolvedAt && (
             <p className="text-[10px] opacity-40 mt-1">
               Resolved {post.resolvedAt}
@@ -165,29 +159,29 @@ const IssueCard = ({
 
       {/* Reopened context */}
       {(post.isReopened || post.reopened) && (post.reopenedReason || post.reopenReason) && (
-        <div className="mb-3 rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3 shadow-[0_0_8px_rgba(239,68,68,0.05)]">
-          <p className="text-[11px] font-semibold text-red-500 mb-1 uppercase tracking-wide flex items-center gap-1">
+        <div className="rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3 text-xs">
+          <p className="font-extrabold text-red-500 mb-1 uppercase tracking-wide flex items-center gap-1">
             <AlertCircle size={12} className="text-red-500" /> Reason for Reopening
           </p>
-          <p className="text-xs leading-relaxed text-base-content/90 font-medium">
+          <p className="leading-relaxed opacity-80">
             {post.reopenedReason || post.reopenReason}
           </p>
         </div>
       )}
 
       {/* Footer stats + CTA */}
-      <div className="flex items-center justify-between pt-3 border-t border-base-300/50 mt-1">
-        <div className="flex items-center gap-3 text-[11px] opacity-40">
+      <div className="flex items-center justify-between pt-3 border-t border-base-300/50">
+        <div className="flex items-center gap-4 text-xs opacity-50 font-bold">
           <span className="flex items-center gap-1"><MessageSquare size={12} /> {post.commentCount ?? 0}</span>
           <span className="flex items-center gap-1"><TrendingUp size={12} /> {post.likeCount ?? 0}</span>
+          <span className="flex items-center gap-1"><Eye size={12} /> {post.viewCount ?? 0}</span>
         </div>
 
         {!post.isResolved && (
           <button
             id={`resolve-btn-${post.id}`}
             onClick={() => onResolveClick(post)}
-            className="flex items-center gap-1.5 rounded-xl bg-[#1D4ED8] px-3 py-1.5 text-xs font-bold text-white
-                       hover:bg-[#1D4ED8]-focus transition-all shadow-sm hover:shadow-md opacity-0 group-hover:opacity-100"
+            className="flex items-center gap-1.5 rounded-xl bg-[#1D4ED8] hover:bg-[#1D4ED8]/90 px-3.5 py-2 text-xs font-bold text-white transition-all shadow-sm hover:shadow-md cursor-pointer"
           >
             <CheckCircle2 size={13} />
             Mark Resolved
@@ -647,14 +641,23 @@ const BroadcastForm = ({ onSuccess }: { onSuccess: () => void }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const AnalyticsPanel = ({ username }: { username: string }) => {
   const [analytics, setAnalytics] = useState<BroadcastAnalytics | null>(null);
-  const [stats, setStats] = useState<BroadcastStatistics | null>(null);
+  const [activeCount, setActiveCount] = useState(0);
+  const [resolvedCount, setResolvedCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
-    Promise.all([getBroadcastAnalytics(30), getBroadcastStatistics()])
-      .then(([a, s]) => { setAnalytics(a); setStats(s); })
+    Promise.all([
+      getBroadcastAnalytics(30),
+      getActiveTaggedPosts(username, null, 1),
+      getResolvedTaggedPosts(username, null, 1)
+    ])
+      .then(([a, activePage, resolvedPage]) => {
+        setAnalytics(a);
+        setActiveCount(activePage.totalCount);
+        setResolvedCount(resolvedPage.totalCount);
+      })
       .catch(() => setError("Failed to load analytics"))
       .finally(() => setLoading(false));
   }, [username]);
@@ -678,54 +681,80 @@ const AnalyticsPanel = ({ username }: { username: string }) => {
     );
   }
 
-  const totalBroadcasts = stats?.total ?? stats?.totalBroadcasts ?? analytics?.totalBroadcasts ?? 0;
-  const totalActive = stats?.active ?? 0;
-  const totalResolved = stats?.resolved ?? 0;
+  const totalBroadcasts = (analytics?.totalBroadcastsCreated as number | undefined) ?? 0;
+  const totalActive = activeCount;
+  const totalResolved = resolvedCount;
+  const totalIssues = totalActive + totalResolved;
   const resolutionRate =
-    analytics?.resolutionRate != null
-      ? `${Math.round((analytics.resolutionRate as number) * 100)}%`
-      : totalResolved + totalActive > 0
-        ? `${Math.round((totalResolved / (totalResolved + totalActive)) * 100)}%`
-        : "—";
+    totalIssues > 0
+      ? `${Math.round((totalResolved / totalIssues) * 100)}%`
+      : "0%";
+  const avgViews = (analytics?.averageViews as number | undefined) ?? 0;
 
-  const broadcastsByScope = analytics?.broadcastsByScope as Record<string, number> | undefined;
+  const broadcastsByScope = analytics?.scopeBreakdown as Record<string, number> | undefined;
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h3 className="text-sm font-bold mb-0.5">Performance Overview</h3>
-        <p className="text-xs opacity-40">Last 30 days</p>
+    <div className="space-y-6">
+      {/* Issue Management Section */}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-black text-base-content mb-0.5">Issue Management</h3>
+          <p className="text-xs opacity-50">Insights into civic issues tagged to your department</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Total Issues"
+            value={totalIssues}
+            sub="Tagged all-time"
+            icon={<Inbox size={18} />}
+            color="bg-blue-500/10 text-blue-500 border border-blue-500/20"
+          />
+          <StatCard
+            title="Active Issues"
+            value={totalActive}
+            sub="Currently active"
+            icon={<Clock size={18} />}
+            color="bg-amber-500/10 text-amber-500 border border-amber-500/20"
+          />
+          <StatCard
+            title="Resolved"
+            value={totalResolved}
+            sub="Issues marked closed"
+            icon={<CheckCircle2 size={18} />}
+            color="bg-success/10 text-success border border-success/20"
+          />
+          <StatCard
+            title="Resolution Rate"
+            value={resolutionRate}
+            sub="Of total issues"
+            icon={<TrendingUp size={18} />}
+            color="bg-violet-500/10 text-violet-500 border border-violet-500/20"
+          />
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <StatCard
-          title="Total Broadcasts"
-          value={totalBroadcasts}
-          sub="Official posts published"
-          icon={<BarChart2 size={20} className="text-primary" />}
-          color="bg-[#1D4ED8]/10"
-        />
-        <StatCard
-          title="Resolution Rate"
-          value={resolutionRate}
-          sub="Issues marked resolved"
-          icon={<CheckCircle2 size={20} className="text-success" />}
-          color="bg-success/10"
-        />
-        <StatCard
-          title="Active Issues"
-          value={totalActive}
-          sub="Pending citizen requests"
-          icon={<Clock size={20} className="text-amber-500" />}
-          color="bg-amber-400/10"
-        />
-        <StatCard
-          title="Citizens Reached"
-          value={analytics?.totalReach ?? "—"}
-          sub="Via broadcasts"
-          icon={<Users size={20} className="text-violet-500" />}
-          color="bg-violet-400/10"
-        />
+      {/* Broadcast Performance Section */}
+      <div className="space-y-3">
+        <div>
+          <h3 className="text-sm font-black text-base-content mb-0.5">Broadcast Performance</h3>
+          <p className="text-xs opacity-50">Reach & engagement of official announcements (Last 30 days)</p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <StatCard
+            title="Total Broadcasts"
+            value={totalBroadcasts}
+            sub="Official posts published"
+            icon={<Megaphone size={18} />}
+            color="bg-[#1D4ED8]/10 text-[#1D4ED8] border border-[#1D4ED8]/20"
+          />
+          <StatCard
+            title="Avg. Views"
+            value={avgViews}
+            sub="Per broadcast"
+            icon={<Eye size={18} />}
+            color="bg-rose-500/10 text-rose-500 border border-rose-500/20"
+          />
+        </div>
       </div>
 
       {/* Scope breakdown */}
@@ -735,26 +764,30 @@ const AnalyticsPanel = ({ username }: { username: string }) => {
             Broadcasts by Scope
           </p>
           <div className="space-y-3">
-            {Object.entries(broadcastsByScope).map(([scopeKey, count]) => {
-              const max = Math.max(...Object.values(broadcastsByScope));
-              const pct = max > 0 ? Math.round(((count as number) / max) * 100) : 0;
-              return (
-                <div key={scopeKey}>
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="capitalize opacity-70">{scopeKey.toLowerCase()}</span>
-                    <span className="font-bold">{count as number}</span>
+            {(() => {
+              const maxScopeVal = Math.max(...Object.values(broadcastsByScope));
+              const orderedScopes = ["DISTRICT", "AREA", "STATE", "COUNTRY"];
+              return orderedScopes.map((scopeKey) => {
+                const count = broadcastsByScope[scopeKey] ?? 0;
+                const pct = maxScopeVal > 0 ? Math.round(((count as number) / maxScopeVal) * 100) : 0;
+                return (
+                  <div key={scopeKey}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="capitalize opacity-70">{scopeKey.toLowerCase()}</span>
+                      <span className="font-bold">{count as number}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-base-300 overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full bg-[#1D4ED8]"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 rounded-full bg-base-300 overflow-hidden">
-                    <motion.div
-                      className="h-full rounded-full bg-[#1D4ED8]"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${pct}%` }}
-                      transition={{ duration: 0.6, ease: "easeOut" }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         </div>
       )}
@@ -767,9 +800,10 @@ const AnalyticsPanel = ({ username }: { username: string }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 const DepartmentDashboard = () => {
   const { username, loading: userLoading } = useCurrentUser();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("issues");
+  const [searchParams] = useSearchParams();
+  const activeTab = (searchParams.get("tab") as DashboardTab) || "issues";
   const [issueFilter, setIssueFilter] = useState<IssueFilter>("active");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest">("newest");
   const [posts, setPosts] = useState<TaggedPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(false);
   const [postsError, setPostsError] = useState<string | null>(null);
@@ -837,6 +871,12 @@ const DepartmentDashboard = () => {
     );
   }
 
+  const sortedPosts = [...posts].sort((a, b) => {
+    const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return sortBy === "newest" ? timeB - timeA : timeA - timeB;
+  });
+
   return (
     <>
       {/* Resolve Modal */}
@@ -848,165 +888,165 @@ const DepartmentDashboard = () => {
         />
       )}
 
-      <div className="grid grid-cols-12 gap-5 pb-8">
-        {/* ── Left Sidebar ── */}
-        {sidebarOpen && (
-          <div className="col-span-12 lg:col-span-4 xl:col-span-3 transition-all duration-300">
-            <div className="sticky top-4">
-              <DepartmentSidebar
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                activeBadge={activePendingCount}
-              />
+      <div className="space-y-5 pb-8">
+        {/* Page header */}
+        <div className="flex items-center justify-between gap-4 py-2">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-[#1D4ED8] animate-pulse" />
+              <p className="text-[10px] font-black text-[#1D4ED8] uppercase tracking-[0.15em]">
+                Department Portal
+              </p>
             </div>
-          </div>
-        )}
-
-        {/* ── Main Panel ── */}
-        <div className={`col-span-12 ${sidebarOpen ? "lg:col-span-8 xl:col-span-9" : "lg:col-span-12"} space-y-5 transition-all duration-300`}>
-
-          {/* Page header */}
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-base-300 bg-base-100 px-6 py-4">
-            <div className="flex items-center gap-3.5">
-              <button
-                id="dept-sidebar-toggle"
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="btn btn-sm btn-ghost btn-circle bg-base-200 hover:bg-base-300 text-base-content transition-all shrink-0 cursor-pointer"
-                title={sidebarOpen ? "Hide Control Panel" : "Show Control Panel"}
-              >
-                {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
-              </button>
-              <div>
-                <p className="text-[11px] font-semibold opacity-40 uppercase tracking-widest">
-                  Department Portal
-                </p>
-                <h1 className="text-lg font-extrabold leading-tight mt-0.5">
-                  {activeTab === "issues"
-                    ? "Issues Inbox"
-                    : activeTab === "broadcasts"
-                      ? "Official Broadcasts"
-                      : "Analytics & Impact"}
-                </h1>
-                <p className="text-xs opacity-50 mt-0.5">
-                  @{username}
-                </p>
-              </div>
-            </div>
-
-            {/* Quick refresh for issues */}
-            {activeTab === "issues" && (
-              <button
-                id="dept-refresh-btn"
-                onClick={() => fetchIssues(issueFilter)}
-                disabled={postsLoading}
-                className="flex items-center gap-2 rounded-xl border border-base-300 px-3 py-2 text-xs font-semibold
-                           hover:bg-base-200 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw size={14} className={postsLoading ? "animate-spin" : ""} />
-                Refresh
-              </button>
-            )}
+            <h1 className="text-2xl font-black leading-none mt-1 text-base-content">
+              {activeTab === "issues"
+                ? "Issues Inbox"
+                : activeTab === "broadcasts"
+                  ? "Official Broadcasts"
+                  : "Analytics"}
+            </h1>
+            <p className="text-xs opacity-50 mt-1">
+              Logged in as @{username}
+            </p>
           </div>
 
-          {/* ── ISSUES PANEL ── */}
+          {/* Quick refresh for issues */}
           {activeTab === "issues" && (
-            <div className="space-y-4">
+            <button
+              id="dept-refresh-btn"
+              onClick={() => fetchIssues(issueFilter)}
+              disabled={postsLoading}
+              className="flex items-center gap-2 rounded-xl border border-base-300 bg-base-200/50 hover:bg-base-200 px-4 py-2 text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+            >
+              <RefreshCw size={13} className={postsLoading ? "animate-spin" : ""} />
+              Refresh List
+            </button>
+          )}
+        </div>
+
+        {/* ── ISSUES PANEL ── */}
+        {activeTab === "issues" && (
+          <div className="space-y-4">
+            {/* Filter and Sort row */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 w-full">
               {/* Filter tabs */}
               <div className="flex gap-2 bg-base-200/50 p-1 rounded-2xl w-fit border border-base-300">
-                {(["active", "resolved"] as IssueFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    id={`issue-filter-${f}`}
-                    onClick={() => setIssueFilter(f)}
-                    className={`px-5 py-2 rounded-xl text-sm font-bold transition-all capitalize
-                      ${issueFilter === f
-                        ? "bg-[#1D4ED8] text-white shadow-md"
-                        : "text-base-content/60 hover:text-base-content hover:bg-base-300/50"
-                      }`}
-                  >
-                    {f}
-                    {f === "active" && activePendingCount > 0 && (
-                      <span className="ml-2 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full
-                                       bg-amber-400 text-[10px] font-extrabold text-black px-1.5">
-                        {activePendingCount > 99 ? "99+" : activePendingCount}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                <button
+                  id="issue-filter-active"
+                  onClick={() => setIssueFilter("active")}
+                  className={`px-5 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2
+                    ${issueFilter === "active"
+                      ? "bg-[#1D4ED8] text-white shadow-md"
+                      : "text-base-content/60 hover:text-base-content hover:bg-base-300/50"
+                    }`}
+                >
+                  Active
+                  <span className={`inline-flex h-5 min-w-[20px] items-center justify-center rounded-full text-[10px] font-extrabold px-1.5
+                    ${issueFilter === "active" ? "bg-white/20 text-white" : "bg-base-300 text-base-content"}`}>
+                    {activePendingCount}
+                  </span>
+                </button>
+                <button
+                  id="issue-filter-resolved"
+                  onClick={() => setIssueFilter("resolved")}
+                  className={`px-5 py-2 rounded-xl text-sm font-bold transition-all
+                    ${issueFilter === "resolved"
+                      ? "bg-[#1D4ED8] text-white shadow-md"
+                      : "text-base-content/60 hover:text-base-content hover:bg-base-300/50"
+                    }`}
+                >
+                  Resolved
+                </button>
               </div>
 
-              {/* Content */}
-              <AnimatePresence mode="wait">
-                {postsLoading ? (
-                  <motion.div
-                    key="skeletons"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="space-y-4"
-                  >
-                    {Array.from({ length: 4 }).map((_, i) => <IssueSkeleton key={i} />)}
-                  </motion.div>
-                ) : postsError ? (
-                  <motion.div
-                    key="error"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex flex-col items-center gap-3 py-16 text-center rounded-2xl border border-error/20 bg-error/5"
-                  >
-                    <AlertCircle size={32} className="text-error/60" />
-                    <p className="text-sm opacity-60">{postsError}</p>
-                    <button
-                      onClick={() => fetchIssues(issueFilter)}
-                      className="text-sm font-semibold text-primary underline"
-                    >
-                      Try Again
-                    </button>
-                  </motion.div>
-                ) : posts.length === 0 ? (
-                  <motion.div
-                    key="empty"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex flex-col items-center gap-3 py-20 text-center rounded-2xl border border-dashed border-base-300"
-                  >
-                    <div className="mb-2 opacity-20">
-                      {issueFilter === "active" ? (
-                        <Inbox size={48} strokeWidth={1.5} />
-                      ) : (
-                        <CheckCircle2 size={48} strokeWidth={1.5} className="text-success" />
-                      )}
-                    </div>
-                    <p className="text-sm font-semibold opacity-60">
-                      {issueFilter === "active"
-                        ? "No active issues tagged to your department."
-                        : "No resolved issues yet."}
-                    </p>
-                    <p className="text-xs opacity-40">
-                      Citizens tag departments in civic posts to raise issues.
-                    </p>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="list"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="space-y-4"
-                  >
-                    <AnimatePresence>
-                      {posts.map((post) => (
-                        <IssueCard
-                          key={post.id}
-                          post={post}
-                          onResolveClick={setResolveTarget}
-                        />
-                      ))}
-                    </AnimatePresence>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {/* Sort Selector */}
+              <div className="relative">
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as "newest" | "oldest")}
+                  className="appearance-none bg-base-200/50 hover:bg-base-200 border border-base-300 rounded-xl px-4 py-2 text-xs font-bold text-base-content/85 pr-8 cursor-pointer focus:outline-none transition-all"
+                >
+                  <option value="newest">SORT: Newest First</option>
+                  <option value="oldest">SORT: Oldest First</option>
+                </select>
+                <ChevronDown size={12} className="absolute right-3 top-3.5 pointer-events-none opacity-60" />
+              </div>
             </div>
-          )}
+
+            {/* Content */}
+            <AnimatePresence mode="wait">
+              {postsLoading ? (
+                <motion.div
+                  key="skeletons"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="space-y-4"
+                >
+                  {Array.from({ length: 4 }).map((_, i) => <IssueSkeleton key={i} />)}
+                </motion.div>
+              ) : postsError ? (
+                <motion.div
+                  key="error"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center gap-3 py-16 text-center rounded-2xl border border-error/20 bg-error/5"
+                >
+                  <AlertCircle size={32} className="text-error/60" />
+                  <p className="text-sm opacity-60">{postsError}</p>
+                  <button
+                    onClick={() => fetchIssues(issueFilter)}
+                    className="text-sm font-semibold text-primary underline"
+                  >
+                    Try Again
+                  </button>
+                </motion.div>
+              ) : posts.length === 0 ? (
+                <motion.div
+                  key="empty"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="flex flex-col items-center gap-3 py-20 text-center rounded-2xl border border-dashed border-base-300"
+                >
+                  <div className="mb-2 opacity-20">
+                    {issueFilter === "active" ? (
+                      <Inbox size={48} strokeWidth={1.5} />
+                    ) : (
+                      <CheckCircle2 size={48} strokeWidth={1.5} className="text-success" />
+                    )}
+                  </div>
+                  <p className="text-sm font-semibold opacity-60">
+                    {issueFilter === "active"
+                      ? "No active issues tagged to your department."
+                      : "No resolved issues yet."}
+                  </p>
+                  <p className="text-xs opacity-40">
+                    Citizens tag departments in civic posts to raise issues.
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={`list-${issueFilter}-${sortBy}`}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.15, ease: "easeInOut" }}
+                  className="space-y-4"
+                >
+                  <AnimatePresence>
+                    {sortedPosts.map((post) => (
+                      <IssueCard
+                        key={post.id}
+                        post={post}
+                        onResolveClick={setResolveTarget}
+                      />
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
 
           {/* ── BROADCASTS PANEL ── */}
           {activeTab === "broadcasts" && (
@@ -1026,7 +1066,6 @@ const DepartmentDashboard = () => {
           {activeTab === "analytics" && (
             <AnalyticsPanel key={broadcastRefresh} username={username} />
           )}
-        </div>
       </div>
     </>
   );

@@ -15,7 +15,7 @@ const MessageBubble = ({
     <div className={`flex ${isOwn ? "justify-end" : "justify-start"}`}>
       <div className="max-w-[70%]">
         <div
-          className={`rounded-xl px-3 py-2 text-sm ${
+          className={`rounded-xl px-3 py-2 text-sm notranslate ${
             isOwn
               ? "bg-blue-700 text-white"
               : "bg-base-200"

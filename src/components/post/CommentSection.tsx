@@ -413,25 +413,29 @@ function CommentInput({
 function countCommentsInSubtree(comment: CommentDto): number {
   const loadedReplies = comment.replies ?? [];
   let subCount = 0;
+  let loadedDirectSum = 0;
   if (loadedReplies.length > 0) {
     for (const reply of loadedReplies) {
       subCount += countCommentsInSubtree(reply);
+      loadedDirectSum += 1 + (reply.replyCount ?? 0);
     }
   }
-  const unloadedDirectCount = Math.max(0, (comment.replyCount ?? 0) - loadedReplies.length);
-  return 1 + subCount + unloadedDirectCount;
+  const unloadedDescendants = Math.max(0, (comment.replyCount ?? 0) - loadedDirectSum);
+  return 1 + subCount + unloadedDescendants;
 }
 
 function getCommentSubtreeCount(comment: CommentDto, repliesList: CommentDto[]): number {
   let subCount = 0;
+  let loadedDirectSum = 0;
   const list = repliesList ?? [];
   if (list.length > 0) {
     for (const r of list) {
       subCount += countCommentsInSubtree(r);
+      loadedDirectSum += 1 + (r.replyCount ?? 0);
     }
   }
-  const unloadedDirectCount = Math.max(0, (comment.replyCount ?? 0) - list.length);
-  return 1 + subCount + unloadedDirectCount;
+  const unloadedDescendants = Math.max(0, (comment.replyCount ?? 0) - loadedDirectSum);
+  return 1 + subCount + unloadedDescendants;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -537,7 +541,7 @@ function SingleComment({
   async function handleReply(text: string) {
     const endpoint =
       postType === "posts"
-        ? `/api/comments/posts/${postId}`
+        ? `/api/comments/post/${postId}`
         : `/api/comments/social-posts/${postId}`;
     const res = await apiPost(endpoint, { text, parentCommentId: comment.id });
     const created: CommentDto = res?.data ?? res;
@@ -581,8 +585,8 @@ function SingleComment({
         })
         .filter((r) => r.id !== replyId)
     );
-    onDeleted(replyId, countToRemove, childParentId);
-  }, [onDeleted]);
+    onDeleted(replyId, countToRemove, comment.id);
+  }, [onDeleted, comment.id]);
 
   const handleNestedReplyAdded = useCallback((parentId: number, reply: CommentDto) => {
     setReplies((prev) =>
@@ -596,8 +600,8 @@ function SingleComment({
           : r
       )
     );
-    onReplyAdded(parentId, reply);
-  }, [onReplyAdded]);
+    onReplyAdded(comment.id, reply);
+  }, [onReplyAdded, comment.id]);
 
 
 
@@ -864,7 +868,7 @@ export default function CommentSection({
         if (beforeId) params.set("beforeId", String(beforeId));
         const endpoint =
           postType === "posts"
-            ? `/api/comments/posts/${postId}/top-level?${params}`
+            ? `/api/comments/post/${postId}/top-level?${params}`
             : `/api/comments/social-posts/${postId}/top-level?${params}`;
 
         const json = await apiFetch(endpoint);
@@ -924,7 +928,7 @@ export default function CommentSection({
   async function handleNewComment(text: string) {
     const endpoint =
       postType === "posts"
-        ? `/api/comments/posts/${postId}`
+        ? `/api/comments/post/${postId}`
         : `/api/comments/social-posts/${postId}`;
     const res = await apiPost(endpoint, { text });
     const created: CommentDto = res?.data ?? res;
@@ -933,7 +937,16 @@ export default function CommentSection({
     setFetchedOnce(true);
   }
 
-  const handleReplyAdded = useCallback(() => {
+  const handleReplyAdded = useCallback((parentId?: number) => {
+    if (parentId) {
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === parentId
+            ? { ...c, replyCount: (c.replyCount ?? 0) + 1 }
+            : c
+        )
+      );
+    }
     setCount((n) => n + 1);
   }, []);
 

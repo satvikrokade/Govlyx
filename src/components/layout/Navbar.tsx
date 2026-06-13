@@ -106,7 +106,7 @@ const Navbar = () => {
                 </g>
               </svg>
             </div>
-            <span className="hidden sm:block text-2xl font-bold">Govlyx</span>
+            <span className="hidden sm:block text-2xl font-bold notranslate">Govlyx</span>
           </NavLink>
 
           {/* DESKTOP SEARCH — read-only trigger, opens overlay */}

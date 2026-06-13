@@ -72,8 +72,11 @@ export function toPostCardPost(dto: any): AnyPost {
     hiddenReason: dto.hiddenReason || dto.flagReason || "Violates community guidelines",
   };
 
-  // If it's explicitly a government post or has a broadcast scope
-  if (dto.variant === "government" || dto.isGovernmentBroadcast === true) {
+  // If it's explicitly a government post or is marked as a government broadcast
+  if (
+    dto.variant === "government" || 
+    dto.isGovernmentBroadcast === true
+  ) {
     return {
       ...normalized,
       variant: "government",
@@ -82,8 +85,14 @@ export function toPostCardPost(dto: any): AnyPost {
     } as GovernmentPost;
   }
 
-  // If it's an issue post (has target pincode or explicit variant)
-  if (dto.variant === "issue" || dto.targetPincodes || dto.issueType) {
+  // If it's an issue post (has target pincode, explicit variant, or unique PostResponse fields)
+  if (
+    dto.variant === "issue" ||
+    dto.isResolved !== undefined ||
+    dto.canBeResolved !== undefined ||
+    dto.targetPincodes ||
+    dto.issueType
+  ) {
     return {
       ...normalized,
       variant: "issue",

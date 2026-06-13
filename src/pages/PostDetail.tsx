@@ -111,7 +111,35 @@ const PostDetail: React.FC = () => {
           post={post}
           currentUser={currentUser}
           onLike={(likedId, liked) => {
-            setPost(prev => prev && prev.id === likedId ? { ...prev, isLikedByCurrentUser: liked, likeCount: prev.likeCount + (liked ? 1 : -1) } : prev);
+            setPost(prev => {
+              if (!prev || prev.id !== likedId) return prev;
+              const hasDislikeSupport = prev.variant === "issue" || prev.variant === "government";
+              const isPrevDisliked = hasDislikeSupport && !!(prev as any).isDislikedByCurrentUser;
+              return {
+                ...prev,
+                isLikedByCurrentUser: liked,
+                likeCount: prev.likeCount + (liked ? 1 : -1),
+                ...(isPrevDisliked && liked && {
+                  isDislikedByCurrentUser: false,
+                  dislikeCount: Math.max(0, ((prev as any).dislikeCount ?? 0) - 1)
+                })
+              } as any;
+            });
+          }}
+          onDislike={(dislikedId, disliked) => {
+            setPost(prev => {
+              if (!prev || prev.id !== dislikedId) return prev;
+              const isPrevLiked = !!prev.isLikedByCurrentUser;
+              return {
+                ...prev,
+                isDislikedByCurrentUser: disliked,
+                dislikeCount: ((prev as any).dislikeCount ?? 0) + (disliked ? 1 : -1),
+                ...(isPrevLiked && disliked && {
+                  isLikedByCurrentUser: false,
+                  likeCount: Math.max(0, prev.likeCount - 1)
+                })
+              } as any;
+            });
           }}
           onSave={(savedId, saved) => {
             setPost(prev => prev && prev.id === savedId ? { ...prev, isSaved: saved } as any : prev);

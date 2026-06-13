@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Inbox, CheckCheck, Bell, Settings, ExternalLink } from "lucide-react";
+import { Inbox, CheckCheck, Bell, Settings, ExternalLink, Trash2 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { useNotifications, useNotificationActions } from "../hooks/useNotification";
 import NotificationItem from "../components/layout/NotificationItem";
@@ -8,7 +8,7 @@ import axiosInstance from "../api/axiosConfig";
 
 const NotificationsPage: React.FC = () => {
   const { data: notifications = [], isLoading } = useNotifications(50);
-  const { markAsRead, markAllAsRead, deleteNotification } = useNotificationActions();
+  const { markAsRead, markAllAsRead, deleteNotification, deleteAllNotifications } = useNotificationActions();
   const navigate = useNavigate();
 
   const [acceptingId, setAcceptingId] = useState<number | null>(null);
@@ -79,6 +79,23 @@ const NotificationsPage: React.FC = () => {
                 <CheckCheck size={16} />
               )}
               Mark all as read
+            </button>
+          )}
+
+          {notifications.length > 0 && (
+            <button
+              onClick={() => {
+                deleteAllNotifications.mutate();
+              }}
+              disabled={deleteAllNotifications.isPending}
+              className="btn btn-ghost btn-sm text-error hover:bg-error/10 gap-2"
+            >
+              {deleteAllNotifications.isPending ? (
+                <span className="loading loading-spinner loading-xs"></span>
+              ) : (
+                <Trash2 size={16} />
+              )}
+              Clear all
             </button>
           )}
 

@@ -71,17 +71,17 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
-          <p className="text-xs font-bold text-base-content leading-tight line-clamp-1">
+          <p className="text-xs font-bold text-base-content leading-tight line-clamp-1 notranslate">
             {isInvite && (
               <UserPlus size={12} className="inline mr-1 text-[#1D4ED8]" />
             )}
             {title}
           </p>
-          <span className="text-[10px] opacity-40 whitespace-nowrap">
-            {timeAgo}
+          <span className="text-[10px] opacity-40 whitespace-nowrap notranslate">
+             {timeAgo}
           </span>
         </div>
-        <p className="text-xs mt-1 opacity-70 line-clamp-2 leading-relaxed">
+        <p className="text-xs mt-1 opacity-70 line-clamp-2 leading-relaxed notranslate">
           {message}
         </p>
 

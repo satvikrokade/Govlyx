@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   LogOut, Camera, Trash2, Check, X, AlertTriangle,
-  MapPin, Mail, Loader2, Pencil, Info, User as UserIcon,
-  Lock, Globe, Shield
+  MapPin, Mail, Loader2, Pencil, User as UserIcon,
+  Lock, Globe, Shield, Eye, EyeOff, UserX
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -11,34 +11,9 @@ import { useCurrentUser } from "../hooks/useUser";
 import { clearAuthTokens } from "../utils/auth";
 import ImageEditorModal from "../components/modals/ImageEditorModal";
 import { useLanguage, type LangCode, SUPPORTED_LANGUAGES } from "../context/LanguageContext";
+import { showToast } from "../utils/toast";
 
-// ─── Inline Toast ──────────────────────────────────────────────────────────────
-function InlineToast({
-  message, type, onClose,
-}: {
-  message: string;
-  type: "success" | "error" | "info";
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 3200);
-    return () => clearTimeout(t);
-  }, [onClose]);
 
-  const bg =
-    type === "success" ? "bg-green-600" :
-    type === "error"   ? "bg-red-600"   :
-    "bg-blue-600";
-
-  return (
-    <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 ${bg} text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium flex items-center gap-2`}>
-      {type === "success" && <Check size={14} />}
-      {type === "error" && <X size={14} />}
-      {type === "info" && <Info size={14} />}
-      {message}
-    </div>
-  );
-}
 
 // ─── Editable Row ──────────────────────────────────────────────────────────────
 function EditableRow({
@@ -115,6 +90,25 @@ function EditableRow({
   );
 }
 
+const getErrorMessage = (err: any, fallback: string): string => {
+  if (err.response?.data) {
+    const data = err.response.data;
+    if (data.error && typeof data.error === "string") {
+      return data.error;
+    }
+    if (data.message && typeof data.message === "string") {
+      return data.message;
+    }
+    if (data.data && typeof data.data === "object") {
+      const values = Object.values(data.data);
+      if (values.length > 0 && typeof values[0] === "string") {
+        return values[0];
+      }
+    }
+  }
+  return err.message || fallback;
+};
+
 // ═════════════════════════════════════════════════════════════════════════════════
 // Settings page
 // ═════════════════════════════════════════════════════════════════════════════════
@@ -124,18 +118,14 @@ const Settings = () => {
   const { data: user } = useCurrentUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Toast ──
-  const [toast, setToast] = useState<{ message: string; type: "success" | "error" | "info" } | null>(null);
-  const showToast = useCallback(
-    (message: string, type: "success" | "error" | "info" = "success") => setToast({ message, type }),
-    [],
-  );
+
 
   // ── Account editing ──
   const [editField, setEditField] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [pincode, setPincode] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("en");
+  const [interfaceLanguage, setInterfaceLanguage] = useState("en");
   const [autoTranslate, setAutoTranslate] = useState(false);
   const { setLanguage: setGlobalLanguage } = useLanguage();
   const [profanityFilterLevel, setProfanityFilterLevel] = useState("STRICT");
@@ -146,6 +136,9 @@ const Settings = () => {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [passwordStatus, setPasswordStatus] = useState<{ message: string; type: "success" | "error" } | null>(null);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   // ── Profile image ──
   const [uploadingImg, setUploadingImg] = useState(false);
@@ -156,6 +149,8 @@ const Settings = () => {
   const [showDeactivate, setShowDeactivate] = useState(false);
   const [confirmText, setConfirmText] = useState("");
   const [deactivating, setDeactivating] = useState(false);
+  const [showDeletedModal, setShowDeletedModal] = useState(false);
+  const [countdown, setCountdown] = useState(5);
 
   // ── Scenario B: Pincode Auto-Lookup & Email Verification ──
   const [pincodeDetails, setPincodeDetails] = useState<string | null>(null);
@@ -174,10 +169,15 @@ const Settings = () => {
     setAutoTranslate(u.autoTranslate || false);
     setProfanityFilterLevel(u.profanityFilterLevel || "STRICT");
     setMutedWords(u.mutedWords || "");
-    // Sync global language from user profile
-    const savedLang = localStorage.getItem("govlyx_ui_language");
-    if (!savedLang) {
-      setGlobalLanguage((u.preferredLanguage || "en") as LangCode);
+    
+    // Sync global interface language from localStorage, fallback to profile preference
+    const savedInterfaceLang = localStorage.getItem("govlyx_ui_language");
+    if (savedInterfaceLang) {
+      setInterfaceLanguage(savedInterfaceLang);
+    } else {
+      const fallbackLang = u.preferredLanguage || "en";
+      setInterfaceLanguage(fallbackLang);
+      setGlobalLanguage(fallbackLang as LangCode);
     }
   }, [user]);
 
@@ -213,10 +213,10 @@ const Settings = () => {
     setSendingVerification(true);
     try {
       await axiosInstance.post(`/api/auth/resend-verification?email=${encodeURIComponent(user.email)}`);
-      showToast("Verification link sent! Please check your email.");
+      showToast.success("Verification link sent! Please check your email.");
       setShowVerificationModal(true);
     } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to send verification link", "error");
+      showToast.error(getErrorMessage(err, "Failed to send verification link"));
     } finally {
       setSendingVerification(false);
     }
@@ -226,10 +226,10 @@ const Settings = () => {
   const saveProfile = async () => {
     // Client-side validation
     if (editField === "email" && email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return showToast("Enter a valid email address", "error");
+      return showToast.error("Enter a valid email address");
     }
     if (editField === "pincode" && pincode && !/^[1-9]\d{5}$/.test(pincode)) {
-      return showToast("Enter a valid 6-digit Indian pincode", "error");
+      return showToast.error("Enter a valid 6-digit Indian pincode");
     }
 
     setSaving(true);
@@ -237,6 +237,10 @@ const Settings = () => {
       if (editField === "pincode") {
         await axiosInstance.put("/api/users/update-pincode", { pincode });
       } else {
+        if (editField === "localization") {
+          localStorage.setItem("govlyx_ui_language", interfaceLanguage);
+          setGlobalLanguage(interfaceLanguage as LangCode);
+        }
         await axiosInstance.put("/api/users/profile", {
           email: email || undefined,
           pincode: pincode || undefined,
@@ -248,9 +252,9 @@ const Settings = () => {
       }
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       setEditField(null);
-      showToast("Profile updated successfully");
+      showToast.success("Changes saved successfully");
     } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to update profile", "error");
+      showToast.error(getErrorMessage(err, "Failed to update profile"));
     } finally {
       setSaving(false);
     }
@@ -259,8 +263,13 @@ const Settings = () => {
   // ── Change Password ──
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword.length < 8) {
-      return showToast("New password must be at least 8 characters long", "error");
+    setPasswordStatus(null);
+    const passwordRegex = /^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[@#$%^&+=!.*_\-])(?=\S+$).{8,20}$/;
+    if (!passwordRegex.test(newPassword)) {
+      return setPasswordStatus({ 
+        message: "New password does not meet the strength requirements. Verify the requirements below.", 
+        type: "error" 
+      });
     }
     setChangingPassword(true);
     try {
@@ -268,11 +277,11 @@ const Settings = () => {
         oldPassword,
         newPassword,
       });
-      showToast("Password updated successfully!");
+      setPasswordStatus({ message: "Password updated successfully!", type: "success" });
       setOldPassword("");
       setNewPassword("");
     } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to update password. Verify current password.", "error");
+      setPasswordStatus({ message: getErrorMessage(err, "Failed to update password. Verify current password."), type: "error" });
     } finally {
       setChangingPassword(false);
     }
@@ -283,10 +292,10 @@ const Settings = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-      return showToast("Upload a JPEG, PNG, or WebP image", "error");
+      return showToast.error("Upload a JPEG, PNG, or WebP image");
     }
     if (file.size > 5 * 1024 * 1024) {
-      return showToast("Image must be under 5 MB", "error");
+      return showToast.error("Image must be under 5 MB");
     }
 
     const reader = new FileReader();
@@ -309,9 +318,9 @@ const Settings = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-      showToast("Profile photo updated");
+      showToast.success("Profile photo updated");
     } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to upload photo", "error");
+      showToast.error(getErrorMessage(err, "Failed to upload photo"));
     } finally {
       setUploadingImg(false);
       setEditorImageSrc(null);
@@ -321,17 +330,34 @@ const Settings = () => {
 
 
 
+  const handleConfirmDeleteRedirect = useCallback(() => {
+    clearAuthTokens();
+    queryClient.clear();
+    navigate("/login", { replace: true });
+  }, [navigate, queryClient]);
+
+  useEffect(() => {
+    if (!showDeletedModal) return;
+    if (countdown <= 0) {
+      handleConfirmDeleteRedirect();
+      return;
+    }
+    const timer = setTimeout(() => {
+      setCountdown((prev) => prev - 1);
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [showDeletedModal, countdown, handleConfirmDeleteRedirect]);
+
   // ── Deactivate ──
   const deactivateAccount = async () => {
     if (confirmText !== "DELETE") return;
     setDeactivating(true);
     try {
       await axiosInstance.delete("/api/users/me");
-      clearAuthTokens();
-      showToast("Account deleted", "info");
-      setTimeout(() => navigate("/login", { replace: true }), 1500);
+      setShowDeactivate(false);
+      setShowDeletedModal(true);
     } catch (err: any) {
-      showToast(err.response?.data?.message || "Failed to delete account", "error");
+      showToast.error(getErrorMessage(err, "Failed to delete account"));
       setDeactivating(false);
     }
   };
@@ -350,15 +376,6 @@ const Settings = () => {
 
   return (
     <div className="space-y-6">
-      {/* Toast */}
-      {toast && (
-        <InlineToast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-
       {/* PAGE HEADER */}
       <div>
         <h1 className="text-lg font-semibold">Settings</h1>
@@ -498,18 +515,18 @@ const Settings = () => {
         </div>
 
         <div className="space-y-4">
+          {/* 1. Interface Language (Stored locally in browser localStorage) */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium">Preferred Language</p>
-              <p className="text-xs opacity-60">Set your primary language for content and interface</p>
+              <p className="text-sm font-medium">Interface Language</p>
+              <p className="text-xs opacity-60">Set the primary language for buttons, menus, and application layout</p>
             </div>
             <select
-              className="select select-bordered select-sm text-sm"
-              value={preferredLanguage}
+              className="select select-bordered select-sm text-sm notranslate"
+              value={interfaceLanguage}
               onChange={(e) => {
                 const lang = e.target.value as LangCode;
-                setPreferredLanguage(lang);
-                setGlobalLanguage(lang);
+                setInterfaceLanguage(lang);
                 setEditField("localization");
               }}
             >
@@ -521,10 +538,36 @@ const Settings = () => {
             </select>
           </div>
 
+          <div className="border-t border-base-300/40 my-2"></div>
+
+          {/* 2. Post Translation Language (Stored on backend) */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">Post Translation Language</p>
+              <p className="text-xs opacity-60">Set the target language for translating feed posts</p>
+            </div>
+            <select
+              className="select select-bordered select-sm text-sm notranslate"
+              value={preferredLanguage}
+              onChange={(e) => {
+                const lang = e.target.value as LangCode;
+                setPreferredLanguage(lang);
+                setEditField("localization");
+              }}
+            >
+              {SUPPORTED_LANGUAGES.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.code === "en" ? "English" : `${l.label} (${l.nativeLabel})`}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 3. Auto-Translate Feed Toggle (Stored on backend) */}
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium">Auto-Translate Feed</p>
-              <p className="text-xs opacity-60">Automatically translate posts to your preferred language</p>
+              <p className="text-xs opacity-60">Automatically translate posts to your post translation language</p>
             </div>
             <input
               type="checkbox"
@@ -545,7 +588,7 @@ const Settings = () => {
             disabled={saving}
           >
             {saving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-            {saving ? "Saving…" : "Save Localization Settings"}
+            {saving ? "Saving…" : "Save Translation Settings"}
           </button>
         )}
       </div>
@@ -615,29 +658,89 @@ const Settings = () => {
 
         <form onSubmit={handlePasswordChange} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
               <label className="text-xs font-medium opacity-70">Current Password</label>
-              <input
-                type="password"
-                className="input input-bordered w-full input-sm bg-base-100 text-sm"
-                placeholder="Enter current password"
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showOldPassword ? "text" : "password"}
+                  className="input input-bordered w-full input-sm bg-base-100 text-sm pr-9"
+                  placeholder="Enter current password"
+                  value={oldPassword}
+                  onChange={(e) => { setOldPassword(e.target.value); setPasswordStatus(null); }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOldPassword(!showOldPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content/70 transition-colors bg-transparent border-none p-0 flex items-center justify-center cursor-pointer"
+                  aria-label={showOldPassword ? "Hide password" : "Show password"}
+                >
+                  {showOldPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 relative">
               <label className="text-xs font-medium opacity-70">New Password</label>
-              <input
-                type="password"
-                className="input input-bordered w-full input-sm bg-base-100 text-sm"
-                placeholder="At least 8 characters"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showNewPassword ? "text" : "password"}
+                  className="input input-bordered w-full input-sm bg-base-100 text-sm pr-9"
+                  placeholder="At least 8 characters"
+                  value={newPassword}
+                  onChange={(e) => { setNewPassword(e.target.value); setPasswordStatus(null); }}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-base-content/40 hover:text-base-content/70 transition-colors bg-transparent border-none p-0 flex items-center justify-center cursor-pointer"
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
             </div>
+
+            {newPassword.length > 0 && (
+              <div className="col-span-1 md:col-span-2 space-y-1.5 p-3 rounded-xl bg-base-300/30 border border-base-300 text-xs mt-1">
+                <p className="font-semibold opacity-70">Password Requirements:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-1">
+                  {[
+                    { label: "8-20 characters", met: newPassword.length >= 8 && newPassword.length <= 20 },
+                    { label: "1 uppercase letter (A-Z)", met: /[A-Z]/.test(newPassword) },
+                    { label: "1 lowercase letter (a-z)", met: /[a-z]/.test(newPassword) },
+                    { label: "1 number (0-9)", met: /\d/.test(newPassword) },
+                    { label: "1 special character (@#$%^&+=!.*_-)", met: /[@#$%^&+=!.*_\-]/.test(newPassword) },
+                    { label: "No spaces", met: !/\s/.test(newPassword) && newPassword.length > 0 },
+                  ].map((check, idx) => (
+                    <div key={idx} className="flex items-center gap-1.5 py-0.5">
+                      <span className={`w-3.5 h-3.5 rounded-full flex items-center justify-center border ${
+                        check.met 
+                          ? "bg-green-500/10 text-green-500 border-green-500/30" 
+                          : "bg-red-500/10 text-red-500 border-red-500/30"
+                      }`}>
+                        {check.met ? <Check size={10} /> : <X size={10} />}
+                      </span>
+                      <span className={check.met ? "opacity-90 font-medium" : "opacity-50"}>
+                        {check.label}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
+
+          {passwordStatus && (
+            <div className={`p-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 ${
+              passwordStatus.type === "success" 
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border border-green-200/50 dark:border-green-800/50" 
+                : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border border-red-200/50 dark:border-red-800/50"
+            }`}>
+              {passwordStatus.type === "success" ? <Check size={14} /> : <AlertTriangle size={14} />}
+              <span>{passwordStatus.message}</span>
+            </div>
+          )}
 
           <div className="flex justify-end pt-1">
             <button
@@ -780,6 +883,45 @@ const Settings = () => {
                 Okay, I'll Check
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════ SUCCESSFUL DELETION MODAL ═══════════════ */}
+      {showDeletedModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-base-200 border border-base-300 p-6 text-center space-y-5 shadow-2xl animate-in fade-in zoom-in duration-200">
+            {/* Premium Animated Icon */}
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-8 ring-red-50 dark:ring-red-950/20">
+              <UserX size={32} className="animate-pulse" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="font-bold text-lg text-base-content">Account Deleted</h3>
+              <p className="text-sm opacity-70 leading-relaxed">
+                Your account and all associated data have been permanently removed. We're sorry to see you go!
+              </p>
+            </div>
+
+            {/* Auto-redirect progress indicator */}
+            <div className="space-y-1.5">
+              <div className="w-full bg-base-300 dark:bg-base-700 h-1.5 rounded-full overflow-hidden">
+                <div 
+                  className="bg-red-500 h-full transition-all duration-1000 ease-linear"
+                  style={{ width: `${(countdown / 5) * 100}%` }}
+                />
+              </div>
+              <p className="text-xs opacity-50">
+                Redirecting to login in {countdown}s...
+              </p>
+            </div>
+
+            <button
+              className="btn btn-sm btn-error w-full text-white font-semibold rounded-lg shadow-md hover:shadow-lg transition-all"
+              onClick={handleConfirmDeleteRedirect}
+            >
+              Okay, Go to Login
+            </button>
           </div>
         </div>
       )}

@@ -25,7 +25,7 @@ import {
   MessagesSquare,
   Send,
   BookMarked,
-  HeartCrack,
+  ThumbsDown,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CommentSection from "./CommentSection";
@@ -124,6 +124,7 @@ type BasePost = {
   shareCount: number;
   contentHidden?: boolean;
   hiddenReason?: string;
+  isViewedByCurrentUser?: boolean;
 };
 
 export type IssuePost = BasePost & {
@@ -189,6 +190,8 @@ export type GovernmentPost = BasePost & {
   broadcastScopeDescription?: string;
   isGovernmentBroadcast: true;
   isLikedByCurrentUser?: boolean;
+  isDislikedByCurrentUser?: boolean;
+  dislikeCount: number;
 };
 
 export type PollOption = {
@@ -229,6 +232,7 @@ type PostCardProps = {
   post: AnyPost;
   currentUser?: CurrentUser;
   onLike?: (postId: number, liked: boolean) => void;
+  onDislike?: (postId: number, disliked: boolean) => void;
   onSave?: (postId: number, saved: boolean) => void;
   onShare?: (postId: number) => void;
   onComment?: (postId: number) => void;
@@ -239,21 +243,7 @@ type PostCardProps = {
   hideDelete?: boolean;
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function scopeIcon(scope?: BroadcastScope) {
-  return scope === "STATE" || scope === "COUNTRY" ? <Globe size={11} /> : <MapPin size={11} />;
-}
 
-function scopeLabel(scope?: BroadcastScope, desc?: string) {
-  if (desc) return desc;
-  const map: Record<string, string> = {
-    AREA: "Area",
-    DISTRICT: "District",
-    STATE: "State",
-    COUNTRY: "National",
-  };
-  return scope ? map[scope] ?? "Local" : "Local";
-}
 
 function canUpdateResolution(post: IssuePost, currentUser?: CurrentUser): boolean {
   if (!currentUser) return false;
@@ -817,7 +807,7 @@ function AuthorRow({
       </motion.div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-black text-base-content uppercase tracking-tight">
+          <span className="text-xs font-black text-base-content uppercase tracking-tight notranslate">
             {post.userDisplayName || post.username}
           </span>
           {badge && (
@@ -1353,27 +1343,16 @@ function PollBody({
   );
 }
 
-// ─── Scope Pill ───────────────────────────────────────────────────────────────
-function ScopePill({ scope, desc }: { scope?: BroadcastScope; desc?: string }) {
-  const label = desc || scopeLabel(scope);
-  const icon = scopeIcon(scope);
 
-  return (
-    <motion.span
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="inline-flex items-center gap-1 rounded-lg bg-base-200 px-3 py-1.5 text-xs font-semibold text-base-content/80"
-    >
-      {icon}
-      {label}
-    </motion.span>
-  );
-}
+
+// Module-level set to prevent concurrent duplicate view requests in the same browser session
+const sessionTrackedViews = new Set<string>();
 
 export default function PostCard({
   post,
   currentUser,
   onLike,
+  onDislike,
   onSave,
   onShare,
   onResolve,
@@ -1384,12 +1363,12 @@ export default function PostCard({
 }: PostCardProps) {
   const { data: currentUserProfile } = useCurrentUser();
   const [liked, setLiked] = useState(!!(post as AnyPost)?.isLikedByCurrentUser);
-  const [disliked, setDisliked] = useState(!!(post as IssuePost)?.isDislikedByCurrentUser);
+  const [disliked, setDisliked] = useState(!!(post as any)?.isDislikedByCurrentUser);
   const [saved, setSaved] = useState(
     !!((post as any).isSavedByCurrentUser ?? (post as any).isSaved ?? false)
   );
-  const [likeCount, setLikeCount] = useState(post?.likeCount ?? 0);
-  const [dislikeCount, setDislikeCount] = useState((post as IssuePost)?.dislikeCount ?? 0);
+  const [likeCount, setLikeCount] = useState<number>(post?.likeCount ?? 0);
+  const [dislikeCount, setDislikeCount] = useState<number>((post as any)?.dislikeCount ?? 0);
   const [shareCount, setShareCount] = useState(post?.shareCount ?? 0);
   const [commentCount, setCommentCount] = useState(post?.commentCount ?? 0);
   const [hasSharedLocally, setHasSharedLocally] = useState(false);
@@ -1413,6 +1392,7 @@ export default function PostCard({
   const [dynamicTranslation, setDynamicTranslation] = useState<string | null>(null);
   const [isTranslating, setIsTranslating] = useState(false);
   const { copied, flash } = useCopied();
+  const instanceId = useRef(Math.random().toString()).current;
 
   const handleTranslateDynamic = async () => {
     if (dynamicTranslation) {
@@ -1445,10 +1425,13 @@ export default function PostCard({
   // Synced backend states to resolve optimistic updates on network errors / debouncing
   const syncedLikedRef = useRef(!!(post as AnyPost)?.isLikedByCurrentUser);
   const syncedLikeCountRef = useRef(post?.likeCount ?? 0);
+  const syncedDislikedRef = useRef(!!(post as any)?.isDislikedByCurrentUser);
+  const syncedDislikeCountRef = useRef((post as any)?.dislikeCount ?? 0);
   const syncedSavedRef = useRef(!!((post as any).isSavedByCurrentUser ?? (post as any).isSaved ?? false));
 
   // Debounce timers
   const pendingLikeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDislikeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Ref to prevent duplicate simultaneous share clicks
@@ -1456,11 +1439,16 @@ export default function PostCard({
 
   // Ref tracking visual state for debounce closure safety
   const currentLikedValueRef = useRef(liked);
+  const currentDislikedValueRef = useRef(disliked);
   const currentSavedValueRef = useRef(saved);
 
   useEffect(() => {
     currentLikedValueRef.current = liked;
   }, [liked]);
+
+  useEffect(() => {
+    currentDislikedValueRef.current = disliked;
+  }, [disliked]);
 
   useEffect(() => {
     currentSavedValueRef.current = saved;
@@ -1469,6 +1457,7 @@ export default function PostCard({
   useEffect(() => {
     return () => {
       if (pendingLikeTimerRef.current) clearTimeout(pendingLikeTimerRef.current);
+      if (pendingDislikeTimerRef.current) clearTimeout(pendingDislikeTimerRef.current);
       if (pendingSaveTimerRef.current) clearTimeout(pendingSaveTimerRef.current);
     };
   }, []);
@@ -1485,14 +1474,22 @@ export default function PostCard({
         setLikeCount(post.likeCount ?? 0);
         syncedLikeCountRef.current = post.likeCount ?? 0;
       }
+      if (!pendingDislikeTimerRef.current) {
+        if (post.variant === "issue" || post.variant === "government") {
+          setDislikeCount((post as any).dislikeCount ?? 0);
+          syncedDislikeCountRef.current = (post as any).dislikeCount ?? 0;
+        }
+        if (post.variant === "issue" || post.variant === "government") {
+          setDisliked(!!(post as any).isDislikedByCurrentUser);
+          syncedDislikedRef.current = !!(post as any).isDislikedByCurrentUser;
+        }
+      }
       if (!pendingSaveTimerRef.current) {
         setSaved(isSaved);
         syncedSavedRef.current = isSaved;
       }
 
       setShareCount(post.shareCount ?? 0);
-      if ("dislikeCount" in post) setDislikeCount((post as IssuePost).dislikeCount ?? 0);
-      if ("isDislikedByCurrentUser" in post) setDisliked(!!(post as IssuePost).isDislikedByCurrentUser);
       setIsJoined((post as any).isMember ?? false);
       setCommentCount(post.commentCount ?? 0);
       setIsContentRevealed(false);
@@ -1502,14 +1499,56 @@ export default function PostCard({
   }, [post]);
 
   useEffect(() => {
+    if (post?.id) {
+      const viewKey = `${post.variant}-${post.id}`;
+      // Skip view recording if post was already viewed by the current user or already tracked in this session
+      if (post.isViewedByCurrentUser || sessionTrackedViews.has(viewKey)) {
+        return;
+      }
+
+      // Mark as tracked immediately to block concurrent mounts from repeating the request
+      sessionTrackedViews.add(viewKey);
+
+      const isIssue = post.variant === "issue";
+      const isGovt = post.variant === "government";
+      const type: "posts" | "social-posts" = (isIssue || isGovt) ? "posts" : "social-posts";
+      apiPost(`/api/interactions/${type}/${post.id}/view`, {}).catch(() => {});
+    }
+  }, [post?.id, post?.variant, post?.isViewedByCurrentUser]);
+
+  useEffect(() => {
     const handlePostSync = (e: any) => {
       if (e.detail.postId !== post?.id) return;
+      if (e.detail.emitterId === instanceId) return;
       if (e.detail.source === 'like') {
         setLiked(e.detail.liked);
         syncedLikedRef.current = e.detail.liked;
         if (e.detail.likeCount !== undefined) {
           setLikeCount(e.detail.likeCount);
           syncedLikeCountRef.current = e.detail.likeCount;
+        }
+        if (e.detail.liked) {
+          setDisliked(false);
+          syncedDislikedRef.current = false;
+          if (e.detail.dislikeCount !== undefined) {
+            setDislikeCount(e.detail.dislikeCount);
+            syncedDislikeCountRef.current = e.detail.dislikeCount;
+          }
+        }
+      } else if (e.detail.source === 'dislike') {
+        setDisliked(e.detail.disliked);
+        syncedDislikedRef.current = e.detail.disliked;
+        if (e.detail.dislikeCount !== undefined) {
+          setDislikeCount(e.detail.dislikeCount);
+          syncedDislikeCountRef.current = e.detail.dislikeCount;
+        }
+        if (e.detail.disliked) {
+          setLiked(false);
+          syncedLikedRef.current = false;
+          if (e.detail.likeCount !== undefined) {
+            setLikeCount(e.detail.likeCount);
+            syncedLikeCountRef.current = e.detail.likeCount;
+          }
         }
       } else if (e.detail.source === 'save') {
         setSaved(e.detail.saved);
@@ -1527,9 +1566,9 @@ export default function PostCard({
   const handleCommentCountChange = useCallback((newCount: number) => {
     setCommentCount(newCount);
     window.dispatchEvent(new CustomEvent('POST_SYNC', {
-      detail: { postId: post.id, source: 'comment', commentCount: newCount }
+      detail: { postId: post.id, source: 'comment', commentCount: newCount, emitterId: instanceId }
     }));
-  }, [post.id]);
+  }, [post.id, instanceId]);
 
   if (!post) return null;
   if ((post as any).status === "DELETED") {
@@ -1573,31 +1612,49 @@ export default function PostCard({
     const nextLiked = !currentLikedValueRef.current;
     const nextLikeCount = nextLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
     
+    let nextDislikeCount = dislikeCount;
+    const hasDislike = isIssue || isGovt;
+    if (hasDislike && nextLiked && disliked) {
+      nextDislikeCount = Math.max(0, dislikeCount - 1);
+    }
+    
     // 1. Optimistic updates
     setLiked(nextLiked);
     setLikeCount(nextLikeCount);
-    if (nextLiked && disliked) {
+    if (hasDislike && nextLiked && disliked) {
       setDisliked(false);
-      setDislikeCount((n) => Math.max(0, n - 1));
+      setDislikeCount(nextDislikeCount);
     }
     
     // 2. Notify parent and sync instances
     onLike?.(post.id, nextLiked);
     window.dispatchEvent(new CustomEvent('POST_SYNC', {
-      detail: { postId: post.id, source: 'like', liked: nextLiked, likeCount: nextLikeCount }
+      detail: { 
+        postId: post.id, 
+        source: 'like', 
+        liked: nextLiked, 
+        likeCount: nextLikeCount, 
+        disliked: nextLiked ? false : disliked,
+        dislikeCount: nextDislikeCount,
+        emitterId: instanceId 
+      }
     }));
 
     // 3. Debounce API call
     if (pendingLikeTimerRef.current) {
       clearTimeout(pendingLikeTimerRef.current);
     }
+    if (pendingDislikeTimerRef.current) {
+      clearTimeout(pendingDislikeTimerRef.current);
+      pendingDislikeTimerRef.current = null;
+    }
 
     pendingLikeTimerRef.current = setTimeout(async () => {
       pendingLikeTimerRef.current = null;
-      const finalLikedState = currentLikedValueRef.current;
+      const targetState = currentLikedValueRef.current;
       const originalSyncedState = syncedLikedRef.current;
 
-      if (finalLikedState === originalSyncedState) {
+      if (targetState === originalSyncedState) {
         return;
       }
 
@@ -1606,33 +1663,160 @@ export default function PostCard({
         const res = await apiPost(ep, {});
         const data = (res as any)?.data ?? res;
         
-        let serverLiked = finalLikedState;
+        let serverLiked = targetState;
         let serverLikeCount = nextLikeCount;
         if (data && typeof data.liked === "boolean") serverLiked = data.liked;
         if (data && typeof data.likeCount === "number") serverLikeCount = data.likeCount;
 
+        let serverDisliked = nextLiked ? false : disliked;
+        let serverDislikeCount = nextDislikeCount;
+        if (data && typeof data.disliked === "boolean") serverDisliked = data.disliked;
+        if (data && typeof data.dislikeCount === "number") serverDislikeCount = data.dislikeCount;
+
         syncedLikedRef.current = serverLiked;
         syncedLikeCountRef.current = serverLikeCount;
+        if (hasDislike) {
+          syncedDislikedRef.current = serverDisliked;
+          syncedDislikeCountRef.current = serverDislikeCount;
+        }
 
-        setLiked(serverLiked);
-        setLikeCount(serverLikeCount);
-        window.dispatchEvent(new CustomEvent('POST_SYNC', {
-          detail: { postId: post.id, source: 'like', liked: serverLiked, likeCount: serverLikeCount }
-        }));
+        if (currentLikedValueRef.current === targetState) {
+          setLiked(serverLiked);
+          setLikeCount(serverLikeCount);
+          if (hasDislike) {
+            setDisliked(serverDisliked);
+            setDislikeCount(serverDislikeCount);
+          }
+          window.dispatchEvent(new CustomEvent('POST_SYNC', {
+            detail: { 
+              postId: post.id, 
+              source: 'like', 
+              liked: serverLiked, 
+              likeCount: serverLikeCount, 
+              disliked: serverDisliked,
+              dislikeCount: serverDislikeCount,
+              emitterId: instanceId 
+            }
+          }));
+        }
       } catch (err) {
         console.error("Failed to sync like interaction", err);
-        setLiked(originalSyncedState);
-        setLikeCount(syncedLikeCountRef.current);
-        window.dispatchEvent(new CustomEvent('POST_SYNC', {
-          detail: { postId: post.id, source: 'like', liked: originalSyncedState, likeCount: syncedLikeCountRef.current }
-        }));
+        if (currentLikedValueRef.current === targetState) {
+          setLiked(originalSyncedState);
+          setLikeCount(syncedLikeCountRef.current);
+          onLike?.(post.id, originalSyncedState);
+          window.dispatchEvent(new CustomEvent('POST_SYNC', {
+            detail: { postId: post.id, source: 'like', liked: originalSyncedState, likeCount: syncedLikeCountRef.current, emitterId: instanceId }
+          }));
+        }
       }
     }, 400);
   }
 
   async function handleDislike() {
-    if (!isIssue || isResolved || isProcessing) return;
-    alert("Dislike feature coming soon!");
+    if ((!isIssue && !isGovt) || isResolved) return;
+    
+    const nextDisliked = !currentDislikedValueRef.current;
+    const nextDislikeCount = nextDisliked ? dislikeCount + 1 : Math.max(0, dislikeCount - 1);
+    
+    // 1. Optimistic updates
+    setDisliked(nextDisliked);
+    setDislikeCount(nextDislikeCount);
+    let nextLikeCount = likeCount;
+    if (nextDisliked && liked) {
+      setLiked(false);
+      nextLikeCount = Math.max(0, likeCount - 1);
+      setLikeCount(nextLikeCount);
+    }
+    
+    // 2. Notify parent and sync instances
+    onDislike?.(post.id, nextDisliked);
+    window.dispatchEvent(new CustomEvent('POST_SYNC', {
+      detail: { 
+        postId: post.id, 
+        source: 'dislike', 
+        disliked: nextDisliked, 
+        dislikeCount: nextDislikeCount, 
+        liked: nextDisliked ? false : liked,
+        likeCount: nextLikeCount,
+        emitterId: instanceId 
+      }
+    }));
+
+    // 3. Debounce API call
+    if (pendingDislikeTimerRef.current) {
+      clearTimeout(pendingDislikeTimerRef.current);
+    }
+    if (pendingLikeTimerRef.current) {
+      clearTimeout(pendingLikeTimerRef.current);
+      pendingLikeTimerRef.current = null;
+    }
+
+    pendingDislikeTimerRef.current = setTimeout(async () => {
+      pendingDislikeTimerRef.current = null;
+      const targetState = currentDislikedValueRef.current;
+      const originalSyncedState = syncedDislikedRef.current;
+
+      if (targetState === originalSyncedState) {
+        return;
+      }
+
+      const ep = `/api/interactions/${interactionType}/${post.id}/dislike`;
+      try {
+        const res = await apiPost(ep, {});
+        const data = (res as any)?.data ?? res;
+        
+        let serverDisliked = targetState;
+        let serverDislikeCount = nextDislikeCount;
+        if (data && typeof data.disliked === "boolean") serverDisliked = data.disliked;
+        if (data && typeof data.dislikeCount === "number") serverDislikeCount = data.dislikeCount;
+
+        // Since we are disliking/toggle-disliking, the like status is guaranteed to be false on the server
+        let serverLiked = false;
+        let serverLikeCount = nextLikeCount;
+        if (data && typeof data.likeCount === "number") serverLikeCount = data.likeCount;
+
+        syncedDislikedRef.current = serverDisliked;
+        syncedDislikeCountRef.current = serverDislikeCount;
+        syncedLikedRef.current = serverLiked;
+        syncedLikeCountRef.current = serverLikeCount;
+
+        if (currentDislikedValueRef.current === targetState) {
+          setDisliked(serverDisliked);
+          setDislikeCount(serverDislikeCount);
+          setLiked(serverLiked);
+          setLikeCount(serverLikeCount);
+
+          window.dispatchEvent(new CustomEvent('POST_SYNC', {
+            detail: { 
+              postId: post.id, 
+              source: 'dislike', 
+              disliked: serverDisliked, 
+              dislikeCount: serverDislikeCount, 
+              liked: serverLiked,
+              likeCount: serverLikeCount,
+              emitterId: instanceId 
+            }
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to sync dislike interaction", err);
+        if (currentDislikedValueRef.current === targetState) {
+          setDisliked(originalSyncedState);
+          setDislikeCount(syncedDislikeCountRef.current);
+          onDislike?.(post.id, originalSyncedState);
+          window.dispatchEvent(new CustomEvent('POST_SYNC', {
+            detail: { 
+              postId: post.id, 
+              source: 'dislike', 
+              disliked: originalSyncedState, 
+              dislikeCount: syncedDislikeCountRef.current, 
+              emitterId: instanceId 
+            }
+          }));
+        }
+      }
+    }, 400);
   }
 
   async function handleSave() {
@@ -1644,7 +1828,7 @@ export default function PostCard({
     // 2. Notify parent and sync instances
     onSave?.(post.id, nextSaved);
     window.dispatchEvent(new CustomEvent('POST_SYNC', {
-      detail: { postId: post.id, source: 'save', saved: nextSaved }
+      detail: { postId: post.id, source: 'save', saved: nextSaved, emitterId: instanceId }
     }));
 
     // 3. Debounce API call
@@ -1673,13 +1857,14 @@ export default function PostCard({
 
         setSaved(serverSaved);
         window.dispatchEvent(new CustomEvent('POST_SYNC', {
-          detail: { postId: post.id, source: 'save', saved: serverSaved }
+          detail: { postId: post.id, source: 'save', saved: serverSaved, emitterId: instanceId }
         }));
       } catch (err) {
         console.error("Failed to sync save interaction", err);
         setSaved(originalSyncedState);
+        onSave?.(post.id, originalSyncedState);
         window.dispatchEvent(new CustomEvent('POST_SYNC', {
-          detail: { postId: post.id, source: 'save', saved: originalSyncedState }
+          detail: { postId: post.id, source: 'save', saved: originalSyncedState, emitterId: instanceId }
         }));
       }
     }, 400);
@@ -1697,7 +1882,7 @@ export default function PostCard({
         onShare?.(post.id);
         
         window.dispatchEvent(new CustomEvent('POST_SYNC', {
-          detail: { postId: post.id, source: 'share', shareCount: nextShareCount }
+          detail: { postId: post.id, source: 'share', shareCount: nextShareCount, emitterId: instanceId }
         }));
       }
 
@@ -1838,7 +2023,7 @@ export default function PostCard({
         animate={{ opacity: 1, scale: 1 }}
         whileHover={{ y: -6 }}
         transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-        className={`rounded-[2rem] border-2 ${borderClass} shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col backdrop-blur-md relative group/card transition-all duration-500`}
+        className={`rounded-[2rem] border-2 ${borderClass} shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col backdrop-blur-md relative group/card transition-all duration-500 notranslate`}
       >
         <div className="p-5 sm:p-6 flex flex-col gap-4 flex-1 relative">
           {/* Translation toggle — Desktop: absolute top-right, single button */}
@@ -1846,7 +2031,7 @@ export default function PostCard({
             {hasTranslation ? (
               <button
                 onClick={(e) => { e.stopPropagation(); setShowOriginal(v => !v); }}
-                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/18 border border-white/20 hover:border-white/35 rounded-full px-2.5 py-0.5 transition-all cursor-pointer backdrop-blur-sm"
+                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 hover:text-slate-900 bg-slate-100/80 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 dark:text-white/80 dark:hover:text-white dark:bg-white/10 dark:hover:bg-white/18 dark:border-white/20 dark:hover:border-white/35 rounded-full px-2.5 py-0.5 transition-all cursor-pointer backdrop-blur-sm"
               >
                 <Globe size={10} />
                 {showOriginal ? "See Translation" : "Show Original"}
@@ -1855,7 +2040,7 @@ export default function PostCard({
               <button
                 disabled={isTranslating}
                 onClick={(e) => { e.stopPropagation(); handleTranslateDynamic(); }}
-                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/18 border border-white/20 hover:border-white/35 rounded-full px-2.5 py-0.5 transition-all disabled:opacity-40 cursor-pointer backdrop-blur-sm"
+                className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 hover:text-slate-900 bg-slate-100/80 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 dark:text-white/80 dark:hover:text-white dark:bg-white/10 dark:hover:bg-white/18 dark:border-white/20 dark:hover:border-white/35 rounded-full px-2.5 py-0.5 transition-all disabled:opacity-40 cursor-pointer backdrop-blur-sm"
               >
                 {isTranslating ? (
                   <><span className="loading loading-spinner w-3 h-3 shrink-0" /> Translating...</>
@@ -1879,13 +2064,30 @@ export default function PostCard({
                 animate={{ opacity: 1, x: 0 }}
                 className="flex items-center gap-3"
               >
-                <div className="w-10 h-10 rounded-lg bg-red-400/10 flex items-center justify-center shrink-0">
-                  <BadgeCheck size={18} className="text-red-400" />
+                <div className="relative shrink-0">
+                  {post.userProfileImage ? (
+                    <img
+                      src={post.userProfileImage}
+                      className="w-10 h-10 rounded-full object-cover ring-2 ring-red-500/20 ring-offset-2 ring-offset-base-100"
+                      alt=""
+                    />
+                  ) : (
+                    <img
+                      src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(
+                        post.username || "?"
+                      )}`}
+                      className="w-10 h-10 rounded-full object-cover bg-red-500/5 ring-2 ring-red-500/20 ring-offset-2 ring-offset-base-100"
+                      alt="Avatar"
+                    />
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-red-500/80 truncate">
-                    {(post as GovernmentPost).department}
-                  </p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-[#EF4444] dark:text-[#F87171] text-sm truncate tracking-tight notranslate">
+                      {(post as GovernmentPost).department || post.username}
+                    </span>
+                    <BadgeCheck size={16} className="text-red-500 fill-red-500/10 shrink-0" />
+                  </div>
                   <p className="text-[10px] text-base-content/50 mt-0.5">{post.timeAgo ?? "just now"}</p>
                 </div>
               </motion.div>
@@ -1918,13 +2120,17 @@ export default function PostCard({
           </div>
 
           {/* Meta row */}
-          {isIssue && (
+          {(isIssue || isGovt) && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-wrap items-center gap-2">
-              <ScopePill
-                scope={"broadcastScope" in post ? (post as IssuePost).broadcastScope : undefined}
-                desc={"broadcastScopeDescription" in post ? (post as IssuePost).broadcastScopeDescription : undefined}
-              />
-              {showStatusBadge && <StatusBadge status={(post as IssuePost).status} reopened={(post as IssuePost).reopened || (post as IssuePost).isReopened} />}
+              {isIssue && showStatusBadge && (
+                <StatusBadge status={(post as IssuePost).status} reopened={(post as IssuePost).reopened || (post as IssuePost).isReopened} />
+              )}
+              {(post as any).targetPincodes && (post as any).targetPincodes.length > 0 && (
+                <div className="flex items-center gap-1 bg-[#1D4ED8]/5 text-[#1D4ED8] dark:text-[#60A5FA] dark:bg-[#1D4ED8]/20 text-[10px] font-bold px-2 py-0.5 rounded-full border border-[#1D4ED8]/10">
+                  <MapPin size={10} />
+                  <span>Pincode: {(post as any).targetPincodes.join(", ")}</span>
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -1965,7 +2171,7 @@ export default function PostCard({
               </div>
             )}
 
-            <motion.p className={`text-[13px] leading-relaxed font-medium text-base-content/90 ${!expanded ? "line-clamp-3" : ""} ${post.contentHidden && !isContentRevealed ? "blur-sm opacity-50 select-none" : ""}`}>
+            <motion.p className={`text-[13px] leading-relaxed font-medium text-base-content/90 notranslate ${!expanded ? "line-clamp-3" : ""} ${post.contentHidden && !isContentRevealed ? "blur-sm opacity-50 select-none" : ""}`}>
               {displayText}
             </motion.p>
             {(!post.contentHidden || isContentRevealed) && (displayText?.length ?? 0) > 160 && (
@@ -1990,7 +2196,7 @@ export default function PostCard({
                       key={name}
                       initial={{ opacity: 0, scale: 0.8 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 notranslate"
                     >
                       <Building2 size={12} /> @{name}
                     </motion.span>
@@ -2001,7 +2207,7 @@ export default function PostCard({
                       key={tag}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                      className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors notranslate"
                     >
                       {tag}
                     </motion.span>
@@ -2057,7 +2263,7 @@ export default function PostCard({
                 {hasTranslation ? (
                   <button
                     onClick={(e) => { e.stopPropagation(); setShowOriginal(v => !v); }}
-                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/18 border border-white/20 hover:border-white/35 rounded-full px-3 py-1 transition-all cursor-pointer backdrop-blur-sm"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 hover:text-slate-900 bg-slate-100/80 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 dark:text-white/80 dark:hover:text-white dark:bg-white/10 dark:hover:bg-white/18 dark:border-white/20 dark:hover:border-white/35 rounded-full px-3 py-1 transition-all cursor-pointer backdrop-blur-sm"
                   >
                     <Globe size={10} />
                     {showOriginal ? "See Translation" : "Show Original"}
@@ -2066,7 +2272,7 @@ export default function PostCard({
                   <button
                     disabled={isTranslating}
                     onClick={(e) => { e.stopPropagation(); handleTranslateDynamic(); }}
-                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-white/80 hover:text-white bg-white/10 hover:bg-white/18 border border-white/20 hover:border-white/35 rounded-full px-3 py-1 transition-all disabled:opacity-40 cursor-pointer backdrop-blur-sm"
+                    className="inline-flex items-center gap-1.5 text-[10px] font-semibold text-slate-700 hover:text-slate-900 bg-slate-100/80 hover:bg-slate-200 border border-slate-200 hover:border-slate-300 dark:text-white/80 dark:hover:text-white dark:bg-white/10 dark:hover:bg-white/18 dark:border-white/20 dark:hover:border-white/35 rounded-full px-3 py-1 transition-all disabled:opacity-40 cursor-pointer backdrop-blur-sm"
                   >
                     {isTranslating ? (
                       <><span className="loading loading-spinner w-3 h-3 shrink-0" /> Translating...</>
@@ -2092,15 +2298,14 @@ export default function PostCard({
                   <span>{copied ? "Copied!" : (shareCount || "0")}</span>
                 </ActionPill>
                 <div className="flex-1" />
-                {!isIssue && (
+                {(isIssue || isGovt) ? (
+                  <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} activeClass="text-violet-500 bg-violet-500/10 border-violet-500/30" hoverGlow="rgba(139,92,246,0.65)">
+                    <ThumbsDown size={16} className={disliked ? "fill-violet-500 text-violet-500" : ""} />
+                    <span>{dislikeCount || "0"}</span>
+                  </ActionPill>
+                ) : (
                   <ActionPill onClick={handleSave} active={saved} activeClass="text-amber-400 bg-amber-500/10 border-amber-500/30" hoverGlow="rgba(251,191,36,0.65)">
                     <BookMarked size={16} className={saved ? "fill-amber-400/30 text-amber-400" : ""} />
-                  </ActionPill>
-                )}
-                {isIssue && (
-                  <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} activeClass="text-rose-500 bg-rose-500/10 border-rose-500/30" hoverGlow="rgba(244,63,94,0.65)">
-                    <HeartCrack size={16} className={disliked ? "fill-rose-500/30 text-rose-500" : ""} />
-                    <span>{dislikeCount || "0"}</span>
                   </ActionPill>
                 )}
               </div>
@@ -2125,15 +2330,14 @@ export default function PostCard({
                   <Send size={18} />
                   <span className="text-[9px] leading-tight mt-0.5">{copied ? "Copied" : (shareCount || "0")}</span>
                 </ActionPill>
-                {!isIssue && (
+                {(isIssue || isGovt) ? (
+                  <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} vertical activeClass="text-violet-500 bg-violet-500/10 border-violet-500/30" hoverGlow="rgba(139,92,246,0.65)">
+                    <ThumbsDown size={18} className={disliked ? "fill-violet-500 text-violet-500" : ""} />
+                    <span>{dislikeCount || "0"}</span>
+                  </ActionPill>
+                ) : (
                   <ActionPill onClick={handleSave} active={saved} vertical activeClass="text-amber-400 bg-amber-500/10 border-amber-500/30" hoverGlow="rgba(251,191,36,0.65)">
                     <BookMarked size={18} className={saved ? "fill-amber-400/30 text-amber-400" : ""} />
-                  </ActionPill>
-                )}
-                {isIssue && (
-                  <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} vertical activeClass="text-rose-500 bg-rose-500/10 border-rose-500/30" hoverGlow="rgba(244,63,94,0.65)">
-                    <HeartCrack size={18} className={disliked ? "fill-rose-500/30 text-rose-500" : ""} />
-                    <span>{dislikeCount || "0"}</span>
                   </ActionPill>
                 )}
               </motion.div>

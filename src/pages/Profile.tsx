@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import axiosInstance from "../api/axiosConfig";
@@ -11,6 +11,10 @@ import {
   Edit,
   Camera,
   X,
+  Heart,
+  Bookmark,
+  MessageSquare,
+  List,
 } from "lucide-react";
 import EmptyState from "../components/ui/EmptyState";
 import ProfileTabs from "../components/profile/ProfileTabs";
@@ -65,6 +69,7 @@ function formatDate(raw: any): string {
 // ─── types ────────────────────────────────────────────────────────────────────
 type PostFilter = "all" | "active" | "resolved";
 type Tab = "posts" | "social" | "activity";
+type ActivityFilter = "all" | "liked" | "saved" | "commented";
 
 // ─── shared ActionBtn ─────────────────────────────────────────────────────────
 
@@ -109,7 +114,9 @@ const Profile = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [tab, setTab] = useState<Tab>("posts");
-  const [postFilter, setPostFilter] = useState<PostFilter>("active");
+  const [postFilter, setPostFilter] = useState<PostFilter>("all");
+  const [hasLoadedSocial, setHasLoadedSocial] = useState(false);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>("all");
 
   const openEditModal = () => {
     setEditEmail(user?.email || "");
@@ -142,7 +149,7 @@ const Profile = () => {
 
       await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       setEditModalOpen(false);
-      showToast.success("Profile updated successfully");
+      showToast.success("Changes saved successfully");
     } catch (err: any) {
       showToast.error(err.response?.data?.message || "Failed to update profile");
     } finally {
@@ -197,71 +204,51 @@ const Profile = () => {
       setAllPosts(prev => prev.filter(p => p.id !== id));
       setActivePosts(prev => prev.filter(p => p.id !== id));
       setResolvedPosts(prev => prev.filter(p => p.id !== id));
-      setIssueCount(n => Math.max(0, n - 1));
+      setIssueCount(n => n !== null ? Math.max(0, n - 1) : null);
     } else {
       setSocialPosts(prev => prev.filter(p => p.id !== id));
-      setSocialCount(n => Math.max(0, n - 1));
+      setSocialCount(n => n !== null ? Math.max(0, n - 1) : null);
     }
   };
 
-  const handleResolve = (id: number, resolved: boolean, message: string) => {
-    const updateList = (prev: AnyPost[]) =>
-      prev.map((p) => {
-        if (p.id === id && p.variant === "issue") {
-          return {
-            ...p,
-            status: resolved ? "RESOLVED" : "ACTIVE",
-            isResolved: resolved,
-            resolutionMessage: resolved ? message : (p as any).resolutionMessage,
-            reopened: !resolved,
-            isReopened: !resolved,
-            reopenedReason: !resolved ? message : (p as any).reopenedReason,
-          } as any as AnyPost;
-        }
-        return p;
-      });
+  const applyResolveUpdate = (prev: AnyPost[], id: number, resolved: boolean, message: string): AnyPost[] =>
+    prev.map((p) => {
+      if (p.id === id && p.variant === "issue") {
+        return {
+          ...p,
+          status: resolved ? "RESOLVED" : "ACTIVE",
+          isResolved: resolved,
+          resolutionMessage: resolved ? message : (p as any).resolutionMessage,
+          reopened: !resolved,
+          isReopened: !resolved,
+          reopenedReason: !resolved ? message : (p as any).reopenedReason,
+        } as any as AnyPost;
+      }
+      return p;
+    });
 
-    setAllPosts(updateList);
-    setActivePosts((prev) => {
-      const updated = updateList(prev);
-      if (resolved) {
-        return updated.filter((p) => p.id !== id);
-      } else {
-        const exists = updated.some((p) => p.id === id);
-        if (exists) return updated;
-        const postFromAll = allPosts.find((p) => p.id === id);
-        if (postFromAll) {
-          return [...updated, {
-            ...postFromAll,
-            status: "ACTIVE",
-            isResolved: false,
-            reopened: true,
-            isReopened: true,
-            reopenedReason: message,
-          } as any as AnyPost];
-        }
-        return updated;
-      }
-    });
-    setResolvedPosts((prev) => {
-      const updated = updateList(prev);
-      if (!resolved) {
-        return updated.filter((p) => p.id !== id);
-      } else {
-        const exists = updated.some((p) => p.id === id);
-        if (exists) return updated;
-        const postFromAll = allPosts.find((p) => p.id === id);
-        if (postFromAll) {
-          return [...updated, {
-            ...postFromAll,
-            status: "RESOLVED",
-            isResolved: true,
-            resolutionMessage: message,
-          } as any as AnyPost];
-        }
-        return updated;
-      }
-    });
+  const handleResolve = (id: number, resolved: boolean, message: string) => {
+    setAllPosts(prev => applyResolveUpdate(prev, id, resolved, message));
+    // Keep active/resolved filtered arrays in sync too
+    if (resolved) {
+      // Move from activePosts → resolvedPosts
+      setActivePosts(prev => prev.filter(p => p.id !== id));
+      setResolvedPosts(prev => {
+        const existing = prev.find(p => p.id === id);
+        const updated = allPosts.find(p => p.id === id);
+        if (existing || !updated) return prev.map(p => p.id === id ? applyResolveUpdate([p], id, resolved, message)[0] : p);
+        return [applyResolveUpdate([updated], id, resolved, message)[0], ...prev];
+      });
+    } else {
+      // Move from resolvedPosts → activePosts
+      setResolvedPosts(prev => prev.filter(p => p.id !== id));
+      setActivePosts(prev => {
+        const existing = prev.find(p => p.id === id);
+        const updated = allPosts.find(p => p.id === id);
+        if (existing || !updated) return prev.map(p => p.id === id ? applyResolveUpdate([p], id, resolved, message)[0] : p);
+        return [applyResolveUpdate([updated], id, resolved, message)[0], ...prev];
+      });
+    }
   };
 
   const [username, setUsername] = useState<string>("...");
@@ -269,21 +256,84 @@ const Profile = () => {
   const [location, setLocation] = useState("India");
   const [currentUser, setCurrentUser] = useState<CurrentUser | undefined>();
 
-  const [issueCount, setIssueCount] = useState<number>(0);
-  const [socialCount, setSocialCount] = useState<number>(0);
-  const [communityCount, setCommunityCount] = useState<number>(0);
+  const [issueCount, setIssueCount] = useState<number | null>(null);
+  const [socialCount, setSocialCount] = useState<number | null>(null);
+  const [communityCount, setCommunityCount] = useState<number | null>(null);
+  const allCountsLoaded = issueCount !== null && socialCount !== null && communityCount !== null;
 
   const [allPosts, setAllPosts] = useState<AnyPost[]>([]);
   const [activePosts, setActivePosts] = useState<AnyPost[]>([]);
   const [resolvedPosts, setResolvedPosts] = useState<AnyPost[]>([]);
+  const [hasLoadedActive, setHasLoadedActive] = useState(false);
+  const [hasLoadedResolved, setHasLoadedResolved] = useState(false);
   const [socialPosts, setSocialPosts] = useState<AnyPost[]>([]);
-  const [activity, setActivity] = useState<AnyPost[]>([]);
+  const [activityItems, setActivityItems] = useState<{ post: AnyPost; type: "liked" | "saved" | "commented"; time: number }[]>([]);
 
   const [loadingPosts, setLoadingPosts] = useState(false);
+  const [loadingFilteredPosts, setLoadingFilteredPosts] = useState(false);
   const [loadingSocial, setLoadingSocial] = useState(false);
   const [loadingActivity, setLoadingActivity] = useState(false);
 
   const { data: user } = useCurrentUser();
+
+  const updatePostState = useCallback((postId: number, variant: string, updater: Partial<AnyPost> | ((p: AnyPost) => Partial<AnyPost>)) => {
+    const updateListItem = (prev: AnyPost[]) =>
+      prev.map((p) => {
+        if (p.id === postId && p.variant === variant) {
+          const changes = typeof updater === "function" ? updater(p) : updater;
+          return { ...p, ...changes } as AnyPost;
+        }
+        return p;
+      });
+
+    setAllPosts(updateListItem);
+    setSocialPosts(updateListItem);
+    setActivityItems((prev) =>
+      prev.map((item) => {
+        if (item.post.id === postId && item.post.variant === variant) {
+          const changes = typeof updater === "function" ? updater(item.post) : updater;
+          return { ...item, post: { ...item.post, ...changes } as AnyPost };
+        }
+        return item;
+      })
+    );
+  }, []);
+
+  const handleLike = useCallback((postId: number, variant: string, liked: boolean) => {
+    updatePostState(postId, variant, (post) => {
+      const hasDislikeSupport = post.variant === "issue" || post.variant === "government";
+      const isPreviouslyDisliked = hasDislikeSupport && !!(post as any).isDislikedByCurrentUser;
+      return {
+        isLikedByCurrentUser: liked,
+        likeCount: post.likeCount + (liked ? 1 : -1),
+        ...(isPreviouslyDisliked && liked && {
+          isDislikedByCurrentUser: false,
+          dislikeCount: Math.max(0, ((post as any).dislikeCount ?? 0) - 1)
+        })
+      } as Partial<AnyPost>;
+    });
+  }, [updatePostState]);
+
+  const handleDislike = useCallback((postId: number, variant: string, disliked: boolean) => {
+    updatePostState(postId, variant, (post) => {
+      const isPreviouslyLiked = !!post.isLikedByCurrentUser;
+      return {
+        isDislikedByCurrentUser: disliked,
+        dislikeCount: ((post as any).dislikeCount ?? 0) + (disliked ? 1 : -1),
+        ...(isPreviouslyLiked && disliked && {
+          isLikedByCurrentUser: false,
+          likeCount: Math.max(0, post.likeCount - 1)
+        })
+      } as Partial<AnyPost>;
+    });
+  }, [updatePostState]);
+
+  const handleSave = useCallback((postId: number, variant: string, saved: boolean) => {
+    updatePostState(postId, variant, {
+      isSaved: saved,
+      isSavedByCurrentUser: saved
+    } as Partial<AnyPost>);
+  }, [updatePostState]);
 
   useEffect(() => {
     if (!user) return;
@@ -304,78 +354,107 @@ const Profile = () => {
 
   // Fetch counts + pre-populate lists
   useEffect(() => {
-    // Fetch total issue count
-    apiFetch("/api/posts/count/my-posts")
-      .then((res) => {
-        if (res?.success) setIssueCount(res.data);
-      })
-      .catch(() => { });
+    if (!user?.id) return;
 
-    // Fetch total social count
-    apiFetch("/api/social-posts/count/my-posts")
-      .then((res) => {
-        if (res?.success) setSocialCount(res.data);
-      })
-      .catch(() => { });
-
-    apiFetch("/api/posts/my-posts?limit=100")
+    setLoadingPosts(true);
+    apiFetch("/api/posts/my-posts?limit=500")
       .then((b) => {
         const posts: AnyPost[] = (b?.data?.data ?? []).map(mapIssuePost);
         setAllPosts(posts);
+        setIssueCount(posts.length);
       })
-      .catch(() => { });
+      .catch((err) => {
+        console.error("Failed to fetch user issue posts:", err);
+        setIssueCount(0);
+      })
+      .finally(() => {
+        setLoadingPosts(false);
+      });
 
-    apiFetch("/api/social-posts/my-posts?limit=100")
+    apiFetch("/api/social-posts/my-posts?limit=500")
       .then((b) => {
         const rawPosts: any[] = b?.data?.data ?? [];
-        setSocialPosts(rawPosts.map(mapSocialPost));
+        const mapped = rawPosts.map(mapSocialPost);
+        setSocialPosts(mapped);
+        setSocialCount(mapped.length);
+        setHasLoadedSocial(true);
       })
-      .catch(() => { });
+      .catch(() => {
+        setSocialCount(0);
+      });
 
-    apiFetch("/api/communities/me?limit=100")
-      .then((b) => setCommunityCount(b?.data?.data?.length ?? 0))
-      .catch(() => { });
-  }, []);
+    Promise.allSettled([
+      apiFetch("/api/communities/me?limit=100"),
+      apiFetch("/api/communities/owned"),
+    ])
+      .then(([meRes, ownedRes]) => {
+        let joined: any[] = [];
+        if (meRes.status === "fulfilled" && meRes.value?.success) {
+          joined = meRes.value?.data?.data ?? [];
+        }
+        let owned: any[] = [];
+        if (ownedRes.status === "fulfilled" && ownedRes.value?.success) {
+          owned = ownedRes.value?.data ?? [];
+        }
+        const seen = new Set<number>();
+        for (const c of [...owned, ...joined]) {
+          if (c?.id) {
+            seen.add(c.id);
+          }
+        }
+        setCommunityCount(seen.size);
+      })
+      .catch(() => {
+        setCommunityCount(0);
+      });
+  }, [user?.id]);
 
-  // Fetch issue filter data on demand
+  // ── Lazy-fetch active / resolved posts when filter is selected ──────────────
   useEffect(() => {
     if (tab !== "posts") return;
-    if (postFilter === "all") return;
-    if (postFilter === "active" && activePosts.length > 0) return;
-    if (postFilter === "resolved" && resolvedPosts.length > 0) return;
 
-    setLoadingPosts(true);
-    const url =
-      postFilter === "active"
-        ? "/api/posts/my-posts/active?limit=50"
-        : "/api/posts/my-posts/resolved?limit=50";
+    if (postFilter === "active" && !hasLoadedActive) {
+      setLoadingFilteredPosts(true);
+      apiFetch("/api/posts/my-posts/active?limit=100")
+        .then((b) => {
+          setActivePosts((b?.data?.data ?? []).map(mapIssuePost));
+          setHasLoadedActive(true);
+        })
+        .catch((err) => console.error("Failed to fetch active posts:", err))
+        .finally(() => setLoadingFilteredPosts(false));
+    }
 
-    apiFetch(url)
-      .then((b) => {
-        const posts: AnyPost[] = (b?.data?.data ?? []).map(mapIssuePost);
-        if (postFilter === "active") setActivePosts(posts);
-        if (postFilter === "resolved") setResolvedPosts(posts);
-      })
-      .catch(() => {})
-      .finally(() => setLoadingPosts(false));
-  }, [tab, postFilter]);
+    if (postFilter === "resolved" && !hasLoadedResolved) {
+      setLoadingFilteredPosts(true);
+      apiFetch("/api/posts/my-posts/resolved?limit=100")
+        .then((b) => {
+          setResolvedPosts((b?.data?.data ?? []).map(mapIssuePost));
+          setHasLoadedResolved(true);
+        })
+        .catch((err) => console.error("Failed to fetch resolved posts:", err))
+        .finally(() => setLoadingFilteredPosts(false));
+    }
+  }, [postFilter, tab, hasLoadedActive, hasLoadedResolved]);
 
   // Fetch social posts on tab open
   useEffect(() => {
     if (tab !== "social") return;
+    if (hasLoadedSocial) return;
     if (socialPosts.length > 0) return;
     setLoadingSocial(true);
     apiFetch("/api/social-posts/my-posts?limit=50")
-      .then((b) => setSocialPosts((b?.data?.data ?? []).map(mapSocialPost)))
+      .then((b) => {
+        setSocialPosts((b?.data?.data ?? []).map(mapSocialPost));
+        setHasLoadedSocial(true);
+      })
       .catch(() => {})
       .finally(() => setLoadingSocial(false));
-
-  }, [tab]);
+  }, [tab, hasLoadedSocial]);
 
   // Fetch activity — show saved, liked, and commented posts
   useEffect(() => {
     if (tab !== "activity") return;
-    if (activity.length > 0) return;
+    if (activityItems.length > 0) return;
     setLoadingActivity(true);
 
     Promise.allSettled([
@@ -384,40 +463,83 @@ const Profile = () => {
       apiFetch("/api/interactions/liked?page=0&size=30"),
       apiFetch("/api/interactions/commented?page=0&size=30"),
     ])
-      .then(([savedSocialRes, savedPostsRes, likedRes, commentedRes]) => {
+      .then(async ([savedSocialRes, savedPostsRes, likedRes, commentedRes]) => {
         const items: { post: AnyPost; time: number; type: string }[] = [];
 
         // 1. Process Saved Social
+        let savedSocialPromises: Promise<any>[] = [];
         if (savedSocialRes.status === "fulfilled") {
           const rows = savedSocialRes.value?.data?.content ?? [];
-          rows.forEach((row: any) => {
-            const raw = row.socialPost || row;
-            if (!raw?.id) return;
-            const mapped = toPostCardPost({ ...raw, ...row });
-            if (!mapped.username) mapped.username = username; // Last resort fallback for profile activity
-            items.push({
-              post: mapped,
-              time: new Date(row.savedAt || raw.createdAt || row.createdAt || 0).getTime(),
-              type: "saved"
+          savedSocialPromises = rows.map(async (row: any) => {
+            let raw = row.socialPost || row;
+            if (!raw.createdAt && row.socialPostId) {
+              try {
+                const fullPostRes = await apiFetch(`/api/social-posts/${row.socialPostId}`);
+                raw = fullPostRes?.data ?? fullPostRes ?? raw;
+              } catch (e) {
+                console.error("Failed to fetch full social post details", e);
+              }
+            }
+            if (!raw?.id) return null;
+            const { id: _, socialPost, post, ...interactionData } = row;
+            const mapped = toPostCardPost({
+              ...raw,
+              ...interactionData,
+              id: raw.id,
+              isSaved: true,
+              isSavedByCurrentUser: true,
             });
+            if (!mapped.username) mapped.username = username;
+            return {
+              post: mapped,
+              time: new Date(row.savedAt || raw.createdAt || 0).getTime(),
+              type: "saved"
+            };
           });
         }
 
         // 2. Process Saved Regular
+        let savedPostsPromises: Promise<any>[] = [];
         if (savedPostsRes.status === "fulfilled") {
           const rows = savedPostsRes.value?.data?.content ?? [];
-          rows.forEach((row: any) => {
-            const raw = row.post || row;
-            if (!raw?.id) return;
-            const mapped = toPostCardPost({ ...raw, ...row, variant: "issue" });
-            if (!mapped.username) mapped.username = username;
-            items.push({
-              post: mapped,
-              time: new Date(row.savedAt || raw.createdAt || row.createdAt || 0).getTime(),
-              type: "saved"
+          savedPostsPromises = rows.map(async (row: any) => {
+            let raw = row.post || row;
+            if (!raw.createdAt && row.postId) {
+              try {
+                const fullPostRes = await apiFetch(`/api/posts/${row.postId}`);
+                raw = fullPostRes?.data ?? fullPostRes ?? raw;
+              } catch (e) {
+                console.error("Failed to fetch full broadcast post details", e);
+              }
+            }
+            if (!raw?.id) return null;
+            const { id: _, socialPost, post, ...interactionData } = row;
+            const mapped = toPostCardPost({
+              ...raw,
+              ...interactionData,
+              id: raw.id,
+              variant: "issue",
+              isSaved: true,
+              isSavedByCurrentUser: true,
             });
+            if (!mapped.username) mapped.username = username;
+            return {
+              post: mapped,
+              time: new Date(row.savedAt || raw.createdAt || 0).getTime(),
+              type: "saved"
+            };
           });
         }
+
+        const resolvedSavedSocial = await Promise.all(savedSocialPromises);
+        const resolvedSavedPosts = await Promise.all(savedPostsPromises);
+
+        resolvedSavedSocial.forEach((item) => {
+          if (item) items.push(item);
+        });
+        resolvedSavedPosts.forEach((item) => {
+          if (item) items.push(item);
+        });
 
         // 3. Process Liked
         if (likedRes.status === "fulfilled") {
@@ -427,7 +549,13 @@ const Profile = () => {
 
           socialLikes.forEach((row: any) => {
             if (!row.socialPost) return;
-            const mapped = toPostCardPost({ ...row.socialPost, ...row });
+            const { id: _, socialPost, post, ...interactionData } = row;
+            const mapped = toPostCardPost({
+              ...row.socialPost,
+              ...interactionData,
+              id: row.socialPost.id,
+              isLikedByCurrentUser: true,
+            });
             if (!mapped.username) mapped.username = username;
             items.push({
               post: mapped,
@@ -437,7 +565,15 @@ const Profile = () => {
           });
           issueLikes.forEach((row: any) => {
             if (!row.post) return;
-            const mapped = toPostCardPost({ ...row.post, ...row, variant: "issue" });
+            const { id: _, socialPost, post, ...interactionData } = row;
+            const mapped = toPostCardPost({
+              ...row.post,
+              ...interactionData,
+              id: row.post.id,
+              variant: "issue",
+              isLikedByCurrentUser: row.post?.isLikedByCurrentUser ?? true,
+              isDislikedByCurrentUser: row.post?.isDislikedByCurrentUser ?? false,
+            });
             if (!mapped.username) mapped.username = username;
             items.push({
               post: mapped,
@@ -455,7 +591,12 @@ const Profile = () => {
 
           socialComments.forEach((row: any) => {
             if (!row.socialPost) return;
-            const mapped = toPostCardPost({ ...row.socialPost, ...row });
+            const { id: _, socialPost, post, ...interactionData } = row;
+            const mapped = toPostCardPost({
+              ...row.socialPost,
+              ...interactionData,
+              id: row.socialPost.id,
+            });
             if (!mapped.username) mapped.username = username;
             items.push({
               post: mapped,
@@ -465,7 +606,13 @@ const Profile = () => {
           });
           issueComments.forEach((row: any) => {
             if (!row.post) return;
-            const mapped = toPostCardPost({ ...row.post, ...row, variant: "issue" });
+            const { id: _, socialPost, post, ...interactionData } = row;
+            const mapped = toPostCardPost({
+              ...row.post,
+              ...interactionData,
+              id: row.post.id,
+              variant: "issue",
+            });
             if (!mapped.username) mapped.username = username;
             items.push({
               post: mapped,
@@ -477,33 +624,35 @@ const Profile = () => {
 
         // Sort by most recent activity
         items.sort((a, b) => b.time - a.time);
-
-        // Deduplicate: If same post appears multiple times (e.g. liked and saved), 
-        // we can keep both to show both actions, or unique them. 
-        // Let's keep unique for a cleaner "Activity" list of posts.
-        const uniquePosts: AnyPost[] = [];
-        const seenIds = new Set<string>();
-
-        items.forEach(item => {
-          const key = `${item.post.variant}-${item.post.id}`;
-          if (!seenIds.has(key)) {
-            seenIds.add(key);
-            uniquePosts.push(item.post);
-          }
-        });
-
-        setActivity(uniquePosts);
+        setActivityItems(items as any);
       })
       .catch((err) => console.error("Failed to fetch activity", err))
       .finally(() => setLoadingActivity(false));
   }, [tab]);
 
-  const displayedPosts =
-    postFilter === "active"
-      ? activePosts
-      : postFilter === "resolved"
-        ? resolvedPosts
-        : allPosts;
+  const displayedActivity = useMemo(() => {
+    let filtered = activityItems;
+    if (activityFilter !== "all") {
+      filtered = activityItems.filter((item) => item.type === activityFilter);
+    }
+
+    const uniquePosts: AnyPost[] = [];
+    const seenIds = new Set<string>();
+    filtered.forEach((item) => {
+      const key = `${item.post.variant}-${item.post.id}`;
+      if (!seenIds.has(key)) {
+        seenIds.add(key);
+        uniquePosts.push(item.post);
+      }
+    });
+    return uniquePosts;
+  }, [activityItems, activityFilter]);
+
+  const displayedPosts = useMemo(() => {
+    if (postFilter === "active")   return activePosts;
+    if (postFilter === "resolved") return resolvedPosts;
+    return allPosts;
+  }, [allPosts, activePosts, resolvedPosts, postFilter]);
 
   return (
     <div className="space-y-4 pt-2 sm:pt-0">
@@ -545,11 +694,11 @@ const Profile = () => {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 overflow-hidden">
-              <h1 className="font-extrabold text-xs sm:text-sm md:text-lg truncate max-w-full leading-tight">{username}</h1>
+              <h1 className="font-extrabold text-xs sm:text-sm md:text-lg truncate max-w-full leading-tight notranslate">{username}</h1>
               <ShieldCheck size={12} className="text-[#1D4ED8] shrink-0" />
             </div>
             <p className="text-[9px] sm:text-xs opacity-70 truncate line-clamp-1">
-              {memberSince ? `Member since ${memberSince}` : "Loading…"} • {location}
+              <span className="notranslate">{memberSince ? `Member since ${memberSince}` : "Loading…"}</span> • <span className="notranslate">{location}</span>
             </p>
           </div>
           <div className="flex-shrink-0">
@@ -566,19 +715,24 @@ const Profile = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <StatCard value={issueCount} label="Issues" />
-        <StatCard value={socialCount} label="S-Posts" />
-        <StatCard value={communityCount} label="Groups" />
+        <StatCard value={allCountsLoaded ? issueCount : "..."} label="Issues" />
+        <StatCard value={allCountsLoaded ? socialCount : "..."} label="S-Posts" />
+        <StatCard value={allCountsLoaded ? communityCount : "..."} label="Groups" />
       </div>
 
       {/* Tabs */}
-      <ProfileTabs active={tab} onChange={setTab} />
+      <ProfileTabs 
+        active={tab} 
+        onChange={setTab} 
+        issueCount={allCountsLoaded ? issueCount : null} 
+        socialCount={allCountsLoaded ? socialCount : null} 
+      />
 
       {/* Issues tab */}
       {tab === "posts" && (
         <div className="space-y-3">
           <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-            {(["active", "resolved"] as PostFilter[]).map((f) => (
+            {(["all", "active", "resolved"] as PostFilter[]).map((f) => (
               <button
                 key={f}
                 onClick={() => setPostFilter(f)}
@@ -587,6 +741,7 @@ const Profile = () => {
                     : "border-base-300 hover:border-blue-400"
                   }`}
               >
+                {f === "all" && <List size={11} />}
                 {f === "active" && <Clock size={11} />}
                 {f === "resolved" && <CheckCircle size={11} />}
                 {f.charAt(0).toUpperCase() + f.slice(1)}
@@ -594,7 +749,7 @@ const Profile = () => {
             ))}
           </div>
 
-          {loadingPosts ? (
+          {(loadingPosts || loadingFilteredPosts) ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
                 <PostSkeleton key={`sk-issues-${i}`} />
@@ -613,6 +768,9 @@ const Profile = () => {
                 currentUser={currentUser} 
                 onDelete={(id) => handleDelete('posts', id)} 
                 onResolve={handleResolve}
+                onLike={(id, liked) => handleLike(id, p.variant, liked)}
+                onDislike={(id, disliked) => handleDislike(id, p.variant, disliked)}
+                onSave={(id, saved) => handleSave(id, p.variant, saved)}
               />
             ))
           )}
@@ -640,6 +798,9 @@ const Profile = () => {
                 post={p} 
                 currentUser={currentUser} 
                 onDelete={(id) => handleDelete('social-posts', id)} 
+                onLike={(id, liked) => handleLike(id, p.variant, liked)}
+                onDislike={(id, disliked) => handleDislike(id, p.variant, disliked)}
+                onSave={(id, saved) => handleSave(id, p.variant, saved)}
               />
             ))
           )}
@@ -648,26 +809,58 @@ const Profile = () => {
 
       {/* Activity tab — saved posts rendered as PostCards */}
       {tab === "activity" && (
-        <div className="space-y-4">
+        <div className="space-y-3">
+          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+            {(["all", "liked", "saved", "commented"] as ActivityFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setActivityFilter(f)}
+                className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium border transition ${activityFilter === f
+                    ? "bg-[#1D4ED8] text-white border-[#1D4ED8]"
+                    : "border-base-300 hover:border-blue-400"
+                  }`}
+              >
+                {f === "all" && <Clock size={11} />}
+                {f === "liked" && <Heart size={11} />}
+                {f === "saved" && <Bookmark size={11} />}
+                {f === "commented" && <MessageSquare size={11} />}
+                {f === "liked" ? "Like/Dislike" : f.charAt(0).toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+
           {loadingActivity ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
                 <PostSkeleton key={`sk-activity-${i}`} />
               ))}
             </div>
-          ) : activity.length === 0 ? (
+          ) : displayedActivity.length === 0 ? (
             <EmptyState
-              title="No saved posts yet"
-              description="Posts you save will appear here."
+              title={
+                activityFilter === "all" ? "No activity yet" :
+                activityFilter === "liked" ? "No liked/disliked posts yet" :
+                activityFilter === "saved" ? "No saved posts yet" :
+                "No commented posts yet"
+              }
+              description={
+                activityFilter === "all" ? "Posts you interact with will appear here." :
+                activityFilter === "liked" ? "Posts you like or dislike will appear here." :
+                activityFilter === "saved" ? "Posts you save will appear here." :
+                "Posts you comment on will appear here."
+              }
             />
           ) : (
-            activity.map((post) => (
+            displayedActivity.map((post: AnyPost) => (
               <PostCard
                 key={`${post.id}-${post.variant}`}
                 post={post}
                 currentUser={currentUser}
                 hideDelete={true}
                 onResolve={handleResolve}
+                onLike={(id, liked) => handleLike(id, post.variant, liked)}
+                onDislike={(id, disliked) => handleDislike(id, post.variant, disliked)}
+                onSave={(id, saved) => handleSave(id, post.variant, saved)}
               />
             ))
           )}

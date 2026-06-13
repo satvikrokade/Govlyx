@@ -37,6 +37,7 @@ export interface TaggedPost {
   likeCount?: number;
   commentCount?: number;
   shareCount?: number;
+  viewCount?: number;
 
   // Tagged departments list
   taggedUsernames?: string[];

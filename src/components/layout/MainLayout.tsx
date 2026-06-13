@@ -5,11 +5,16 @@ import SidebarLeft from "./SidebarLeft";
 import SidebarRight from "./SidebarRight";
 import DepartmentRequestModal from "../modals/DepartmentRequestModal";
 import { useModal } from "../../context/ModalContext";
-import { isAdminUser } from "../../utils/auth";
+import { isAdminUser, isDepartmentUser } from "../../utils/auth";
 
 const MainLayout = () => {
   const location = useLocation();
   const { isAnyModalOpen } = useModal();
+  const hideRightSidebar =
+    location.pathname.startsWith("/admin/dashboard") ||
+    isAdminUser() ||
+    location.pathname.startsWith("/department/dashboard") ||
+    isDepartmentUser();
 
   return (
     <div className="drawer lg:drawer-open">
@@ -53,15 +58,24 @@ const MainLayout = () => {
                   </div>
                 </aside>
 
-                {/* CENTER */}
-                <main className={`col-span-12 lg:col-span-9 ${location.pathname.startsWith("/admin/dashboard") || isAdminUser() ? "xl:col-span-9" : "xl:col-span-6"} h-full ${location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "pb-0 overflow-hidden flex flex-col" : "pb-20 sm:pb-4 overflow-y-auto"} scrollbar-hide min-h-0`}>
-                  <div className={location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "flex-1 min-h-0 h-full flex flex-col pt-0" : "pt-3"}>
-                    <Outlet />
-                  </div>
+                {/* CENTER — page content animates, layout stays mounted */}
+                <main className={`col-span-12 lg:col-span-9 ${hideRightSidebar ? "xl:col-span-9" : "xl:col-span-6"} h-full ${location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "pb-0 overflow-hidden flex flex-col" : "pb-20 sm:pb-4 overflow-y-auto"} scrollbar-hide min-h-0`}>
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.div
+                      key={location.pathname}
+                      className={location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "flex-1 min-h-0 h-full flex flex-col pt-0" : "pt-3"}
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.15, ease: "easeOut" }}
+                    >
+                      <Outlet />
+                    </motion.div>
+                  </AnimatePresence>
                 </main>
                 
                 {/* RIGHT SIDEBAR */}
-                {!location.pathname.startsWith("/admin/dashboard") && !isAdminUser() && (
+                {!hideRightSidebar && (
                   <aside className="hidden xl:block xl:col-span-3 h-full py-4 min-h-0">
                     <div className="h-full overflow-y-auto scrollbar-hide">
                       <SidebarRight />

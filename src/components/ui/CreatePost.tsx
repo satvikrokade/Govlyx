@@ -43,15 +43,90 @@ type Props = {
 interface ApiResult {
   ok: boolean;
   message?: string;
-  data?: any; // the created post/poll from backend
+  data?: any; // the created post/poll from backend (or duplicate post data on 409)
+  status?: number;
 }
+
+// ─── JACCARD SIMILARITY MATCHING (FRONTEND DUPLICATE CHECK) ───────────────────
+const STOP_WORDS = new Set([
+  // English
+  "a", "an", "and", "are", "as", "at", "be", "but", "by",
+  "for", "if", "in", "into", "is", "it",
+  "no", "not", "of", "on", "or", "such",
+  "that", "the", "their", "then", "there", "these",
+  "they", "this", "to", "was", "will", "with",
+  "please", "fix", "issue", "problem", "resolve", "help",
+  "near", "outside", "behind", "front", "very", "too", "much",
+  // Hindi / Hinglish
+  "hai", "ki", "ka", "ke", "ko", "se", "mein", "par",
+  "karo", "kijiye", "bhi", "toh", "hi", "aur", "ya", "ye",
+  "wo", "kya", "kab", "kaise", "idhar", "udhar",
+  "yahan", "wahan", "sir", "madam", "ji"
+]);
+
+function tokenizeAndClean(text: string): Set<string> {
+  if (!text || !text.trim()) return new Set();
+  const words = text.toLowerCase().split(/\W+/);
+  const resultSet = new Set<string>();
+  for (const word of words) {
+    if (word.length > 2 && !STOP_WORDS.has(word)) {
+      resultSet.add(word);
+    }
+  }
+  return resultSet;
+}
+
+function calculateSimilarity(text1: string, text2: string): number {
+  if (!text1 || !text2) return 0.0;
+  if (text1.toLowerCase() === text2.toLowerCase()) return 1.0;
+
+  const set1 = tokenizeAndClean(text1);
+  const set2 = tokenizeAndClean(text2);
+
+  if (set1.size === 0 && set2.size === 0) return 1.0;
+  if (set1.size === 0 || set2.size === 0) return 0.0;
+
+  let intersectionSize = 0;
+  for (const item of set1) {
+    if (set2.has(item)) {
+      intersectionSize++;
+    }
+  }
+
+  const unionSize = set1.size + set2.size - intersectionSize;
+  return intersectionSize / unionSize;
+}
+
+/**
+ * Fetches recent active posts — GET /api/posts/active (not cached in backend)
+ */
+async function apiGetActivePosts(limit: number = 40): Promise<ApiResult> {
+  const res = await fetch(apiUrl(`/api/posts/active?limit=${limit}`), {
+    method: "GET",
+    headers: { ...authHeaders() },
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    return {
+      ok: false,
+      status: res.status,
+      message: json?.message ?? `HTTP ${res.status}`,
+    };
+  }
+  return { ok: true, data: json?.data?.data ?? [], status: res.status };
+}
+
 
 // ─── API CALLS ────────────────────────────────────────────────────────────────
 
 /**
  * Civic / Issue Post — POST /api/posts
  */
-async function apiCreatePost(content: string, targetPincode: string): Promise<ApiResult> {
+async function apiCreatePost(
+  content: string,
+  targetPincode: string,
+  forceSubmit?: boolean
+): Promise<ApiResult> {
   const res = await fetch(apiUrl(`/api/posts`), {
     method: "POST",
     headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -59,11 +134,19 @@ async function apiCreatePost(content: string, targetPincode: string): Promise<Ap
       content,
       targetPincode,
       broadcastScope: "AREA",
+      forceSubmit,
     }),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, message: json?.error ?? json?.message ?? `HTTP ${res.status}` };
-  return { ok: true, message: json?.message, data: json?.data ?? null };
+  if (!res.ok) {
+    return {
+      ok: false,
+      status: res.status,
+      message: json?.error ?? json?.message ?? `HTTP ${res.status}`,
+      data: json?.data ?? null,
+    };
+  }
+  return { ok: true, message: json?.message, data: json?.data ?? null, status: res.status };
 }
 
 /**
@@ -72,12 +155,16 @@ async function apiCreatePost(content: string, targetPincode: string): Promise<Ap
 async function apiCreatePostWithMedia(
   content: string,
   targetPincode: string,
-  mediaFile: File
+  mediaFile: File,
+  forceSubmit?: boolean
 ): Promise<ApiResult> {
   const form = new FormData();
   form.append("content", content);
   form.append("targetPincode", targetPincode);
   form.append("media", mediaFile);
+  if (forceSubmit !== undefined) {
+    form.append("forceSubmit", forceSubmit ? "true" : "false");
+  }
 
   const res = await fetch(apiUrl(`/api/posts/with-media`), {
     method: "POST",
@@ -85,8 +172,15 @@ async function apiCreatePostWithMedia(
     body: form,
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, message: json?.error ?? json?.message ?? `HTTP ${res.status}` };
-  return { ok: true, message: json?.message, data: json?.data ?? null };
+  if (!res.ok) {
+    return {
+      ok: false,
+      status: res.status,
+      message: json?.error ?? json?.message ?? `HTTP ${res.status}`,
+      data: json?.data ?? null,
+    };
+  }
+  return { ok: true, message: json?.message, data: json?.data ?? null, status: res.status };
 }
 
 /**
@@ -158,17 +252,17 @@ function MediaUploadZone({
   files,
   onChange,
 }: {
-  accent?: "blue" | "orange";
+  accent?: "blue" | "green";
   files: File[];
   onChange: (files: File[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const accentBorder = accent === "orange" ? "border-orange-500/50" : "border-white/20";
-  const accentBg = accent === "orange" ? "bg-orange-500/8" : "bg-white/5";
-  const accentText = accent === "orange" ? "text-orange-400" : "text-white/90";
-  const accentHover = accent === "orange" ? "hover:border-orange-400/80" : "hover:border-white/40";
+  const accentBorder = accent === "green" ? "border-green-500/50" : "border-white/20";
+  const accentBg = accent === "green" ? "bg-green-500/8" : "bg-white/5";
+  const accentText = accent === "green" ? "text-green-500" : "text-white/90";
+  const accentHover = accent === "green" ? "hover:border-green-400/80" : "hover:border-white/40";
 
   const handleFiles = async (incoming: FileList | null) => {
     if (!incoming) return;
@@ -339,6 +433,15 @@ function PostForm({
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<{ type: "error" | "network"; msg: string } | null>(null);
 
+  // Smart Pre-Submit Warnings duplicate handling state
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [duplicatePostData, setDuplicatePostData] = useState<any>(null);
+  const [upvoting, setUpvoting] = useState(false);
+
+  // Pre-fetch active posts cache
+  const [cachedActivePosts, setCachedActivePosts] = useState<any[] | null>(null);
+  const preFetchPromiseRef = useRef<Promise<ApiResult> | null>(null);
+
   // ── Suggestions ──
   const [mentionSearch, setMentionSearch] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
@@ -381,19 +484,69 @@ function PostForm({
   };
 
   // ── Submit ──
-  const handlePost = async () => {
+  const handlePost = async (force: boolean = false) => {
     setError(null);
     if (!validate()) return;
     setLoading(true);
 
+    const shouldForce = force === true;
+
     try {
+      // Client-Side Duplicate Checking
+      if (isReportingIssue && !shouldForce) {
+        let posts: any[] = [];
+        if (cachedActivePosts) {
+          posts = cachedActivePosts;
+        } else if (preFetchPromiseRef.current) {
+          const res = await preFetchPromiseRef.current;
+          if (res.ok && Array.isArray(res.data)) {
+            posts = res.data;
+          }
+        } else {
+          const res = await apiGetActivePosts(40);
+          if (res.ok && Array.isArray(res.data)) {
+            posts = res.data;
+          }
+        }
+
+        const pin = targetPincode.trim();
+        // Filter active posts targeting this specific pincode and ensure they are government/civic type posts
+        const activePincodePosts = posts.filter((p: any) => {
+          const statusOk = p.status && String(p.status).toUpperCase() === "ACTIVE";
+          const pincodesList = Array.isArray(p.targetPincodes) ? p.targetPincodes : [];
+          const pincodeOk = pincodesList.includes(pin) || p.userPincode === pin || p.targetPincode === pin;
+          const isGovtType = p.broadcastScope !== undefined && p.broadcastScope !== null;
+          return statusOk && pincodeOk && isGovtType;
+        });
+
+          let duplicateFound: any = null;
+          for (const post of activePincodePosts) {
+            const similarity = calculateSimilarity(content.trim(), post.content || "");
+            if (similarity >= 0.60) {
+              duplicateFound = post;
+              break;
+            }
+          }
+
+          if (duplicateFound) {
+            // Set duplicate post data and show warning modal
+            setDuplicatePostData(duplicateFound);
+            setShowDuplicateModal(true);
+            setLoading(false);
+            return;
+          }
+      }
+
       let result: ApiResult;
 
       if (isReportingIssue) {
+        // We already performed the duplicate check locally. By passing forceSubmit: true,
+        // we bypass the backend check entirely to avoid the backend's duplicate exceptions 500-error bug.
+        const forceToBypassBackend = true;
         if (files.length > 0) {
-          result = await apiCreatePostWithMedia(content.trim(), targetPincode.trim(), files[0]);
+          result = await apiCreatePostWithMedia(content.trim(), targetPincode.trim(), files[0], forceToBypassBackend);
         } else {
-          result = await apiCreatePost(content.trim(), targetPincode.trim());
+          result = await apiCreatePost(content.trim(), targetPincode.trim(), forceToBypassBackend);
         }
       } else {
         if (files.length > 0) {
@@ -404,6 +557,7 @@ function PostForm({
       }
 
       if (!result.ok) {
+        // Fallback in case of server errors
         setError({ type: "error", msg: result.message ?? "Something went wrong. Please try again." });
         return;
       }
@@ -422,6 +576,30 @@ function PostForm({
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Upvotes the duplicate issue and cancels the current post creation
+  const handleUpvoteDuplicate = async () => {
+    if (!duplicatePostData) return;
+    setUpvoting(true);
+    setError(null);
+    try {
+      const res = await fetch(apiUrl(`/api/interactions/posts/${duplicatePostData.id}/like`), {
+        method: "POST",
+        headers: authHeaders(),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error ?? json?.message ?? "Failed to upvote duplicate post.");
+      }
+      showToast.success("Upvoted! You've joined this issue report.");
+      setShowDuplicateModal(false);
+      onClose(); // Close the main create post modal
+    } catch (e: any) {
+      setError({ type: "error", msg: e.message || "Failed to upvote duplicate issue. Please try again." });
+    } finally {
+      setUpvoting(false);
     }
   };
 
@@ -500,11 +678,31 @@ function PostForm({
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, [mentionSearch, mentionQuery]);
 
+  // Pre-fetch active posts as soon as user enables reporting and types a pincode
+  useEffect(() => {
+    if (isReportingIssue) {
+      if (/^\d{6}$/.test(targetPincode.trim()) && !preFetchPromiseRef.current) {
+        const promise = apiGetActivePosts(40);
+        preFetchPromiseRef.current = promise;
+        promise.then(res => {
+          if (res.ok && Array.isArray(res.data)) {
+            setCachedActivePosts(res.data);
+          }
+        }).catch(err => {
+          console.error("Error pre-fetching active posts:", err);
+        });
+      }
+    } else {
+      setCachedActivePosts(null);
+      preFetchPromiseRef.current = null;
+    }
+  }, [targetPincode, isReportingIssue]);
+
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300 }}>
-          <CheckCircle2 size={48} className={isReportingIssue ? "text-orange-400" : "text-[#1D4ED8]"} />
+          <CheckCircle2 size={48} className={isReportingIssue ? "text-green-500" : "text-[#1D4ED8]"} />
         </motion.div>
         <p className="text-base-content font-bold text-lg">
           {isReportingIssue ? "Issue Reported!" : "Post Published!"}
@@ -516,8 +714,16 @@ function PostForm({
         </p>
         <div className="flex gap-2">
           <button
-            className={`btn btn-sm ${isReportingIssue ? "bg-orange-500 hover:bg-orange-600" : "bg-[#1D4ED8] hover:bg-[#1D4ED8]/90"} text-white`}
-            onClick={() => { setSubmitted(false); setContent(""); setFiles([]); setTargetPincode(""); setError(null); }}
+            className={`btn btn-sm ${isReportingIssue ? "bg-green-600 hover:bg-green-700" : "bg-[#1D4ED8] hover:bg-[#1D4ED8]/90"} text-white`}
+            onClick={() => {
+              setSubmitted(false);
+              setContent("");
+              setFiles([]);
+              setTargetPincode("");
+              setError(null);
+              setCachedActivePosts(null);
+              preFetchPromiseRef.current = null;
+            }}
           >
             Post Again
           </button>
@@ -528,20 +734,20 @@ function PostForm({
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="relative flex flex-col gap-3 min-h-[300px]">
       <AnimatePresence>
         {error && <StatusBanner status={error.type} message={error.msg} />}
       </AnimatePresence>
 
       {!communityId && (
         <div
-          className={`flex items-center justify-between p-3 rounded-lg border transition-colors duration-200 ${isReportingIssue ? "bg-orange-500/10 border-orange-500/40" : "bg-base-300/40 border-base-300"
+          className={`flex items-center justify-between p-3 rounded-lg border transition-colors duration-200 ${isReportingIssue ? "bg-green-500/10 border-green-500/40" : "bg-base-300/40 border-base-300"
             }`}
         >
           <div className="flex items-center gap-2">
-            <AlertTriangle size={15} className={`transition-colors flex-shrink-0 ${isReportingIssue ? "text-orange-400" : "text-base-content/30"}`} />
+            <AlertTriangle size={15} className={`transition-colors flex-shrink-0 ${isReportingIssue ? "text-green-500" : "text-base-content/30"}`} />
             <div>
-              <p className={`text-[11px] font-black uppercase tracking-tight ${isReportingIssue ? "text-orange-400" : "text-base-content/60"}`}>
+              <p className={`text-[11px] font-black uppercase tracking-tight ${isReportingIssue ? "text-green-500" : "text-base-content/60"}`}>
                 Report to Government
               </p>
               <p className="text-base-content/40 text-[9px] leading-tight font-medium uppercase tracking-tighter">Flag issue to authorities</p>
@@ -549,7 +755,7 @@ function PostForm({
           </div>
           <div className="flex-shrink-0 ml-2">
             <div
-              className={`relative w-8 h-4.5 rounded-full cursor-pointer transition-all duration-300 border ${isReportingIssue ? "bg-orange-500 border-orange-600 shadow-inner" : "bg-base-300 border-base-content/10"}`}
+              className={`relative w-8 h-4.5 rounded-full cursor-pointer transition-all duration-300 border ${isReportingIssue ? "bg-green-600 border-green-700 shadow-inner" : "bg-base-300 border-base-content/10"}`}
               onClick={() => { setIsReportingIssue(!isReportingIssue); setError(null); }}
             >
               <motion.div
@@ -570,7 +776,7 @@ function PostForm({
             className="overflow-hidden"
           >
             <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-black text-orange-400/70 uppercase tracking-widest flex items-center gap-1">
+              <label className="text-[10px] font-black text-green-500/70 uppercase tracking-widest flex items-center gap-1">
                 <MdLocationOn size={12} /> Area Pincode <span className="text-red-400">*</span>
               </label>
               <input
@@ -578,7 +784,7 @@ function PostForm({
                 inputMode="numeric"
                 maxLength={6}
                 placeholder="e.g. 400001 (Mumbai)"
-                className="input input-bordered input-sm focus:border-orange-500 w-full bg-base-100/50"
+                className="input input-bordered input-sm focus:border-green-500 focus:outline-none w-full bg-base-100/50"
                 value={targetPincode}
                 onChange={(e) => { setTargetPincode(e.target.value.replace(/\D/g, "")); setError(null); }}
               />
@@ -595,7 +801,7 @@ function PostForm({
               ? "Describe the issue..."
               : "What's on your mind?"
           }
-          className={`textarea textarea-bordered w-full min-h-[90px] text-sm resize-none transition-colors bg-base-100/50 ${isReportingIssue ? "border-orange-500/40 focus:border-orange-500" : "focus:border-primary"
+          className={`textarea textarea-bordered w-full min-h-[90px] text-sm resize-none transition-colors bg-base-100/50 focus:outline-none ${isReportingIssue ? "border-green-500/40 focus:border-green-500" : "focus:border-primary"
             }`}
           value={content}
           onChange={(e) => handleContentChange(e.target.value)}
@@ -678,19 +884,19 @@ function PostForm({
       </div>
 
       <div>
-        <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 flex items-center gap-1 ${isReportingIssue ? "text-orange-400" : "text-base-content/70"}`}>
+        <p className={`text-[10px] font-black uppercase tracking-widest mb-1.5 flex items-center gap-1 ${isReportingIssue ? "text-green-500" : "text-base-content/70"}`}>
           <RiAttachment2 size={12} /> Attach Media <span className="text-base-content/40 font-bold tracking-tighter ml-1 uppercase">(optional)</span>
         </p>
-        <MediaUploadZone accent={isReportingIssue ? "orange" : "blue"} files={files} onChange={setFiles} />
+        <MediaUploadZone accent={isReportingIssue ? "green" : "blue"} files={files} onChange={setFiles} />
       </div>
 
       <div className="flex items-center justify-end gap-2 pt-2 border-t border-base-content/5">
         <button onClick={onClose} className="btn btn-sm btn-ghost rounded-xl px-4" disabled={loading}>Cancel</button>
         <button
           disabled={loading}
-          className={`btn btn-sm text-white min-w-[90px] sm:min-w-[100px] rounded-xl transition-all duration-300 ${isReportingIssue ? "bg-orange-500 hover:bg-orange-600 shadow-orange-500/20" : "bg-primary hover:bg-primary/90 shadow-primary/20"
+          className={`btn btn-sm text-white min-w-[90px] sm:min-w-[100px] rounded-xl transition-all duration-300 ${isReportingIssue ? "bg-green-600 hover:bg-green-700 shadow-green-500/20" : "bg-primary hover:bg-primary/90 shadow-primary/20"
             } ${loading ? "opacity-70" : "shadow-lg"}`}
-          onClick={handlePost}
+          onClick={() => handlePost()}
         >
           {loading ? (
             <span className="flex items-center gap-1.5">
@@ -703,6 +909,89 @@ function PostForm({
           )}
         </button>
       </div>
+
+      {/* Smart Pre-Submit Warning Modal Overlay */}
+      <AnimatePresence>
+        {showDuplicateModal && duplicatePostData && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-base-100/98 backdrop-blur-sm z-50 flex flex-col justify-between p-5 rounded-2xl overflow-y-auto"
+          >
+            <div className="flex flex-col gap-3.5">
+              <div className="flex items-start gap-3 bg-warning/10 border border-warning/30 p-3 rounded-xl text-warning">
+                <AlertTriangle className="w-5 h-5 shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-wider">Wait! Is this issue already reported?</h3>
+                  <p className="text-[10px] opacity-80 leading-normal font-medium mt-0.5">
+                    We found a very similar issue recently reported in your area. Please check if this matches your report:
+                  </p>
+                </div>
+              </div>
+
+              {/* Duplicate Post Card Preview */}
+              <div className="border border-base-content/10 bg-base-200/50 rounded-xl p-3.5 flex flex-col gap-2">
+                <div className="flex items-center justify-between text-[9px] font-bold uppercase tracking-wider opacity-60">
+                  <span>Pincode: {duplicatePostData.targetPincodes?.[0] || duplicatePostData.targetPincode || targetPincode}</span>
+                  <span>
+                    {duplicatePostData.createdAt || duplicatePostData.timestamp ? (
+                      new Date(duplicatePostData.createdAt || duplicatePostData.timestamp).toLocaleString(undefined, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })
+                    ) : (
+                      "Recently reported"
+                    )}
+                  </span>
+                </div>
+                <p className="text-xs text-base-content leading-relaxed whitespace-pre-wrap font-medium">
+                  {duplicatePostData.content}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2.5 pt-4 border-t border-base-content/5 mt-4">
+              <button
+                disabled={upvoting}
+                onClick={handleUpvoteDuplicate}
+                className="btn btn-sm bg-green-600 hover:bg-green-700 text-white w-full rounded-xl transition-all font-bold"
+              >
+                {upvoting ? (
+                  <span className="flex items-center gap-1.5 justify-center">
+                    <Loader2 size={13} className="animate-spin" /> Upvoting...
+                  </span>
+                ) : (
+                  "Yes, \"Me Too!\" (Upvote)"
+                )}
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  disabled={upvoting}
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    handlePost(true); // retry with forceSubmit = true
+                  }}
+                  className="btn btn-sm btn-outline btn-ghost flex-1 text-[11px] font-black uppercase tracking-wider rounded-xl"
+                >
+                  No, Post Anyway
+                </button>
+                <button
+                  disabled={upvoting}
+                  onClick={() => {
+                    setShowDuplicateModal(false);
+                    setDuplicatePostData(null);
+                  }}
+                  className="btn btn-sm btn-ghost flex-1 text-[11px] font-black uppercase tracking-wider rounded-xl text-base-content/50"
+                >
+                  Go Back
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -874,7 +1163,7 @@ function PollForm({
       <div className="relative group">
         <textarea
           ref={textareaRef}
-          className={`textarea textarea-bordered w-full min-h-[90px] bg-base-100/50 border-base-content/10 focus:border-[#1D4ED8] focus:bg-base-100 transition-all duration-200 resize-none text-sm font-medium ${errors.pollQuestion ? "border-red-500/50" : ""}`}
+          className={`textarea textarea-bordered w-full min-h-[90px] bg-base-100/50 border-base-content/10 focus:border-[#1D4ED8] focus:outline-none focus:bg-base-100 transition-all duration-200 resize-none text-sm font-medium ${errors.pollQuestion ? "border-red-500/50" : ""}`}
           placeholder="Ask your poll question..."
           value={pollQuestion}
           onChange={(e) => handleQuestionChange(e.target.value)}
@@ -946,7 +1235,7 @@ function PollForm({
               </span>
               <input
                 type="text"
-                className={`input input-bordered w-full h-[42px] transition-all duration-200 focus:border-[#1D4ED8] bg-base-100/50 sm:pl-20 ${errors[`opt${i}`] ? "border-red-500/50" : "border-base-content/5"}`}
+                className={`input input-bordered w-full h-[42px] transition-all duration-200 focus:border-[#1D4ED8] focus:outline-none bg-base-100/50 sm:pl-20 ${errors[`opt${i}`] ? "border-red-500/50" : "border-base-content/5"}`}
                 placeholder={`Option ${i + 1}`}
                 value={opt}
                 onChange={(e) => updateOption(i, e.target.value)}

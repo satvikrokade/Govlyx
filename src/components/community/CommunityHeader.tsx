@@ -214,7 +214,7 @@ const CommunityHeader = ({
         </div>
 
         <div className="mt-2 text-left">
-          <h1 className="text-2xl font-bold">{c.name || "Community"}</h1>
+          <h1 className="text-2xl font-bold notranslate">{c.name || "Community"}</h1>
           <p className="mt-1 text-sm opacity-80 break-words leading-relaxed max-w-2xl line-clamp-2">
             {c.description || "No description provided."}
           </p>

@@ -42,7 +42,7 @@ const ChatWindow = ({
 
       {/* Header */}
       <div className="border-b border-base-300 px-4 py-3">
-        <h3 className="text-sm font-semibold">{conversation.name}</h3>
+        <h3 className="text-sm font-semibold notranslate">{conversation.name}</h3>
       </div>
 
       {/* Messages */}

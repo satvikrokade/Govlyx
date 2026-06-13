@@ -1,10 +1,11 @@
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion } from "framer-motion";
 import { useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
 import { clearAuthTokens, getAuthToken, isDepartmentUser } from "../utils/auth";
 import { ModalProvider } from "../context/ModalContext";
 import { LanguageProvider } from "../context/LanguageContext";
+import { Toaster } from "react-hot-toast";
 
 import MainLayout from "../components/layout/MainLayout";
 
@@ -125,21 +126,14 @@ const DashboardRedirect = () => {
 
 // ── Router ────────────────────────────────────────────────────────────────────
 const AppRouter = () => {
-  const location = useLocation();
-  useTokenExpiryWatcher(); 
-
-  const getTransitionKey = (path: string) => {
-    if (path.startsWith("/communities")) {
-      return "/communities";
-    }
-    return path;
-  };
+  useTokenExpiryWatcher();
+  const loggedIn = isLoggedIn();
 
   return (
     <LanguageProvider>
     <ModalProvider>
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={getTransitionKey(location.pathname)}>
+        <Toaster position="top-center" reverseOrder={false} />
+        <Routes>
 
         {/* ── Public landing page route ── */}
         <Route
@@ -159,7 +153,7 @@ const AppRouter = () => {
         <Route
           path="/login"
           element={
-            isLoggedIn()
+            loggedIn
               ? <Navigate to="/dashboard" replace />
               : <PageWrapper className="w-full h-full"><Login /></PageWrapper>
           }
@@ -167,7 +161,7 @@ const AppRouter = () => {
         <Route
           path="/register"
           element={
-            isLoggedIn()
+            loggedIn
               ? <Navigate to="/dashboard" replace />
               : <PageWrapper className="w-full h-full"><Register /></PageWrapper>
           }
@@ -189,7 +183,7 @@ const AppRouter = () => {
 
         {/* ── Protected routes ── */}
         <Route
-          element={isLoggedIn() ? <MainLayout /> : <Navigate to="/login" replace />}
+          element={loggedIn ? <MainLayout /> : <Navigate to="/login" replace />}
         >
           <Route path="/dashboard" element={<PageWrapper><DashboardRedirect /></PageWrapper>} />
           <Route path="/communities/:id?" element={<PageWrapper><Communities /></PageWrapper>} />
@@ -219,11 +213,10 @@ const AppRouter = () => {
         {/* ── Fallback ── */}
         <Route
           path="*"
-          element={<Navigate to={isLoggedIn() ? "/dashboard" : "/"} replace />}
+          element={<Navigate to={loggedIn ? "/dashboard" : "/"} replace />}
         />
 
       </Routes>
-    </AnimatePresence>
     </ModalProvider>
     </LanguageProvider>
   );

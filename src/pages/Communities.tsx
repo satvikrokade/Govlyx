@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FiSearch } from "react-icons/fi";
 import { HiOutlineArrowRight } from "react-icons/hi";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import {
   Building2, Construction, GraduationCap, Stethoscope, Leaf,
   Laptop, Trophy, Palette, Briefcase, HardHat, ShieldCheck,
@@ -892,7 +892,7 @@ export function AcceptInvitePage() {
           {!previewLoading && preview && preview.valid && status === "idle" && (
             <>
               <div className="text-center space-y-1">
-                <h1 className="text-xl font-bold">{preview.communityName}</h1>
+                <h1 className="text-xl font-bold notranslate">{preview.communityName}</h1>
                 {preview.communityDescription && (
                   <p className="text-sm opacity-60 line-clamp-3">{preview.communityDescription}</p>
                 )}
@@ -1357,7 +1357,7 @@ function AdminPanel({
             <div className="text-right">
               <div className="flex items-center justify-end gap-2">
                 <span className="badge badge-warning badge-xs">Admin</span>
-                <h2 className="font-bold text-sm truncate max-w-[160px]">{c.name}</h2>
+                <h2 className="font-bold text-sm truncate max-w-[160px] notranslate">{c.name}</h2>
                 <Settings size={14} className="text-base-content/70 shrink-0" />
               </div>
               <p className="text-xs opacity-50 mt-0.5">
@@ -2277,7 +2277,7 @@ function DetailPanel({
           <button className="btn btn-ghost btn-sm gap-1" onClick={closeViaUI}><ChevronLeft size={18} /> Back</button>
           {!c.isOwner
             ? <button
-              className={`btn btn-sm flex items-center gap-1.5 ${c.isMember ? "btn-ghost btn-outline" : c.hasPendingRequest ? "btn-warning btn-outline" : isSecret ? "btn-disabled" : "bg-blue-700 text-white font-semibold border-none hover:bg-blue-800"}`}
+              className={`btn btn-sm flex items-center gap-1.5 ${c.isMember ? "border border-red-500 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 bg-transparent font-medium" : c.hasPendingRequest ? "btn-warning btn-outline" : isSecret ? "btn-disabled" : "bg-blue-700 text-white font-semibold border-none hover:bg-blue-800"}`}
               onClick={toggleMembership} disabled={acting || isSecret}>
               {acting ? (
                 <Spin xs />
@@ -2326,10 +2326,10 @@ function DetailPanel({
                   <>
                     {canPost && (
                       <button
-                        className="w-full rounded-xl border border-dashed border-base-300 px-4 py-3 text-left text-sm opacity-60 hover:opacity-100 transition-opacity flex items-center gap-2"
+                        className="btn w-full bg-[#1D4ED8] hover:bg-blue-800 text-white border-none rounded-xl py-2.5 flex items-center justify-center gap-2 text-sm font-semibold shadow-sm hover:shadow transition-all duration-200 transform hover:scale-[1.01] active:scale-[0.99]"
                         onClick={() => setOpenCreatePost(true)}
                       >
-                        <Plus size={16} /> Write something in {c.name}…
+                        <Plus size={16} /> Create a community post
                       </button>
                     )}
 
@@ -2779,7 +2779,7 @@ function RecommendedCarousel({
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="font-extrabold text-[13px] text-base-content leading-tight truncate w-full">{c.name}</p>
+                    <p className="font-extrabold text-[13px] text-base-content leading-tight truncate w-full notranslate">{c.name}</p>
                     {c.category && (
                       <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/10 text-white/80 border border-white/15">
                         {c.category.replace(/_/g, " ")}
@@ -2856,7 +2856,30 @@ const Community = () => {
   const [selected, setSelected] = useState<CommunityData | null>(null);
   const [adminTarget, setAdminTarget] = useState<CommunityData | null>(null);
   const [showCreate, setShowCreate] = useState(false);
-  const [view, setView] = useState<"default" | "joined" | "owned">("default");
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const view = (searchParams.get("tab") as "default" | "joined" | "owned") || "default";
+
+  const setView = (
+    newTabOrFn:
+      | "default"
+      | "joined"
+      | "owned"
+      | ((prev: "default" | "joined" | "owned") => "default" | "joined" | "owned")
+  ) => {
+    const nextTab = typeof newTabOrFn === "function" ? newTabOrFn(view) : newTabOrFn;
+    setSearchParams(
+      (prev) => {
+        if (nextTab === "default") {
+          prev.delete("tab");
+        } else {
+          prev.set("tab", nextTab);
+        }
+        return prev;
+      },
+      { replace: true }
+    );
+  };
 
   const [recommended, setRecommended] = useState<CommunityData[]>([]);
   const [recommendedLoading, setRecommendedLoading] = useState(true);
@@ -2865,6 +2888,28 @@ const Community = () => {
   const { id: slugParam } = useParams<{ id?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const communityQueryParam = searchParams.get("community");
+  const activeSlug = slugParam || communityQueryParam || null;
+
+  const openCommunity = (c: CommunityData) => {
+    setSelected(c);
+    setSearchParams(prev => {
+      prev.set("community", c.slug);
+      return prev;
+    }, { replace: true });
+  };
+
+  const closeCommunity = () => {
+    setSelected(null);
+    setSearchParams(prev => {
+      prev.delete("community");
+      return prev;
+    }, { replace: true });
+
+    if (slugParam) {
+      navigate("/communities" + location.search, { replace: true });
+    }
+  };
 
   // Load recommended
   useEffect(() => {
@@ -3003,9 +3048,9 @@ const Community = () => {
       return;
     }
 
-    // If routed to /communities/:slug, fetch and open that community
-    if (slugParam) {
-      fetch(apiUrl(`/api/communities/${slugParam}`), { headers: hdrs() })
+    // If routed to /communities/:slug or ?community=slug, fetch and open that community
+    if (activeSlug) {
+      fetch(apiUrl(`/api/communities/${activeSlug}`), { headers: hdrs() })
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(d => {
           if (!active) return;
@@ -3030,7 +3075,7 @@ const Community = () => {
       active = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slugParam]);
+  }, [activeSlug]);
 
 
   useEffect(() => {
@@ -3155,7 +3200,7 @@ const Community = () => {
     const entry: CommunityData = { ...c, isMember: true, isOwner: true };
     setMyCommunities(prev => [entry, ...prev.filter(x => x.id !== entry.id)]);
     setSelected(entry);
-    navigate("/communities/" + entry.slug);
+    navigate("/communities/" + entry.slug + location.search);
   }
 
   function handleCommunityUpdated(updated: CommunityData) {
@@ -3203,7 +3248,7 @@ const Community = () => {
                     onMouseDown={e => { e.preventDefault(); commitSearch(c.name); }}>
                     <span className="text-[#1D4ED8] dark:text-white shrink-0"><Users size={18} /></span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{highlight(c.name, query)}</p>
+                      <p className="text-sm font-medium truncate notranslate">{highlight(c.name, query)}</p>
                       {c.description && <p className="text-xs opacity-50 truncate">{c.description}</p>}
                     </div>
                     <span className="text-xs opacity-30 shrink-0 flex items-center gap-1"><Users size={12} /> {c.memberCount.toLocaleString()}</span>
@@ -3257,10 +3302,7 @@ const Community = () => {
         <RecommendedCarousel
           recommended={recommended}
           loading={recommendedLoading}
-          onSelect={(c) => {
-            setSelected(c);
-            navigate("/communities/" + c.slug);
-          }}
+          onSelect={openCommunity}
           onJoin={handleCarouselJoin}
           joiningId={joiningId}
         />
@@ -3299,8 +3341,7 @@ const Community = () => {
                     members={c.memberCount} avatarUrl={c.avatarUrl} privacy={c.privacy}
                     isMember={!!local?.isMember} isOwner={!!local?.isOwner} hasPendingRequest={!!local?.hasPendingRequest}
                     onClick={() => {
-                      setSelected(local ? { ...c, isMember: local.isMember, isOwner: local.isOwner, hasPendingRequest: local.hasPendingRequest } : c);
-                      navigate("/communities/" + c.slug);
+                      openCommunity(local ? { ...c, isMember: local.isMember, isOwner: local.isOwner, hasPendingRequest: local.hasPendingRequest } : c);
                     }} />
                 );
               })}
@@ -3346,7 +3387,7 @@ const Community = () => {
                       const ownedImgSrc = c.avatarUrl || `https://robohash.org/${encodeURIComponent(c.name)}`;
                       return (
                         <div key={c.id} className="group relative rounded-2xl border border-base-300 bg-base-100 overflow-hidden transition-all duration-200 min-w-0" style={{ transform: "translateZ(0)" }}>
-                          <div className="p-4 cursor-pointer" onClick={() => { setSelected({ ...c, isMember: true }); navigate("/communities/" + c.slug); }}>
+                          <div className="p-4 cursor-pointer" onClick={() => { openCommunity({ ...c, isMember: true }); }}>
                             <div className="flex items-center gap-3.5">
                               <div className="shrink-0 w-12 h-12 rounded-full overflow-hidden ring-2 ring-base-300 transition-all duration-200 shadow-sm">
                                 <img
@@ -3358,7 +3399,7 @@ const Community = () => {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                                  <p className="font-bold text-sm truncate">{c.name}</p>
+                                  <p className="font-bold text-sm truncate notranslate">{c.name}</p>
                                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/20">
                                     <Settings size={8} /> Owner
                                   </span>
@@ -3378,7 +3419,7 @@ const Community = () => {
                           <div className="border-t border-base-200 grid grid-cols-2 divide-x divide-base-200">
                             <button
                               className="py-2.5 text-xs font-semibold text-base-content/60 hover:text-base-content hover:bg-base-200 transition-all duration-200 flex items-center justify-center gap-1.5"
-                              onClick={() => { setSelected({ ...c, isMember: true }); navigate("/communities/" + c.slug); }}
+                              onClick={() => { openCommunity({ ...c, isMember: true }); }}
                             >
                               <Eye size={13} /> View
                             </button>
@@ -3410,7 +3451,7 @@ const Community = () => {
                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                     {joinedOnly.map(c => (
                       <CommunityCard key={c.id} id={c.id} slug={c.slug} name={c.name} description={c.description}
-                        members={c.memberCount} avatarUrl={c.avatarUrl} privacy={c.privacy} onClick={() => { setSelected(c); navigate("/communities/" + c.slug); }} />
+                        members={c.memberCount} avatarUrl={c.avatarUrl} privacy={c.privacy} onClick={() => { openCommunity(c); }} />
                     ))}
                   </div>
                 </div>
@@ -3436,13 +3477,13 @@ const Community = () => {
             isOwner: selected.isOwner || myCommunities.some(x => x.id === selected.id && x.isOwner),
             hasPendingRequest: selected.hasPendingRequest && !myCommunities.some(x => x.id === selected.id && x.isMember)
           }}
-          onClose={() => { setSelected(null); navigate("/communities"); }}
+          onClose={closeCommunity}
           onMembershipChange={syncMembership}
         />
       )}
 
       {adminTarget && (
-        <AdminPanel key={adminTarget.id} community={adminTarget} onClose={() => { setAdminTarget(null); navigate("/communities"); }} onCommunityUpdated={handleCommunityUpdated} onMembershipChange={syncMembership} />
+        <AdminPanel key={adminTarget.id} community={adminTarget} onClose={() => { setAdminTarget(null); if (slugParam) navigate("/communities" + location.search, { replace: true }); }} onCommunityUpdated={handleCommunityUpdated} onMembershipChange={syncMembership} />
       )}
 
       {showCreate && (

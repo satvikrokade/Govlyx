@@ -235,17 +235,32 @@ export function useChat(): UseChatReturn {
       _stopPolling();
       return;
     }
-    // BUG 4 FIX: update session when a fresh match event arrives (e.g. after reconnect)
-    if (n.sessionId && n.yourAnonymousId) {
-      setSession((prev: ChatSessionDto | null) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
+    
+    if (n.matched && n.sessionId && n.yourAnonymousId) {
+      if (!sessionRef.current) {
+        // We were searching, now matched via WebSocket event!
+        const sess: ChatSessionDto = {
           sessionId:          n.sessionId,
           yourAnonymousId:    n.yourAnonymousId,
-          partnerAnonymousId: n.partnerAnonymousId ?? prev.partnerAnonymousId,
+          partnerAnonymousId: n.partnerAnonymousId ?? "",
+          status:             "ACTIVE",
+          createdAt:          new Date().toISOString(),
+          lastActivityAt:     new Date().toISOString(),
         };
-      });
+        _stopPolling();
+        onMatchSuccess(sess);
+      } else {
+        // Already connected, just update
+        setSession((prev: ChatSessionDto | null) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            sessionId:          n.sessionId!,
+            yourAnonymousId:    n.yourAnonymousId!,
+            partnerAnonymousId: n.partnerAnonymousId ?? prev.partnerAnonymousId,
+          };
+        });
+      }
     }
   };
 
@@ -288,6 +303,18 @@ export function useChat(): UseChatReturn {
             });
         },
       });
+
+      // If socket is already connected, fetch messages history directly
+      if (chatSocket.isConnected) {
+        chatApi
+          .getMessages(50)
+          .then((res) => {
+            if (res.success && res.data && res.data.length > 0) {
+              setMessages((prev) => mergeMessages(prev, res.data!));
+            }
+          })
+          .catch(() => {});
+      }
     },
     [stableOnMessage, stableOnTyping, stableOnMatch],
   );
@@ -325,7 +352,22 @@ export function useChat(): UseChatReturn {
     setQueueSize(null);
     setStatus("SEARCHING");
     sessionStore.clear();
-    chatSocket.disconnect();
+
+    // Connect to WebSocket at the start of searching so we can receive MATCH events
+    chatSocket.connect({
+      onMessage:    stableOnMessage,
+      onTyping:     stableOnTyping,
+      onMatchEvent: stableOnMatch,
+
+      onError: (msg) => {
+        setError(msg);
+        setStatus("ERROR");
+      },
+
+      onConnected: () => {
+        console.debug("[useChat] WebSocket connected while searching");
+      },
+    });
 
     try {
       const res = await chatApi.startSearch();

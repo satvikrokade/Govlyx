@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation, Link } from "react-router-dom";
 import {
   Home,
   Users,
@@ -9,6 +9,9 @@ import {
   Bell,
   Sun,
   Moon,
+  Inbox,
+  Megaphone,
+  BarChart2,
 } from "lucide-react";
 import { useTheme } from "../../hooks/useTheme";
 import { useCurrentUser } from "../../hooks/useUser";
@@ -17,6 +20,7 @@ import { useQuery } from "@tanstack/react-query";
 import { resolveMediaUrl } from "../../utils/postUtils";
 import { getUserRole } from "../../utils/auth";
 import axiosInstance from "../../api/axiosConfig";
+import { getActiveTaggedPosts } from "../../api/departmentService";
 
 const BASE_NAV_ITEMS = [
   { label: "Home", icon: Home, to: "/dashboard" },
@@ -27,8 +31,121 @@ const BASE_NAV_ITEMS = [
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
 
-const DEPT_NAV_ITEM = { label: "Dept. Dashboard", icon: LayoutDashboard, to: "/department/dashboard" };
 const ADMIN_NAV_ITEM = { label: "Admin Dashboard", icon: LayoutDashboard, to: "/admin/dashboard" };
+
+// Admin nav sections shown in the left sidebar when on the admin dashboard
+const ADMIN_NAV_SECTIONS = [
+  {
+    label: "Overview",
+    items: [
+      {
+        label: "Dashboard", tab: "dashboard",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" />
+            <rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    label: "Registration",
+    items: [
+      {
+        label: "Register Department", tab: "reg-dept",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 10v11M12 10v11M16 10v11" />
+          </svg>
+        ),
+      },
+      {
+        label: "Register Admin", tab: "reg-admin",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+            <line x1="19" y1="8" x2="19" y2="14" /><line x1="22" y1="11" x2="16" y2="11" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    label: "User Management",
+    items: [
+      {
+        label: "All Users", tab: "users",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+        ),
+      },
+      {
+        label: "Departments", tab: "departments",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+          </svg>
+        ),
+      },
+      {
+        label: "Communities", tab: "communities",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path d="M17 20h5v-2a3 3 0 0 0-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 0 1 5.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 0 1 9.288 0M15 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2 2 0 1 1-4 0 2 2 0 0 1 4 0ZM7 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0Z" />
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    label: "Platform",
+    items: [
+      {
+        label: "Content Monitor", tab: "content",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" />
+          </svg>
+        ),
+      },
+      {
+        label: "Chat Statistics", tab: "chat",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        ),
+      },
+      {
+        label: "Broadcasts", tab: "broadcast",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49m-8.48-.01a6 6 0 0 1 0-8.49m11.31-2.82a10 10 0 0 1 0 14.14m-14.14 0a10 10 0 0 1 0-14.14"/>
+          </svg>
+        ),
+      },
+    ],
+  },
+  {
+    label: "System",
+    items: [
+      {
+        label: "System Health", tab: "system",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+        ),
+      },
+    ],
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -37,6 +154,7 @@ const SidebarLeft = () => {
   const { data: user, isLoading: loading } = useCurrentUser();
   const { data: unreadCount } = useUnreadNotificationsCount();
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
 
   // Fetch actual user communities (both joined and owned)
   const { data: communities, isLoading: communitiesLoading } = useQuery({
@@ -78,11 +196,28 @@ const SidebarLeft = () => {
   const isAdmin = role === "ROLE_ADMIN";
   const username = user?.actualUsername ?? user?.username;
 
+  // Fetch active issues count dynamically if user is a department
+  const { data: activeIssuesCount } = useQuery({
+    queryKey: ["active-issues-count", username],
+    queryFn: async () => {
+      if (!username) return 0;
+      try {
+        const page = await getActiveTaggedPosts(username, null, 1);
+        return page.totalCount;
+      } catch {
+        return 0;
+      }
+    },
+    enabled: isDept && !!username,
+    refetchInterval: 30 * 1000,
+  });
+
   const navItems = isDept
     ? [
-        DEPT_NAV_ITEM,
+        { label: "Issues Inbox", icon: Inbox, to: "/department/dashboard?tab=issues" },
+        { label: "Official Broadcasts", icon: Megaphone, to: "/department/dashboard?tab=broadcasts" },
+        { label: "Analytics", icon: BarChart2, to: "/department/dashboard?tab=analytics" },
         { label: "Notifications", icon: Bell, to: "/notifications" },
-        { label: "Profile", icon: User, to: "/profile" },
         { label: "Settings", icon: Settings, to: "/settings" }
       ]
     : isAdmin
@@ -97,8 +232,20 @@ const SidebarLeft = () => {
   // Removing unused avatarLetter
   const displayName = loading ? "Loading..." : (username ?? "Anonymous User");
 
+  const searchParamsObj = new URLSearchParams(location.search);
+  const activeTabParam = searchParamsObj.get("tab") || "issues";
+
+  // For admin dashboard: determine which tab is active from the URL
+  const isOnAdminDashboard = isAdmin && location.pathname.startsWith("/admin/dashboard");
+  const adminActiveTab = isOnAdminDashboard ? (searchParamsObj.get("tab") || "dashboard") : null;
+
+  // nav item base classes
+  const navItemBase = "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition relative";
+  const navItemActive = "bg-[#1D4ED8] text-white font-bold";
+  const navItemInactive = "hover:bg-base-300 text-base-content/70";
+
   return (
-    <aside className="flex min-h-full flex-col gap-6 pb-8">
+    <aside className="flex min-h-full flex-col gap-4 pb-8">
 
       {/* Profile Card */}
       <div className="rounded-xl bg-base-200 p-4">
@@ -109,39 +256,109 @@ const SidebarLeft = () => {
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm truncate" title={displayName}>{displayName}</p>
+            <p className="font-semibold text-sm truncate notranslate" title={displayName}>{displayName}</p>
+            {isAdmin && <p className="text-[10px] font-mono uppercase tracking-wider text-green-500 opacity-80">Admin</p>}
           </div>
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="rounded-xl bg-base-200 p-2">
-        {navItems.map(({ label, icon: Icon, to }) => {
-          const isNotifications = label === "Notifications";
+      {/* ── ADMIN: Full nav sections always visible ── */}
+      {isAdmin ? (
+        <>
+          {ADMIN_NAV_SECTIONS.map(section => (
+            <nav key={section.label} className="rounded-xl bg-base-200 p-2">
+              <p className="text-[10px] uppercase tracking-widest font-semibold opacity-40 px-3 pt-1 pb-2">
+                {section.label}
+              </p>
+              {section.items.map(item => {
+                const isActive = adminActiveTab === item.tab;
+                return (
+                  <NavLink
+                    key={item.tab}
+                    to={`/admin/dashboard?tab=${item.tab}`}
+                    className={`${navItemBase} ${isActive ? navItemActive : navItemInactive}`}
+                  >
+                    {item.icon}
+                    <span className="flex-1">{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </nav>
+          ))}
 
-          return (
+          {/* Utility links for admin */}
+          <nav className="rounded-xl bg-base-200 p-2">
+            <p className="text-[10px] uppercase tracking-widest font-semibold opacity-40 px-3 pt-1 pb-2">
+              Account
+            </p>
             <NavLink
-              key={label}
-              to={to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition relative
-                ${isActive
-                  ? "bg-[#1D4ED8] text-white"
-                  : "hover:bg-base-300"
-                }`
-              }
+              to="/notifications"
+              className={`${navItemBase} ${location.pathname === "/notifications" ? navItemActive : navItemInactive}`}
             >
-              <Icon size={18} />
-              <span className="flex-1">{label}</span>
-              {isNotifications && unreadCount !== undefined && unreadCount > 0 && (
+              <Bell size={18} />
+              <span className="flex-1">Notifications</span>
+              {unreadCount !== undefined && unreadCount > 0 && (
                 <span className="bg-error text-error-content text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               )}
             </NavLink>
-          );
-        })}
-      </nav>
+            <NavLink
+              to="/profile"
+              className={`${navItemBase} ${location.pathname === "/profile" ? navItemActive : navItemInactive}`}
+            >
+              <User size={18} />
+              <span className="flex-1">Profile</span>
+            </NavLink>
+            <NavLink
+              to="/settings"
+              className={`${navItemBase} ${location.pathname === "/settings" ? navItemActive : navItemInactive}`}
+            >
+              <Settings size={18} />
+              <span className="flex-1">Settings</span>
+            </NavLink>
+          </nav>
+        </>
+      ) : (
+        /* ── Non-admin-dashboard: existing nav rendering ── */
+        <nav className="rounded-xl bg-base-200 p-2">
+          {navItems.map(({ label, icon: Icon, to }) => {
+            const isNotifications = label === "Notifications";
+            const isIssuesInbox = label === "Issues Inbox";
+
+            const isDeptTabLink = to.startsWith("/department/dashboard");
+            const isLinkActive = isDeptTabLink
+              ? location.pathname === "/department/dashboard" &&
+                (new URLSearchParams(to.split("?")[1]).get("tab") || "issues") === activeTabParam
+              : location.pathname === to;
+
+            return (
+              <NavLink
+                key={label}
+                to={to}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition relative
+                  ${isLinkActive
+                    ? "bg-[#1D4ED8] text-white font-bold"
+                    : "hover:bg-base-300 text-base-content/70"
+                  }`}
+              >
+                <Icon size={18} />
+                <span className="flex-1">{label}</span>
+                {isNotifications && unreadCount !== undefined && unreadCount > 0 && (
+                  <span className="bg-error text-error-content text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+                {isIssuesInbox && activeIssuesCount !== undefined && activeIssuesCount > 0 && (
+                  <span className="bg-amber-400 text-black text-[10px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 shadow-sm">
+                    {activeIssuesCount > 99 ? "99+" : activeIssuesCount}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
+        </nav>
+      )}
 
       {/* Mobile Theme Toggle */}
       <div className="lg:hidden mt-auto pt-4">
@@ -175,19 +392,27 @@ const SidebarLeft = () => {
           ) : communities && communities.length > 0 ? (
             <div className="max-h-60 overflow-y-auto pr-1">
               <ul className="space-y-1 text-sm">
-                {communities.slice(0, 4).map((c) => (
-                  <li key={c.id}>
-                    <NavLink
-                      to={`/communities/${c.slug || c.id}`}
-                      className={({ isActive }) =>
-                        `block truncate rounded-lg px-3 py-1.5 transition duration-150 hover:bg-base-300
-                        ${isActive ? "font-semibold text-[#1D4ED8]" : "opacity-80"}`
-                      }
-                    >
-                      {c.name}
-                    </NavLink>
-                  </li>
-                ))}
+                {communities.slice(0, 4).map((c) => {
+                  const activeCommunityParam = searchParamsObj.get("community");
+                  const isActive =
+                    location.pathname.startsWith("/communities") &&
+                    (activeCommunityParam === c.slug ||
+                      activeCommunityParam === String(c.id) ||
+                      location.pathname === `/communities/${c.slug}` ||
+                      location.pathname === `/communities/${c.id}`);
+
+                  return (
+                    <li key={c.id}>
+                      <Link
+                        to={`/communities?community=${c.slug || c.id}`}
+                        className={`block truncate rounded-lg px-3 py-1.5 transition duration-150 hover:bg-base-300 notranslate
+                          ${isActive ? "font-semibold text-[#1D4ED8]" : "opacity-80"}`}
+                      >
+                        {c.name}
+                      </Link>
+                    </li>
+                  );
+                })}
                 {communities.length > 4 && (
                   <li>
                     <NavLink
