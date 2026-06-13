@@ -14,7 +14,6 @@ const ScreenshotProtectionOverlay = () => {
 
   useEffect(() => {
     let timeoutId: number | undefined;
-    let blurTimeoutId: number | undefined;
 
     const showBlackOverlay = () => {
       window.clearTimeout(timeoutId);
@@ -36,29 +35,13 @@ const ScreenshotProtectionOverlay = () => {
       }
     };
 
-    const handleWindowBlur = () => {
-      window.clearTimeout(blurTimeoutId);
-      blurTimeoutId = window.setTimeout(showBlackOverlay, 80);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") {
-        showBlackOverlay();
-      }
-    };
-
     document.addEventListener("keydown", handleKeyboardCapture, true);
     document.addEventListener("keyup", handleKeyboardCapture, true);
-    window.addEventListener("blur", handleWindowBlur, true);
-    document.addEventListener("visibilitychange", handleVisibilityChange, true);
 
     return () => {
       window.clearTimeout(timeoutId);
-      window.clearTimeout(blurTimeoutId);
       document.removeEventListener("keydown", handleKeyboardCapture, true);
       document.removeEventListener("keyup", handleKeyboardCapture, true);
-      window.removeEventListener("blur", handleWindowBlur, true);
-      document.removeEventListener("visibilitychange", handleVisibilityChange, true);
     };
   }, []);
 
