@@ -516,13 +516,13 @@ const Settings = () => {
 
         <div className="space-y-4">
           {/* 1. Interface Language (Stored locally in browser localStorage) */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium">Interface Language</p>
               <p className="text-xs opacity-60">Set the primary language for buttons, menus, and application layout</p>
             </div>
             <select
-              className="select select-bordered select-sm text-sm notranslate"
+              className="select select-bordered select-sm text-sm notranslate w-full sm:w-auto shrink-0"
               value={interfaceLanguage}
               onChange={(e) => {
                 const lang = e.target.value as LangCode;
@@ -541,13 +541,13 @@ const Settings = () => {
           <div className="border-t border-base-300/40 my-2"></div>
 
           {/* 2. Post Translation Language (Stored on backend) */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium">Post Translation Language</p>
               <p className="text-xs opacity-60">Set the target language for translating feed posts</p>
             </div>
             <select
-              className="select select-bordered select-sm text-sm notranslate"
+              className="select select-bordered select-sm text-sm notranslate w-full sm:w-auto shrink-0"
               value={preferredLanguage}
               onChange={(e) => {
                 const lang = e.target.value as LangCode;
@@ -564,14 +564,14 @@ const Settings = () => {
           </div>
 
           {/* 3. Auto-Translate Feed Toggle (Stored on backend) */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-sm font-medium">Auto-Translate Feed</p>
               <p className="text-xs opacity-60">Automatically translate posts to your post translation language</p>
             </div>
             <input
               type="checkbox"
-              className="toggle toggle-primary toggle-sm"
+              className="toggle toggle-primary toggle-sm shrink-0"
               checked={autoTranslate}
               onChange={(e) => {
                 setAutoTranslate(e.target.checked);

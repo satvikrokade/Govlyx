@@ -33,6 +33,8 @@ import { apiUrl } from "../../utils/apiUrl";
 import type { PostType } from "./CommentSection";
 import { resolveMediaUrl, toPostCardPost } from "../../utils/postUtils";
 import ConfirmModal from "./ConfirmModal";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "../../hooks/useUser";
 import ReportModal from "../modals/ReportModal";
 import { checkProfanity } from "../../utils/profanity";
@@ -703,6 +705,7 @@ function CommunityStrip({
   isJoined: boolean;
   onJoin: (cid: number) => void;
 }) {
+  const navigate = useNavigate();
   const communityId = getCommunityId(post);
   const communityName =
     (post as CommunityPost).communityName ||
@@ -720,7 +723,29 @@ function CommunityStrip({
       animate={{ opacity: 1, y: 0 }}
       className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-gradient-to-r from-sky-500/5 to-transparent border border-sky-500/10 mb-2"
     >
-      <div className="flex items-center gap-2.5 min-w-0">
+      <div
+        onClick={async () => {
+          if (communityId) {
+            let targetSlug = (post as any).communitySlug || (post as any).slug;
+            if (!targetSlug) {
+              try {
+                const resData = await apiFetch(`/api/communities/search?q=${encodeURIComponent(communityName)}`, "GET") as any;
+                const list = resData?.data?.content ?? resData?.data?.data ?? resData?.data ?? resData?.content ?? [];
+                if (Array.isArray(list)) {
+                  const match = list.find((c: any) => c.id === communityId);
+                  if (match && match.slug) {
+                    targetSlug = match.slug;
+                  }
+                }
+              } catch (err) {
+                console.error("Failed to fetch community slug:", err);
+              }
+            }
+            navigate(`/communities?community=${targetSlug || communityId}`);
+          }
+        }}
+        className="flex items-center gap-2.5 min-w-0 cursor-pointer hover:opacity-85 transition-opacity"
+      >
         {communityAvatar ? (
           <motion.img
             src={communityAvatar}
@@ -1361,6 +1386,7 @@ export default function PostCard({
   hideCommunityStrip,
   hideDelete,
 }: PostCardProps) {
+  const queryClient = useQueryClient();
   const { data: currentUserProfile } = useCurrentUser();
   const [liked, setLiked] = useState(!!(post as AnyPost)?.isLikedByCurrentUser);
   const [disliked, setDisliked] = useState(!!(post as any)?.isDislikedByCurrentUser);
@@ -1969,6 +1995,7 @@ export default function PostCard({
     setIsJoined(next);
     try {
       await apiPost(`/api/communities/${cid}/join`, {});
+      queryClient.invalidateQueries({ queryKey: ["my-communities"] });
     } catch {
       setIsJoined(!next);
       alert("Could not join community.");

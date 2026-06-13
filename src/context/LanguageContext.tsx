@@ -35,14 +35,16 @@ async function googleTranslateBatch(
   try {
     const results: string[] = [];
     for (const text of texts) {
-      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
+      const protectedText = text.replace(/Govlyx/gi, "GOVLYXTOKEN");
+      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(protectedText)}`;
       const res = await fetch(url);
       const json = await res.json();
       // Response shape: [[["translatedText","sourceText",...],...],...]
       const translated = (json[0] as [string, string][])
         .map((seg) => seg[0])
         .join("");
-      results.push(translated || text);
+      const restored = (translated || protectedText).replace(/GOVLYXTOKEN/gi, "Govlyx");
+      results.push(restored);
     }
     return results;
   } catch {

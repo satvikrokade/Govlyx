@@ -71,14 +71,14 @@ const NotificationsPage: React.FC = () => {
             <button
               onClick={() => markAllAsRead.mutate()}
               disabled={markAllAsRead.isPending}
-              className="btn btn-ghost btn-sm text-[#1D4ED8] hover:bg-[#1D4ED8]/10 gap-2"
+              className="btn btn-ghost btn-sm text-[#1D4ED8] hover:bg-[#1D4ED8]/10 gap-2 px-2 sm:px-3"
             >
               {markAllAsRead.isPending ? (
                 <span className="loading loading-spinner loading-xs"></span>
               ) : (
                 <CheckCheck size={16} />
               )}
-              Mark all as read
+              <span className="hidden sm:inline">Mark all as read</span>
             </button>
           )}
 
@@ -88,24 +88,24 @@ const NotificationsPage: React.FC = () => {
                 deleteAllNotifications.mutate();
               }}
               disabled={deleteAllNotifications.isPending}
-              className="btn btn-ghost btn-sm text-error hover:bg-error/10 gap-2"
+              className="btn btn-ghost btn-sm text-error hover:bg-error/10 gap-2 px-2 sm:px-3"
             >
               {deleteAllNotifications.isPending ? (
                 <span className="loading loading-spinner loading-xs"></span>
               ) : (
                 <Trash2 size={16} />
               )}
-              Clear all
+              <span className="hidden sm:inline">Clear all</span>
             </button>
           )}
 
           <Link
             to="/settings"
-            className="btn btn-ghost btn-sm opacity-50 hover:opacity-100 gap-2"
+            className="btn btn-ghost btn-sm opacity-50 hover:opacity-100 gap-2 px-2 sm:px-3"
           >
             <Settings size={16} />
             <span className="hidden sm:inline">Settings</span>
-            <ExternalLink size={14} />
+            <ExternalLink size={14} className="hidden sm:inline" />
           </Link>
         </div>
       </div>

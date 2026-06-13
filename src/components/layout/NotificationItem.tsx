@@ -131,13 +131,13 @@ const NotificationItem: React.FC<NotificationItemProps> = ({
 
       {/* Delete button — hide for active invite notifications */}
       {!(isInvite && !isAccepted && !isDeclined) && (
-        <div className="shrink-0 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="shrink-0 flex flex-col gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => onDelete(id, e)}
             className="btn btn-ghost btn-xs btn-circle text-error hover:bg-error/10"
             title="Delete"
           >
-            <Trash2 size={12} />
+            <Trash2 size={14} />
           </button>
         </div>
       )}

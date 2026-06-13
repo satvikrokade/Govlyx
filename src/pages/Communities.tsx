@@ -23,6 +23,8 @@ import PostCard from "../components/post/PostCard";
 import PostSkeleton from "../components/post/PostSkeleton";
 import ImageEditorModal from "../components/modals/ImageEditorModal";
 import type { CurrentUser as CardUser } from "../components/post/PostCard";
+import { useQueryClient } from "@tanstack/react-query";
+import ConfirmModal from "../components/post/ConfirmModal";
 import { toPostCardPost } from "../utils/postUtils";
 import { jwtDecode } from "jwt-decode";
 import { cacheSuggestion } from "../utils/searchCache";
@@ -2127,6 +2129,7 @@ function DetailPanel({
     raw.isOwner ? { ...raw, isMember: true } : raw;
 
   const [c, setC] = useState(() => normalise(community));
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
   const [tab, setTab] = useState<"posts" | "about">("posts");
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2223,15 +2226,28 @@ function DetailPanel({
     }
   }, [loadPosts, c.isMember, c.isOwner, c.privacy, postSort]);
 
+  async function handleLeaveConfirm() {
+    setActing(true);
+    setShowLeaveConfirm(false);
+    try {
+      const res = await fetch(apiUrl(`/api/communities/${c.id}/leave`), { method: "DELETE", headers: hdrs() });
+      if (!res.ok) { alert((await res.json().catch(() => ({}))).message || "Could not leave."); return; }
+      setC(p => ({ ...p, isMember: false, memberCount: p.memberCount - 1 }));
+      onMembershipChange(c.id, false, -1, false, { ...c, isMember: false, memberCount: c.memberCount - 1 });
+    } catch {
+      alert("Could not leave.");
+    } finally {
+      setActing(false);
+    }
+  }
+
   async function toggleMembership() {
     setActing(true);
     try {
       if (c.isMember) {
-        if (!window.confirm(`Leave "${c.name}"?`)) return;
-        const res = await fetch(apiUrl(`/api/communities/${c.id}/leave`), { method: "DELETE", headers: hdrs() });
-        if (!res.ok) { alert((await res.json().catch(() => ({}))).message || "Could not leave."); return; }
-        setC(p => ({ ...p, isMember: false, memberCount: p.memberCount - 1 }));
-        onMembershipChange(c.id, false, -1, false, { ...c, isMember: false, memberCount: c.memberCount - 1 });
+        setShowLeaveConfirm(true);
+        setActing(false);
+        return;
       } else if (c.hasPendingRequest) {
         await fetch(apiUrl(`/api/communities/${c.id}/join-requests/me`), { method: "DELETE", headers: hdrs() });
         removePendingLocal(c.id);
@@ -2509,6 +2525,17 @@ function DetailPanel({
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={showLeaveConfirm}
+        onClose={() => setShowLeaveConfirm(false)}
+        onConfirm={handleLeaveConfirm}
+        title="Leave Community"
+        message={`Are you sure you want to leave "${c.name}"? You will no longer receive updates or see posts from this community.`}
+        confirmLabel="Leave"
+        cancelLabel="Cancel"
+        isDanger={true}
+        isLoading={acting}
+      />
     </div>
   );
 }
@@ -2842,6 +2869,7 @@ function RecommendedCarousel({
 }
 
 const Community = () => {
+  const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const [committed, setCommitted] = useState("");
   const [searchResults, setSearchResults] = useState<CommunityData[]>([]);
@@ -3153,6 +3181,7 @@ const Community = () => {
   }
 
   function syncMembership(id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean, communityData?: CommunityData) {
+    queryClient.invalidateQueries({ queryKey: ["my-communities"] });
     const upd = (c: CommunityData): CommunityData => c.id === id ? { ...c, isMember, memberCount: c.memberCount + delta, hasPendingRequest: hasPendingRequest ?? c.hasPendingRequest } : c;
     setSearchResults(p => p.map(upd));
     setRecommended(p => p.map(upd));
@@ -3196,6 +3225,7 @@ const Community = () => {
   }
 
   function handleCreated(c: CommunityData) {
+    queryClient.invalidateQueries({ queryKey: ["my-communities"] });
     setShowCreate(false);
     const entry: CommunityData = { ...c, isMember: true, isOwner: true };
     setMyCommunities(prev => [entry, ...prev.filter(x => x.id !== entry.id)]);
@@ -3204,6 +3234,7 @@ const Community = () => {
   }
 
   function handleCommunityUpdated(updated: CommunityData) {
+    queryClient.invalidateQueries({ queryKey: ["my-communities"] });
     setMyCommunities(p => p.map(c => c.id === updated.id ? updated : c));
     setAdminTarget(updated);
   }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { useTheme } from "../hooks/useTheme";
+import { useLanguage, SUPPORTED_LANGUAGES, type LangCode } from "../context/LanguageContext";
 import { 
   ArrowRight, 
   ChevronDown, 
@@ -9,6 +10,8 @@ import {
   Moon,
   Menu,
   X,
+  Globe,
+  Check,
   MessageCircle,
   Plus,
   Search,
@@ -139,6 +142,7 @@ const DESTINATIONS = [
 
 export default function LandingPage() {
   const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [targetUrl, setTargetUrl] = useState("https://govlyx.com");
@@ -271,6 +275,32 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
+            {/* Language Dropdown */}
+            <div className="dropdown dropdown-end notranslate">
+              <div tabIndex={0} role="button" className="flex items-center gap-1.5 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/60 cursor-pointer">
+                <Globe className="w-5 h-5" />
+                <span className="text-xs uppercase font-black tracking-wider hidden sm:inline">{language}</span>
+                <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+              </div>
+              <ul tabIndex={0} className="dropdown-content menu p-1.5 shadow-2xl bg-base-100 border border-base-300 rounded-2xl w-44 z-[120] mt-1 gap-0.5 max-h-60 overflow-y-auto flex-nowrap">
+                {SUPPORTED_LANGUAGES.map((l) => (
+                  <li key={l.code}>
+                    <button
+                      onClick={() => setLanguage(l.code as LangCode)}
+                      className={`flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl ${
+                        language === l.code
+                          ? "bg-[#1D4ED8] text-white"
+                          : "hover:bg-base-200 text-base-content/85"
+                      }`}
+                    >
+                      <span>{l.nativeLabel}</span>
+                      {language === l.code && <Check className="w-3.5 h-3.5" />}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             <button 
               onClick={toggleTheme} 
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/60"
@@ -325,22 +355,59 @@ export default function LandingPage() {
                 Updates
               </button>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center gap-3">
-                <button
-                  onClick={toggleTheme}
-                  className="flex items-center justify-center gap-2 w-1/2 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                >
-                  {theme === "light" ? <><Moon className="w-4 h-4" /> Dark Mode</> : <><Sun className="w-4 h-4" /> Light Mode</>}
-                </button>
-                <button
-                  onClick={(e) => {
-                    setIsMobileMenuOpen(false);
-                    handleEnterPlatform(e);
-                  }}
-                  className="w-1/2 py-2.5 rounded-lg bg-[#1D4ED8] hover:bg-[#1e40af] text-white text-sm font-semibold shadow-md shadow-[#1D4ED8]/10 flex justify-center items-center"
-                >
-                  Enter
-                </button>
+              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
+                {/* Language Selector in Mobile Menu */}
+                <div className="dropdown w-full notranslate">
+                  <div tabIndex={0} role="button" className="btn btn-outline border-slate-200 dark:border-slate-800/60 w-full flex items-center justify-between px-4 py-2.5 h-10 rounded-lg text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                    <span className="flex items-center gap-2">
+                      <Globe className="w-4 h-4" />
+                      <span>Interface Language</span>
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="text-xs uppercase font-bold opacity-60">
+                        {SUPPORTED_LANGUAGES.find(l => l.code === language)?.nativeLabel || language}
+                      </span>
+                      <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+                    </span>
+                  </div>
+                  <ul tabIndex={0} className="dropdown-content menu p-1.5 shadow-2xl bg-base-100 border border-base-300 rounded-2xl w-full z-[120] mt-1 max-h-48 overflow-y-auto gap-0.5 flex-nowrap">
+                    {SUPPORTED_LANGUAGES.map((l) => (
+                      <li key={l.code}>
+                        <button
+                          onClick={() => {
+                            setLanguage(l.code as LangCode);
+                          }}
+                          className={`flex items-center justify-between px-3 py-2 text-xs font-bold rounded-xl ${
+                            language === l.code
+                              ? "bg-[#1D4ED8] text-white"
+                              : "hover:bg-base-200 text-base-content/85"
+                          }`}
+                        >
+                          <span>{l.nativeLabel}</span>
+                          {language === l.code && <Check className="w-3.5 h-3.5" />}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={toggleTheme}
+                    className="flex items-center justify-center gap-2 w-1/2 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                  >
+                    {theme === "light" ? <><Moon className="w-4 h-4" /> Dark Mode</> : <><Sun className="w-4 h-4" /> Light Mode</>}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      setIsMobileMenuOpen(false);
+                      handleEnterPlatform(e);
+                    }}
+                    className="w-1/2 py-2.5 rounded-lg bg-[#1D4ED8] hover:bg-[#1e40af] text-white text-sm font-semibold shadow-md shadow-[#1D4ED8]/10 flex justify-center items-center"
+                  >
+                    Enter
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
