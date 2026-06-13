@@ -13,6 +13,11 @@ const ScreenshotProtectionOverlay = () => {
   }, [user?.actualUsername, user?.email, user?.username]);
 
   useEffect(() => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+    if (isMobile) return;
+
     let timeoutId: number | undefined;
 
     const showBlackOverlay = () => {
