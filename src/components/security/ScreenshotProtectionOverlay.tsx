@@ -33,9 +33,8 @@ const ScreenshotProtectionOverlay = () => {
       const isPrintScreen = e.key === "PrintScreen" || e.code === "PrintScreen";
       const isWindowsSnip = e.metaKey && e.shiftKey && key === "s";
       const isMacScreenshot = e.metaKey && e.shiftKey && ["3", "4", "5"].includes(key);
-      const isCopyShortcut = (e.ctrlKey || e.metaKey) && key === "c";
 
-      if (isPrintScreen || isWindowsSnip || isMacScreenshot || isCopyShortcut) {
+      if (isPrintScreen || isWindowsSnip || isMacScreenshot) {
         showBlackOverlay();
       }
     };

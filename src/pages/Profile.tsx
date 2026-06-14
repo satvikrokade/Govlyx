@@ -301,7 +301,7 @@ const Profile = () => {
 
   const handleLike = useCallback((postId: number, variant: string, liked: boolean) => {
     updatePostState(postId, variant, (post) => {
-      const hasDislikeSupport = post.variant === "issue" || post.variant === "government";
+      const hasDislikeSupport = post.variant === "issue";
       const isPreviouslyDisliked = hasDislikeSupport && !!(post as any).isDislikedByCurrentUser;
       return {
         isLikedByCurrentUser: liked,
@@ -518,7 +518,6 @@ const Profile = () => {
               ...raw,
               ...interactionData,
               id: raw.id,
-              variant: "issue",
               isSaved: true,
               isSavedByCurrentUser: true,
             });
@@ -570,7 +569,6 @@ const Profile = () => {
               ...row.post,
               ...interactionData,
               id: row.post.id,
-              variant: "issue",
               isLikedByCurrentUser: row.post?.isLikedByCurrentUser ?? true,
               isDislikedByCurrentUser: row.post?.isDislikedByCurrentUser ?? false,
             });
@@ -611,7 +609,6 @@ const Profile = () => {
               ...row.post,
               ...interactionData,
               id: row.post.id,
-              variant: "issue",
             });
             if (!mapped.username) mapped.username = username;
             items.push({

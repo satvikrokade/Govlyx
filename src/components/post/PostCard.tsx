@@ -352,6 +352,38 @@ function ZoomViewer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, zoom]);
 
+  useEffect(() => {
+    const video = modalVideoRef.current;
+    if (!video) return;
+
+    const handleVideoClick = (e: MouseEvent) => {
+      const isFullscreen = document.fullscreenElement === video ||
+        (document as any).webkitFullscreenElement === video ||
+        (document as any).mozFullScreenElement === video ||
+        (document as any).msFullscreenElement === video;
+
+      if (isFullscreen) {
+        const rect = video.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const controlsHeight = 60;
+        if (y < rect.height - controlsHeight) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (video.paused) {
+            video.play();
+          } else {
+            video.pause();
+          }
+        }
+      }
+    };
+
+    video.addEventListener("click", handleVideoClick);
+    return () => {
+      video.removeEventListener("click", handleVideoClick);
+    };
+  }, [index]);
+
   const current = mediaUrls[index];
 
   return (
@@ -554,6 +586,38 @@ function ModernMediaCarousel({
     if (!isCurrentVideo) setIsPlaying(false);
   }, [activeIndex, isCurrentVideo]);
 
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleVideoClick = (e: MouseEvent) => {
+      const isFullscreen = document.fullscreenElement === video ||
+        (document as any).webkitFullscreenElement === video ||
+        (document as any).mozFullScreenElement === video ||
+        (document as any).msFullscreenElement === video;
+
+      if (isFullscreen) {
+        const rect = video.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        const controlsHeight = 60;
+        if (y < rect.height - controlsHeight) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (video.paused) {
+            video.play();
+          } else {
+            video.pause();
+          }
+        }
+      }
+    };
+
+    video.addEventListener("click", handleVideoClick);
+    return () => {
+      video.removeEventListener("click", handleVideoClick);
+    };
+  }, [activeIndex]);
+
   return (
     <div className="relative w-full overflow-hidden rounded-2xl bg-base-300 shadow-inner group">
       <motion.div
@@ -564,26 +628,36 @@ function ModernMediaCarousel({
         <AnimatePresence mode="wait">
           {!imgError[activeIndex] ? (
             isCurrentVideo ? (
-              <motion.video
-                key={`video-${activeIndex}`}
+              <motion.div
+                key={`video-container-${activeIndex}`}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.3 }}
-                ref={videoRef}
-                src={currentMedia}
-                controls={isPlaying}
-                muted={isMuted}
-                loop
-                playsInline
-                className="h-full w-full object-contain"
-                onClick={togglePlay}
-                onError={() =>
-                  setImgError((prev) => ({ ...prev, [activeIndex]: true }))
-                }
-                onPlay={() => setIsPlaying(true)}
-                onPause={() => setIsPlaying(false)}
-              />
+                className="relative h-full w-full flex items-center justify-center"
+              >
+                <video
+                  ref={videoRef}
+                  src={currentMedia}
+                  controls={isPlaying}
+                  muted={isMuted}
+                  loop
+                  playsInline
+                  className="h-full w-full object-contain"
+                  onClick={togglePlay}
+                  onError={() =>
+                    setImgError((prev) => ({ ...prev, [activeIndex]: true }))
+                  }
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                />
+                {isPlaying && (
+                  <div
+                    onClick={togglePlay}
+                    className="absolute inset-x-0 top-0 bottom-[55px] cursor-pointer z-10"
+                  />
+                )}
+              </motion.div>
             ) : (
               <motion.img
                 key={`img-${activeIndex}`}
@@ -1521,11 +1595,11 @@ export default function PostCard({
         syncedLikeCountRef.current = post.likeCount ?? 0;
       }
       if (!pendingDislikeTimerRef.current) {
-        if (post.variant === "issue" || post.variant === "government") {
+        if (post.variant === "issue") {
           setDislikeCount((post as any).dislikeCount ?? 0);
           syncedDislikeCountRef.current = (post as any).dislikeCount ?? 0;
         }
-        if (post.variant === "issue" || post.variant === "government") {
+        if (post.variant === "issue") {
           setDisliked(!!(post as any).isDislikedByCurrentUser);
           syncedDislikedRef.current = !!(post as any).isDislikedByCurrentUser;
         }
@@ -1659,7 +1733,7 @@ export default function PostCard({
     const nextLikeCount = nextLiked ? likeCount + 1 : Math.max(0, likeCount - 1);
     
     let nextDislikeCount = dislikeCount;
-    const hasDislike = isIssue || isGovt;
+    const hasDislike = isIssue;
     if (hasDislike && nextLiked && disliked) {
       nextDislikeCount = Math.max(0, dislikeCount - 1);
     }
@@ -1760,7 +1834,7 @@ export default function PostCard({
   }
 
   async function handleDislike() {
-    if ((!isIssue && !isGovt) || isResolved) return;
+    if (!isIssue || isResolved) return;
     
     const nextDisliked = !currentDislikedValueRef.current;
     const nextDislikeCount = nextDisliked ? dislikeCount + 1 : Math.max(0, dislikeCount - 1);
@@ -2345,7 +2419,7 @@ export default function PostCard({
                   <span>{copied ? "Copied!" : (shareCount || "0")}</span>
                 </ActionPill>
                 <div className="flex-1" />
-                {(isIssue || isGovt) ? (
+                {isIssue ? (
                   <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} activeClass="text-violet-500 bg-violet-500/10 border-violet-500/30" hoverGlow="rgba(139,92,246,0.65)">
                     <ThumbsDown size={16} className={disliked ? "fill-violet-500 text-violet-500" : ""} />
                     <span>{dislikeCount || "0"}</span>
@@ -2377,7 +2451,7 @@ export default function PostCard({
                   <Send size={18} />
                   <span className="text-[9px] leading-tight mt-0.5">{copied ? "Copied" : (shareCount || "0")}</span>
                 </ActionPill>
-                {(isIssue || isGovt) ? (
+                {isIssue ? (
                   <ActionPill onClick={handleDislike} active={disliked} disabled={isResolved} vertical activeClass="text-violet-500 bg-violet-500/10 border-violet-500/30" hoverGlow="rgba(139,92,246,0.65)">
                     <ThumbsDown size={18} className={disliked ? "fill-violet-500 text-violet-500" : ""} />
                     <span>{dislikeCount || "0"}</span>

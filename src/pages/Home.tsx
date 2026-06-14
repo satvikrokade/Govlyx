@@ -7,6 +7,8 @@ import type { AnyPost } from "../components/post/PostCard";
 import EmptyState from "../components/ui/EmptyState";
 import PostSkeleton from "../components/post/PostSkeleton";
 import axiosInstance from "../api/axiosConfig";
+import axios from "axios";
+import { parseError } from "../utils/error-handler";
 
 import { useCurrentUser } from "../hooks/useUser";
 import { toPostCardPost } from "../utils/postUtils";
@@ -78,8 +80,11 @@ function useFeed(sourceTab: string, sortTab: string) {
 
   const loading = isFetching;
   const hasMore = hasNextPage;
-  const error = isError ? (queryError as Error).message : null;
-  const fatalError = isError;
+  const error = isError ? parseError(queryError) : null;
+  const fatalError =
+    isError &&
+    axios.isAxiosError(queryError) &&
+    (queryError.response?.status === 401 || queryError.response?.status === 403);
 
   const loadMore = useCallback(() => {
     if (!isFetchingNextPage && hasNextPage) fetchNextPage();
@@ -214,7 +219,7 @@ const Home = () => {
 
   const handleLike = useCallback((postId: number, liked: boolean) => {
     updatePost(postId, (post) => {
-      const hasDislikeSupport = post.variant === "issue" || post.variant === "government";
+      const hasDislikeSupport = post.variant === "issue";
       const isPreviouslyDisliked = hasDislikeSupport && !!(post as any).isDislikedByCurrentUser;
       return {
         isLikedByCurrentUser: liked,

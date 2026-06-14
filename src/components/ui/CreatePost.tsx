@@ -265,10 +265,19 @@ function MediaUploadZone({
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
-  const accentBorder = accent === "green" ? "border-green-500/50" : "border-white/20";
-  const accentBg = accent === "green" ? "bg-green-500/8" : "bg-white/5";
-  const accentText = accent === "green" ? "text-green-500" : "text-white/90";
-  const accentHover = accent === "green" ? "hover:border-green-400/80" : "hover:border-white/40";
+  // Dynamic colors that work perfectly in both light & dark themes
+  const accentBorder = accent === "green" 
+    ? "border-green-500/20 dark:border-green-500/30" 
+    : "border-primary/20 dark:border-primary/30";
+  const accentBg = accent === "green" 
+    ? "bg-green-500/[0.02] dark:bg-green-500/[0.04]" 
+    : "bg-primary/[0.02] dark:bg-primary/[0.04]";
+  const accentText = accent === "green" 
+    ? "text-green-600 dark:text-green-400" 
+    : "text-primary dark:text-blue-400";
+  const accentHover = accent === "green" 
+    ? "hover:border-green-500/40 hover:bg-green-500/[0.05] dark:hover:border-green-500/50" 
+    : "hover:border-primary/40 hover:bg-primary/[0.05] dark:hover:border-[#1D4ED8]/40";
 
   const handleFiles = async (incoming: FileList | null) => {
     if (!incoming) return;
@@ -325,28 +334,38 @@ function MediaUploadZone({
   const removeFile = (i: number) => onChange(files.filter((_, idx) => idx !== i));
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <div
-        className={`relative flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-5 cursor-pointer transition-colors duration-200 ${accentBorder} ${accentBg} ${accentHover} ${dragging ? "opacity-80 scale-[0.99]" : ""}`}
+        className={`relative flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 cursor-pointer transition-all duration-200 ${accentBorder} ${accentBg} ${accentHover} ${dragging ? "opacity-80 scale-[0.99] border-solid" : ""}`}
         onClick={() => inputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => { e.preventDefault(); setDragging(false); handleFiles(e.dataTransfer.files); }}
       >
-        <div className="flex gap-3">
-          <ImagePlus size={20} className={`${accentText} opacity-70`} />
-          <FileVideo size={20} className={`${accentText} opacity-70`} />
-          <Paperclip size={20} className={`${accentText} opacity-70`} />
+        <div className="flex gap-4 mb-1">
+          <div className={`p-2 rounded-xl bg-base-200/50 border border-base-content/5 ${accentText}`}>
+            <ImagePlus size={18} />
+          </div>
+          <div className={`p-2 rounded-xl bg-base-200/50 border border-base-content/5 ${accentText}`}>
+            <FileVideo size={18} />
+          </div>
+          <div className={`p-2 rounded-xl bg-base-200/50 border border-base-content/5 ${accentText}`}>
+            <Paperclip size={18} />
+          </div>
         </div>
-        <p className={`text-xs font-medium ${accentText}`}>
-          Drag & drop or <span className="underline">browse</span> to attach media
+        
+        <p className={`text-xs font-bold tracking-tight ${accentText}`}>
+          Drag & drop or <span className="underline decoration-2 underline-offset-2 hover:opacity-80">browse</span> to attach media
         </p>
-        <p className="text-base-content/50 text-xs">
+        <p className="text-base-content/40 text-[10px] font-bold uppercase tracking-wider">
           Photos, videos, documents · up to 4 files
         </p>
-        <p className="text-red-500 font-bold text-[10px] uppercase tracking-wider animate-pulse drop-shadow-[0_0_4px_rgba(239,68,68,0.7)] text-center">
-          Video clips length must be of max 5 min
-        </p>
+        
+        <div className="mt-1 flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 text-[10px] font-bold uppercase tracking-wider border border-red-500/10">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping" />
+          <span>Max 5 min video clips</span>
+        </div>
+        
         <input
           ref={inputRef}
           type="file"
@@ -358,44 +377,54 @@ function MediaUploadZone({
       </div>
 
       {files.length > 0 && (
-        <div className="grid grid-cols-4 gap-2.5 mt-1">
-          {files.map((f, i) => {
-            const isImage = f.type.startsWith("image/");
-            const isVideo = f.type.startsWith("video/");
+        <div className="grid grid-cols-4 gap-3 mt-1 overflow-hidden">
+          <AnimatePresence initial={false}>
+            {files.map((f, i) => {
+              const isImage = f.type.startsWith("image/");
+              const isVideo = f.type.startsWith("video/");
 
-            return (
-              <div key={i} className="relative aspect-square rounded-xl overflow-hidden border border-base-content/10 bg-base-200/50 group/preview shadow-sm">
-                {isImage && previews[i] && (
-                  <img src={previews[i]} alt="Preview" className="w-full h-full object-cover" />
-                )}
-                {isVideo && previews[i] && (
-                  <>
-                    <video src={previews[i]} className="w-full h-full object-cover" muted playsInline />
-                    <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
-                      <div className="w-6 h-6 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white">
-                        <FileVideo size={12} />
-                      </div>
-                    </div>
-                  </>
-                )}
-                {!isImage && !isVideo && (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-1.5 text-center">
-                    <Paperclip size={18} className="opacity-50 mb-1" />
-                    <span className="text-[9px] font-semibold opacity-70 truncate w-full px-1">{f.name}</span>
-                  </div>
-                )}
-
-                {/* Remove Overlay Button */}
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); removeFile(i); }}
-                  className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 hover:bg-red-600 text-white flex items-center justify-center transition-colors shadow-md cursor-pointer z-10"
+              return (
+                <motion.div
+                  key={f.name + "-" + i}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  transition={{ type: "spring", stiffness: 350, damping: 25 }}
+                  className="relative aspect-square rounded-xl overflow-hidden border border-base-content/10 bg-base-200/50 group/preview shadow-sm hover:shadow-md transition-all duration-300 hover:scale-[1.03] cursor-default"
                 >
-                  <X size={10} />
-                </button>
-              </div>
-            );
-          })}
+                  {isImage && previews[i] && (
+                    <img src={previews[i]} alt="Preview" className="w-full h-full object-cover" />
+                  )}
+                  {isVideo && previews[i] && (
+                    <>
+                      <video src={previews[i]} className="w-full h-full object-cover" muted playsInline />
+                      <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+                        <div className="w-7 h-7 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/10 shadow-sm">
+                          <FileVideo size={12} />
+                        </div>
+                      </div>
+                    </>
+                  )}
+                  {!isImage && !isVideo && (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-base-200/30">
+                      <Paperclip size={20} className="opacity-40 mb-1" />
+                      <span className="text-[9px] font-bold opacity-60 truncate w-full px-1">{f.name}</span>
+                    </div>
+                  )}
+
+                  {/* Remove Overlay Button */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); removeFile(i); }}
+                    className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 backdrop-blur-md hover:bg-red-600 hover:scale-110 text-white flex items-center justify-center transition-all shadow-md cursor-pointer z-10 border border-white/5"
+                  >
+                    <X size={12} />
+                  </button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
         </div>
       )}
     </div>
@@ -795,28 +824,41 @@ function PostForm({
 
       {!communityId && (
         <div
-          className={`flex items-center justify-between p-3 rounded-lg border transition-colors duration-200 ${isReportingIssue ? "bg-green-500/10 border-green-500/40" : "bg-base-300/40 border-base-300"
-            }`}
+          className={`flex items-center justify-between p-3.5 sm:p-4 rounded-2xl border transition-all duration-300 shadow-sm ${
+            isReportingIssue 
+              ? "bg-green-500/[0.04] border-green-500/20 dark:bg-green-500/[0.08] dark:border-green-500/30" 
+              : "bg-base-200/50 border-base-content/5 hover:border-base-content/10"
+          }`}
         >
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={15} className={`transition-colors flex-shrink-0 ${isReportingIssue ? "text-green-500" : "text-base-content/30"}`} />
+          <div className="flex items-center gap-3">
+            <div className={`p-2 rounded-xl border transition-colors ${
+              isReportingIssue 
+                ? "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400" 
+                : "bg-base-300/40 border-base-content/5 text-base-content/40"
+            }`}>
+              <AlertTriangle size={16} />
+            </div>
             <div>
-              <p className={`text-[11px] font-black uppercase tracking-tight ${isReportingIssue ? "text-green-500" : "text-base-content/60"}`}>
+              <p className={`text-xs font-black uppercase tracking-wider transition-colors ${isReportingIssue ? "text-green-600 dark:text-green-400" : "text-base-content/75"}`}>
                 Report to Government
               </p>
-              <p className="text-base-content/40 text-[9px] leading-tight font-medium uppercase tracking-tighter">Flag issue to authorities</p>
+              <p className="text-base-content/40 text-[10px] leading-tight font-bold uppercase tracking-wider mt-0.5">Flag issue to authorities</p>
             </div>
           </div>
           <div className="flex-shrink-0 ml-2">
             <div
-              className={`relative w-8 h-4.5 rounded-full cursor-pointer transition-all duration-300 border ${isReportingIssue ? "bg-green-600 border-green-700 shadow-inner" : "bg-base-300 border-base-content/10"}`}
+              className={`relative w-9 h-5.5 rounded-full cursor-pointer transition-all duration-300 border flex items-center p-0.5 ${
+                isReportingIssue 
+                  ? "bg-green-500 border-green-600 shadow-inner" 
+                  : "bg-base-300 border-base-content/10"
+              }`}
               onClick={() => { setIsReportingIssue(!isReportingIssue); setError(null); }}
             >
               <motion.div
-                animate={{ x: isReportingIssue ? 16 : 2 }}
-                initial={false}
+                layout
+                animate={{ x: isReportingIssue ? 14 : 0 }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                className="absolute top-0.5 w-3.5 h-3.5 rounded-full bg-white shadow-sm"
+                className="w-4 h-4 rounded-full bg-white shadow-md"
               />
             </div>
           </div>
@@ -875,15 +917,17 @@ function PostForm({
               }
             }
           }}
-        />
-
-        {/* Rich formatting toolbar */}
-        <div className={`flex items-center gap-1.5 px-3 pt-3 pb-2 bg-base-200/40 border rounded-xl mt-2 mb-2 select-none flex-wrap ${isReportingIssue ? "border-green-500/40" : "border-base-content/20"}`}>
+        />        {/* Rich formatting toolbar */}
+        <div className={`flex items-center gap-1.5 px-3 py-2 bg-base-200/30 border rounded-2xl mt-3 mb-2 select-none flex-wrap transition-all duration-200 ${isReportingIssue ? "border-green-500/20 bg-green-500/[0.01]" : "border-base-content/10 bg-base-200/20"}`}>
           <button 
             type="button"
             onClick={() => applyFormatting("bold")}
             title="Bold"
-            className="btn btn-ghost btn-xs btn-square hover:text-red-500 hover:bg-red-500/10 dark:hover:text-red-400 dark:hover:bg-red-400/10 text-base-content/70 cursor-pointer transition-colors duration-150 font-black"
+            className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 font-black ${
+              isReportingIssue 
+                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
+            }`}
           >
             <Bold size={13} className="stroke-[2.5]" />
           </button>
@@ -891,7 +935,11 @@ function PostForm({
             type="button"
             onClick={() => applyFormatting("italic")}
             title="Italic"
-            className="btn btn-ghost btn-xs btn-square hover:text-red-500 hover:bg-red-500/10 dark:hover:text-red-400 dark:hover:bg-red-400/10 text-base-content/70 cursor-pointer transition-colors duration-150 italic font-black"
+            className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 italic font-black ${
+              isReportingIssue 
+                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
+            }`}
           >
             <Italic size={13} className="stroke-[2.5]" />
           </button>
@@ -899,7 +947,11 @@ function PostForm({
             type="button"
             onClick={() => applyFormatting("mono")}
             title="Monospace"
-            className="btn btn-ghost btn-xs btn-square hover:text-red-500 hover:bg-red-500/10 dark:hover:text-red-400 dark:hover:bg-red-400/10 text-base-content/70 cursor-pointer transition-colors duration-150 font-bold"
+            className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 font-bold ${
+              isReportingIssue 
+                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
+            }`}
           >
             <Code size={13} className="stroke-[2.5]" />
           </button>
@@ -920,7 +972,11 @@ function PostForm({
               }, 50);
             }}
             title="Add Hashtag"
-            className="btn btn-ghost btn-xs btn-square hover:text-red-500 hover:bg-red-500/10 dark:hover:text-red-400 dark:hover:bg-red-400/10 text-base-content/70 cursor-pointer transition-colors duration-150"
+            className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 ${
+              isReportingIssue 
+                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
+            }`}
           >
             <Hash size={13} className="stroke-[2.5]" />
           </button>
@@ -940,7 +996,11 @@ function PostForm({
               }, 50);
             }}
             title="Mention User"
-            className="btn btn-ghost btn-xs btn-square hover:text-red-500 hover:bg-red-500/10 dark:hover:text-red-400 dark:hover:bg-red-400/10 text-base-content/70 cursor-pointer transition-colors duration-150"
+            className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 ${
+              isReportingIssue 
+                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
+            }`}
           >
             <AtSign size={13} className="stroke-[2.5]" />
           </button>
@@ -950,7 +1010,11 @@ function PostForm({
               type="button"
               onClick={() => setShowEmojiPicker(!showEmojiPicker)}
               title="Insert Emoji"
-              className={`btn btn-ghost btn-xs btn-square text-base-content/70 hover:text-red-500 hover:bg-red-500/10 dark:hover:text-red-400 dark:hover:bg-red-400/10 cursor-pointer transition-colors duration-150 ${showEmojiPicker ? "text-red-500! bg-red-500/10 dark:text-red-400! dark:bg-red-400/10" : ""}`}
+              className={`btn btn-ghost btn-xs btn-square text-base-content/70 hover:scale-105 cursor-pointer transition-all duration-150 ${
+                showEmojiPicker 
+                  ? (isReportingIssue ? "text-green-600 bg-green-500/10 dark:text-green-400 dark:bg-green-500/20" : "text-[#1D4ED8] bg-primary/10 dark:text-blue-400 dark:bg-primary/20") 
+                  : (isReportingIssue ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400")
+              }`}
             >
               <Smile size={13} className="stroke-[2.5]" />
             </button>
@@ -977,7 +1041,11 @@ function PostForm({
                             textarea.setSelectionRange(start + emoji.length, start + emoji.length);
                           }, 50);
                         }}
-                        className="transition-colors duration-150 text-lg p-1 rounded-lg hover:bg-red-500/15 dark:hover:bg-red-400/20 cursor-pointer w-7 h-7 flex items-center justify-center"
+                        className={`transition-all duration-150 text-lg p-1 rounded-lg cursor-pointer w-7 h-7 flex items-center justify-center hover:scale-110 ${
+                          isReportingIssue 
+                            ? "hover:bg-green-500/15 dark:hover:bg-green-500/25" 
+                            : "hover:bg-primary/10 dark:hover:bg-[#1D4ED8]/20"
+                        }`}
                       >
                         {emoji}
                       </button>
@@ -987,9 +1055,7 @@ function PostForm({
               </>
             )}
           </div>
-        </div>
-
-        {/* Suggestion Dropdown */}
+        </div>        {/* Suggestion Dropdown */}
         <AnimatePresence>
           {mentionSearch && (suggestions.length > 0 || mentionLoading || mentionQuery.length < 2) && (
             <motion.div

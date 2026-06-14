@@ -113,7 +113,7 @@ const PostDetail: React.FC = () => {
           onLike={(likedId, liked) => {
             setPost(prev => {
               if (!prev || prev.id !== likedId) return prev;
-              const hasDislikeSupport = prev.variant === "issue" || prev.variant === "government";
+              const hasDislikeSupport = prev.variant === "issue";
               const isPrevDisliked = hasDislikeSupport && !!(prev as any).isDislikedByCurrentUser;
               return {
                 ...prev,
