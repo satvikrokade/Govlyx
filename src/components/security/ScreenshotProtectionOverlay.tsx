@@ -29,12 +29,10 @@ const ScreenshotProtectionOverlay = () => {
     };
 
     const handleKeyboardCapture = (e: KeyboardEvent) => {
-      const key = e.key.toLowerCase();
       const isPrintScreen = e.key === "PrintScreen" || e.code === "PrintScreen";
-      const isWindowsSnip = e.metaKey && e.shiftKey && key === "s";
-      const isMacScreenshot = e.metaKey && e.shiftKey && ["3", "4", "5"].includes(key);
+      const isWinShift = e.metaKey && e.shiftKey;
 
-      if (isPrintScreen || isWindowsSnip || isMacScreenshot) {
+      if (isPrintScreen || isWinShift) {
         showBlackOverlay();
       }
     };

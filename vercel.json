@@ -6,6 +6,10 @@
       "destination": "https://zenquotes.io/:path*"
     },
     {
+      "source": "/translate-api/:path*",
+      "destination": "https://translate.googleapis.com/:path*"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://jan-sahayak-ai-84vh.onrender.com/api/:path*"
     },

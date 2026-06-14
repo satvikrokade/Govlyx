@@ -14,6 +14,7 @@ export interface UserProfile {
   pincode?: string;
   address?: string;
   preferredLanguage?: string;
+  interfaceLanguage?: string;
   autoTranslate?: boolean;
   profanityFilterLevel?: "STRICT" | "BLUR" | "OFF";
   mutedWords?: string;

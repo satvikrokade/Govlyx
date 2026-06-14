@@ -294,11 +294,13 @@ export function SafeVideo({
 function PrivateMediaViewer({
   msg,
   sessionId,
+  username,
   onClose,
   deleteMedia
 }: {
   msg: ChatMessageDto;
   sessionId: string;
+  username: string;
   onClose: () => void;
   deleteMedia: (id: string) => Promise<void>;
 }) {
@@ -399,6 +401,7 @@ function PrivateMediaViewer({
       className="fixed inset-0 z-[150] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-4 md:p-8 select-none"
       onContextMenu={preventDefault}
     >
+      <WatermarkOverlay username={username} className="text-white opacity-[0.05] z-[155]" />
       {/* Top Header: Timer and Close Button */}
       <div className="absolute top-10 inset-x-6 z-[160] flex items-center justify-between pointer-events-none">
         <div className="flex items-center gap-3 bg-white/10 px-4 py-2 rounded-2xl backdrop-blur-md border border-white/10 shadow-2xl pointer-events-auto">
@@ -480,9 +483,15 @@ function PrivateMediaViewer({
   );
 }
 
-function WatermarkOverlay({ username }: { username: string }) {
+function WatermarkOverlay({ 
+  username, 
+  className = "opacity-[0.03] dark:opacity-[0.02]" 
+}: { 
+  username: string; 
+  className?: string; 
+}) {
   return (
-    <div className="absolute inset-0 pointer-events-none select-none overflow-hidden z-20 opacity-[0.03] dark:opacity-[0.02]">
+    <div className={`absolute inset-0 pointer-events-none select-none overflow-hidden z-20 ${className}`}>
       <div 
         className="w-[150%] h-[150%] -left-[25%] -top-[25%] absolute flex flex-col justify-around rotate-[-25deg]"
         style={{
@@ -995,6 +1004,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
       <AnimatePresence>
         {fullscreenMedia && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-2xl flex flex-col items-center justify-center p-0 md:p-8" onClick={() => setFullscreenMedia(null)}>
+            <WatermarkOverlay username={usernameWatermark} className="text-white opacity-[0.05] z-[105]" />
             {/* Header controls */}
             <div className="absolute top-6 inset-x-4 md:inset-x-8 z-[110] flex items-center justify-between pointer-events-none">
               <div className="pointer-events-auto">
@@ -1040,6 +1050,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
           <PrivateMediaViewer 
             msg={privateMedia} 
             sessionId={chat.session.sessionId} 
+            username={usernameWatermark}
             onClose={() => setPrivateMedia(null)} 
             deleteMedia={chat.deleteMedia} 
           />

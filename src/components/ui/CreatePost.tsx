@@ -16,12 +16,12 @@ import {
   Hash,
   AtSign,
 } from "lucide-react";
-import { MdLocationOn } from "react-icons/md";
-import { RiAttachment2 } from "react-icons/ri";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect, type JSX } from "react";
+import { useCurrentUser } from "../../hooks/useUser";
+import { MdLocationOn } from "react-icons/md";
+import { RiAttachment2 } from "react-icons/ri";
 
-// ─── API CONFIG ───────────────────────────────────────────────────────────────
 import { apiUrl } from "../../utils/apiUrl";
 import { showToast } from "../../utils/toast";
 
@@ -248,7 +248,7 @@ async function apiCreatePoll(payload: {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) return { ok: false, message: json?.error ?? json?.message ?? `HTTP ${res.status}` };
-  return { ok: true, message: json?.message, data: json?.data ?? null };
+  return { ok: true, message: json?.message, data: json?.data ?? json };
 }
 
 
@@ -643,6 +643,11 @@ function PostForm({
   const handleContentChange = (val: string) => {
     setContent(val);
     setError(null);
+
+    if (!isReportingIssue) {
+      setMentionSearch(false);
+      return;
+    }
 
     const cursor = textareaRef.current?.selectionStart ?? 0;
     const textBefore = val.slice(0, cursor);
@@ -1246,16 +1251,18 @@ function PollForm({
   const [apiError, setApiError] = useState<string | null>(null);
   const [allowMultipleVotes, setAllowMultipleVotes] = useState(false);
   const [expiresIn, setExpiresIn] = useState("1d");
+  const [files, setFiles] = useState<File[]>([]);
+  const { data: currentUser } = useCurrentUser();
 
-  // ── Suggestions ──
-  const [mentionSearch, setMentionSearch] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<any[]>([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [mentionLoading, setMentionLoading] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activeField, setActiveField] = useState<{ type: "question" | "option"; index?: number } | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const updateOption = (i: number, val: string) => { const u = [...options]; u[i] = val; setOptions(u); };
+  const updateOption = (i: number, val: string) => {
+    const u = [...options];
+    u[i] = val;
+    setOptions(u);
+  };
   const addOption = () => { if (options.length < 4) setOptions([...options, ""]); };
   const removeOption = (i: number) => { if (options.length <= 2) return; setOptions(options.filter((_, idx) => idx !== i)); };
 
@@ -1284,13 +1291,56 @@ function PollForm({
         showResultsBeforeExpiry: true,
         communityId,
       };
-      const result = await apiCreatePoll(payload);
+
+      let result;
+      if (files.length > 0) {
+        const formData = new FormData();
+        formData.append(
+          "poll",
+          new Blob([JSON.stringify(payload)], { type: "application/json" })
+        );
+        files.forEach((f) => {
+          formData.append("media", f);
+        });
+
+        const res = await fetch(apiUrl(`/api/polls/create-with-media`), {
+          method: "POST",
+          headers: { ...authHeaders() },
+          body: formData,
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          result = { ok: false, message: json?.error ?? json?.message ?? `HTTP ${res.status}` };
+        } else {
+          result = { ok: true, message: json?.message, data: json?.data ?? json };
+        }
+      } else {
+        result = await apiCreatePoll(payload);
+      }
+
       if (!result.ok) {
         setApiError(result.message ?? "Failed to create poll. Please try again.");
         return;
       }
+
+      const augmentedPoll = {
+        ...result.data,
+        variant: "poll",
+        actualUsername: currentUser?.actualUsername,
+        username: currentUser?.actualUsername ?? currentUser?.username,
+        userDisplayName: currentUser?.actualUsername ?? currentUser?.username,
+        userProfileImage: currentUser?.profileImage,
+        poll: result.data,
+      };
+
       setSubmitted(true);
-      if (onPostCreated) onPostCreated(result.data);
+      if (onPostCreated) onPostCreated(augmentedPoll);
+      window.dispatchEvent(
+        new CustomEvent("postCreated", {
+          detail: { post: augmentedPoll, communityId },
+        })
+      );
       // Wait a bit to show success animation then close
       setTimeout(() => onClose(), 1500);
     } catch (e: unknown) {
@@ -1301,68 +1351,156 @@ function PollForm({
     }
   };
 
+  const applyPollFormatting = (formatType: "bold" | "italic" | "mono") => {
+    const field = activeField || { type: "question" };
+    let element: HTMLTextAreaElement | HTMLInputElement | null = null;
+    let currentText = "";
 
-  const handleQuestionChange = (val: string) => {
-    setPollQuestion(val);
-    const cursor = textareaRef.current?.selectionStart ?? 0;
-    const textBefore = val.slice(0, cursor);
-    const lastAtPos = textBefore.lastIndexOf("@");
-    if (lastAtPos !== -1) {
-      const q = textBefore.slice(lastAtPos + 1);
-      if (!q.includes(" ")) {
-        setMentionSearch(true);
-        setMentionQuery(q);
-        setSelectedIndex(0);
-        return;
-      }
+    if (field.type === "question") {
+      element = textareaRef.current;
+      currentText = pollQuestion;
+    } else if (field.type === "option" && typeof field.index === "number") {
+      element = document.getElementById(`poll-opt-input-${field.index}`) as HTMLInputElement;
+      currentText = options[field.index] || "";
     }
-    setMentionSearch(false);
+
+    if (!element) return;
+
+    const start = element.selectionStart ?? 0;
+    const end = element.selectionEnd ?? 0;
+    const selectedText = currentText.substring(start, end);
+
+    if (!selectedText) return;
+
+    let formatted = "";
+    if (formatType === "bold") {
+      formatted = selectedText.split('').map(char => {
+        const code = char.charCodeAt(0);
+        if (code >= 65 && code <= 90) return String.fromCodePoint(code - 65 + 0x1d400); // Bold A-Z
+        if (code >= 97 && code <= 122) return String.fromCodePoint(code - 97 + 0x1d41a); // Bold a-z
+        if (code >= 48 && code <= 57) return String.fromCodePoint(code - 48 + 0x1d7ce); // Bold 0-9
+        return char;
+      }).join('');
+    } else if (formatType === "italic") {
+      formatted = selectedText.split('').map(char => {
+        const code = char.charCodeAt(0);
+        if (code >= 65 && code <= 90) return String.fromCodePoint(code - 65 + 0x1d434); // Italic A-Z
+        if (code === 104) return 'ℎ';
+        if (code >= 97 && code <= 122) return String.fromCodePoint(code - 97 + 0x1d44e); // Italic a-z
+        return char;
+      }).join('');
+    } else if (formatType === "mono") {
+      formatted = selectedText.split('').map(char => {
+        const code = char.charCodeAt(0);
+        if (code >= 65 && code <= 90) return String.fromCodePoint(code - 65 + 0x1d670); // Monospace A-Z
+        if (code >= 97 && code <= 122) return String.fromCodePoint(code - 97 + 0x1d68a); // Monospace a-z
+        if (code >= 48 && code <= 57) return String.fromCodePoint(code - 48 + 0x1d7f6); // Monospace 0-9
+        return char;
+      }).join('');
+    }
+
+    const newText = currentText.substring(0, start) + formatted + currentText.substring(end);
+
+    if (field.type === "question") {
+      setPollQuestion(newText);
+    } else if (field.type === "option" && typeof field.index === "number") {
+      updateOption(field.index, newText);
+    }
+
+    setTimeout(() => {
+      element?.focus();
+      element?.setSelectionRange(start, start + formatted.length);
+    }, 50);
   };
 
-  const insertMention = (user: any) => {
-    const cursor = textareaRef.current?.selectionStart ?? 0;
-    const textBefore = pollQuestion.slice(0, cursor);
-    const textAfter = pollQuestion.slice(cursor);
-    const lastAtPos = textBefore.lastIndexOf("@");
-    setPollQuestion(textBefore.slice(0, lastAtPos) + "@" + user.username + " " + textAfter);
-    setMentionSearch(false);
-    textareaRef.current?.focus();
+  const insertHashtag = () => {
+    const field = activeField || { type: "question" };
+    let element: HTMLTextAreaElement | HTMLInputElement | null = null;
+    let currentText = "";
+
+    if (field.type === "question") {
+      element = textareaRef.current;
+      currentText = pollQuestion;
+    } else if (field.type === "option" && typeof field.index === "number") {
+      element = document.getElementById(`poll-opt-input-${field.index}`) as HTMLInputElement;
+      currentText = options[field.index] || "";
+    }
+
+    if (!element) return;
+    const start = element.selectionStart ?? 0;
+    const newText = currentText.substring(0, start) + "#" + currentText.substring(start);
+
+    if (field.type === "question") {
+      setPollQuestion(newText);
+    } else if (field.type === "option" && typeof field.index === "number") {
+      updateOption(field.index, newText);
+    }
+
+    setTimeout(() => {
+      element?.focus();
+      element?.setSelectionRange(start + 1, start + 1);
+    }, 50);
   };
 
-  const fetchSuggestions = async (q: string) => {
-    if (q.length < 2) { setSuggestions([]); return; }
-    console.log("[Poll Mentions] Fetching for:", q);
-    setMentionLoading(true);
-    try {
-      const res = await fetch(apiUrl(`/api/user-tagging/suggestions?query=${encodeURIComponent(q)}&limit=5`), {
-        headers: authHeaders(),
-      });
-      if (!res.ok) {
-        console.error("[Poll Mentions] API Error:", res.status);
-        throw new Error();
-      }
-      const json = await res.json();
-      console.log("[Poll Mentions] Response:", json);
-      const list = json.data?.data ?? json.data ?? [];
-      const final = Array.isArray(list) ? list : [];
-      console.log("[Poll Mentions] Final List:", final);
-      setSuggestions(final);
-    } catch (err) {
-      console.error("[Poll Mentions] Fetch failed:", err);
-      setSuggestions([]);
-    } finally {
-      setMentionLoading(false);
+  const insertAtSign = () => {
+    const field = activeField || { type: "question" };
+    let element: HTMLTextAreaElement | HTMLInputElement | null = null;
+    let currentText = "";
+
+    if (field.type === "question") {
+      element = textareaRef.current;
+      currentText = pollQuestion;
+    } else if (field.type === "option" && typeof field.index === "number") {
+      element = document.getElementById(`poll-opt-input-${field.index}`) as HTMLInputElement;
+      currentText = options[field.index] || "";
     }
+
+    if (!element) return;
+    const start = element.selectionStart ?? 0;
+    const newText = currentText.substring(0, start) + "@" + currentText.substring(start);
+
+    if (field.type === "question") {
+      setPollQuestion(newText);
+    } else if (field.type === "option" && typeof field.index === "number") {
+      updateOption(field.index, newText);
+    }
+
+    setTimeout(() => {
+      element?.focus();
+      element?.setSelectionRange(start + 1, start + 1);
+    }, 50);
   };
 
-  const timerRef = useRef<any>(null);
-  useEffect(() => {
-    if (mentionSearch) {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => fetchSuggestions(mentionQuery), 200);
+  const insertEmoji = (emoji: string) => {
+    const field = activeField || { type: "question" };
+    let element: HTMLTextAreaElement | HTMLInputElement | null = null;
+    let currentText = "";
+
+    if (field.type === "question") {
+      element = textareaRef.current;
+      currentText = pollQuestion;
+    } else if (field.type === "option" && typeof field.index === "number") {
+      element = document.getElementById(`poll-opt-input-${field.index}`) as HTMLInputElement;
+      currentText = options[field.index] || "";
     }
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [mentionSearch, mentionQuery]);
+
+    if (!element) return;
+    const start = element.selectionStart ?? 0;
+    const end = element.selectionEnd ?? 0;
+    const newText = currentText.substring(0, start) + emoji + currentText.substring(end);
+
+    if (field.type === "question") {
+      setPollQuestion(newText);
+    } else if (field.type === "option" && typeof field.index === "number") {
+      updateOption(field.index, newText);
+    }
+
+    setShowEmojiPicker(false);
+    setTimeout(() => {
+      element?.focus();
+      element?.setSelectionRange(start + emoji.length, start + emoji.length);
+    }, 50);
+  };
 
   if (submitted) {
     return (
@@ -1374,7 +1512,7 @@ function PollForm({
         <p className="text-sm text-base-content/50">Your poll is now live in the community feed.</p>
         <button
           className="btn btn-sm bg-[#1D4ED8] text-white"
-          onClick={() => { setSubmitted(false); setPollQuestion(""); setOptions(["", ""]); setApiError(null); }}
+          onClick={() => { setSubmitted(false); setPollQuestion(""); setOptions(["", ""]); setApiError(null); setFiles([]); }}
         >Post Another</button>
       </div>
     );
@@ -1398,56 +1536,91 @@ function PollForm({
           className={`textarea textarea-bordered w-full min-h-[90px] bg-base-100/50 border-base-content/10 focus:border-[#1D4ED8] focus:outline-none focus:bg-base-100 transition-all duration-200 resize-none text-sm font-medium ${errors.pollQuestion ? "border-red-500/50" : ""}`}
           placeholder="Ask your poll question..."
           value={pollQuestion}
-          onChange={(e) => handleQuestionChange(e.target.value)}
-          onKeyDown={(e) => {
-            if (mentionSearch && suggestions.length > 0) {
-              if (e.key === "ArrowDown") { e.preventDefault(); setSelectedIndex(p => (p + 1) % suggestions.length); }
-              else if (e.key === "ArrowUp") { e.preventDefault(); setSelectedIndex(p => (p - 1 + suggestions.length) % suggestions.length); }
-              else if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertMention(suggestions[selectedIndex]); }
-              else if (e.key === "Escape") { setMentionSearch(false); }
-            }
-          }}
+          onChange={(e) => setPollQuestion(e.target.value)}
+          onFocus={() => setActiveField({ type: "question" })}
         />
+      </div>
 
-        {/* Suggestion Dropdown */}
-        <AnimatePresence>
-          {mentionSearch && (suggestions.length > 0 || mentionLoading || mentionQuery.length < 2) && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="absolute z-50 bottom-full left-0 w-full mb-2 bg-base-100 border border-base-300 rounded-xl shadow-2xl overflow-hidden"
-            >
-              <div className="p-2 border-b border-base-300 bg-base-200/50 flex justify-between items-center text-[10px] font-bold uppercase opacity-40">
-                Mention People
-                {mentionLoading && <Loader2 size={10} className="animate-spin" />}
-              </div>
-              <div className="max-h-[160px] overflow-y-auto">
-                {mentionQuery.length < 2 ? (
-                  <div className="px-4 py-3 text-xs text-base-content/40 italic">
-                    Type at least 2 characters to search...
-                  </div>
-                ) : !mentionLoading && suggestions.length === 0 ? (
-                  <div className="px-4 py-3 text-xs text-base-content/40 italic">
-                    No results found for "@{mentionQuery}"
-                  </div>
-                ) : (
-                  suggestions.map((u, i) => (
-                    <div
-                      key={u.id}
-                      onClick={() => insertMention(u)}
-                      className={`flex items-center gap-3 px-4 py-2 cursor-pointer transition-colors ${i === selectedIndex ? "bg-[#1D4ED8]/10 text-[#1D4ED8]" : "hover:bg-base-200"}`}
+      {/* Rich formatting toolbar */}
+      <div className="flex items-center gap-1.5 px-3 py-2 bg-base-200/20 border border-base-content/10 rounded-2xl mt-1 mb-2 select-none flex-wrap transition-all duration-200">
+        <button 
+          type="button"
+          onClick={() => applyPollFormatting("bold")}
+          title="Bold"
+          className="btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 font-black hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/5 dark:hover:text-blue-400"
+        >
+          <Bold size={13} className="stroke-[2.5]" />
+        </button>
+        <button 
+          type="button"
+          onClick={() => applyPollFormatting("italic")}
+          title="Italic"
+          className="btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 italic font-black hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/5 dark:hover:text-blue-400"
+        >
+          <Italic size={13} className="stroke-[2.5]" />
+        </button>
+        <button 
+          type="button"
+          onClick={() => applyPollFormatting("mono")}
+          title="Monospace"
+          className="btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 font-bold hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/5 dark:hover:text-blue-400"
+        >
+          <Code size={13} className="stroke-[2.5]" />
+        </button>
+        
+        <div className="w-[1px] h-4 bg-base-content/10 mx-1" />
+
+        <button 
+          type="button"
+          onClick={insertHashtag}
+          title="Add Hashtag"
+          className="btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/5 dark:hover:text-blue-400"
+        >
+          <Hash size={13} className="stroke-[2.5]" />
+        </button>
+
+        <button 
+          type="button"
+          onClick={insertAtSign}
+          title="Mention User"
+          className="btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/5 dark:hover:text-blue-400"
+        >
+          <AtSign size={13} className="stroke-[2.5]" />
+        </button>
+
+        <div className="relative">
+          <button 
+            type="button"
+            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+            title="Insert Emoji"
+            className={`btn btn-ghost btn-xs btn-square text-base-content/70 hover:scale-105 cursor-pointer transition-all duration-150 ${
+              showEmojiPicker 
+                ? "text-[#1D4ED8] bg-primary/10 dark:text-blue-400 dark:bg-primary/20" 
+                : "hover:text-[#1D4ED8] hover:bg-[#1D4ED8]/5 dark:hover:text-blue-400"
+            }`}
+          >
+            <Smile size={13} className="stroke-[2.5]" />
+          </button>
+          {showEmojiPicker && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
+              <div className="absolute left-0 bottom-full mb-2 bg-base-100 border border-base-300 shadow-2xl rounded-2xl p-2.5 z-50 w-44">
+                <div className="grid grid-cols-5 gap-1.5 justify-items-center">
+                  {["😊", "👍", "🔥", "🙌", "💡", "⚠️", "📌", "📢", "👏", "❤️"].map(emoji => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => insertEmoji(emoji)}
+                      className="transition-all duration-150 text-lg p-1 rounded-lg cursor-pointer w-7 h-7 flex items-center justify-center hover:scale-110 hover:bg-primary/10 dark:hover:bg-[#1D4ED8]/20"
                     >
-                      <img src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(u.username)}`} className="w-6 h-6 rounded-full bg-base-300" alt="" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold truncate">{u.displayName}</p>
-                        <p className="text-[10px] opacity-40 truncate">@{u.username}</p>
-                      </div>
-                    </div>
-                  ))
-                )}
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </motion.div>
+            </>
           )}
-        </AnimatePresence>
+        </div>
       </div>
 
       {/* ── Poll Character Count Banner ── */}
@@ -1458,7 +1631,7 @@ function PollForm({
         </span>
       </div>
 
-      <div className="space-y-2.5">
+      <div className="space-y-2.5 animate-in fade-in duration-300">
         {options.map((opt, i) => (
           <div key={i} className="flex items-center gap-3 group/opt animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="flex-1 relative">
@@ -1466,11 +1639,13 @@ function PollForm({
                 Choice {i + 1}
               </span>
               <input
+                id={`poll-opt-input-${i}`}
                 type="text"
                 className={`input input-bordered w-full h-[42px] transition-all duration-200 focus:border-[#1D4ED8] focus:outline-none bg-base-100/50 sm:pl-20 ${errors[`opt${i}`] ? "border-red-500/50" : "border-base-content/5"}`}
                 placeholder={`Option ${i + 1}`}
                 value={opt}
                 onChange={(e) => updateOption(i, e.target.value)}
+                onFocus={() => setActiveField({ type: "option", index: i })}
               />
             </div>
             {options.length > 2 && (
@@ -1524,6 +1699,13 @@ function PollForm({
             </div>
           </label>
         </div>
+      </div>
+
+      <div>
+        <p className="text-[10px] font-black uppercase tracking-widest mb-1.5 flex items-center gap-1 text-base-content/70">
+          <RiAttachment2 size={12} /> Attach Media <span className="text-base-content/40 font-bold tracking-tighter ml-1 uppercase">(optional)</span>
+        </p>
+        <MediaUploadZone accent="blue" files={files} onChange={setFiles} />
       </div>
 
       <div className="flex justify-end pt-2">

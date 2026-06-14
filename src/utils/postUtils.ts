@@ -35,6 +35,32 @@ export function formatTimeAgo(dateVal: any): string {
   return `${Math.floor(diffDays / 7)}w ago`;
 }
 
+export function formatTimeLeft(expiresAtVal: any): string | null {
+  if (!expiresAtVal) return null;
+  const expiresAt = typeof expiresAtVal === "string" || typeof expiresAtVal === "number"
+    ? new Date(expiresAtVal)
+    : expiresAtVal;
+  if (isNaN(expiresAt.getTime())) return null;
+  
+  const diffMs = expiresAt.getTime() - Date.now();
+  if (diffMs <= 0) return "Ended";
+  
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHrs = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  
+  if (diffDays > 0) {
+    return `${diffDays}d left`;
+  }
+  if (diffHrs > 0) {
+    return `${diffHrs}h left`;
+  }
+  if (diffMins > 0) {
+    return `${diffMins}m left`;
+  }
+  return "less than a minute left";
+}
+
 export function toPostCardPost(dto: any): AnyPost {
   if (!dto) return {} as AnyPost;
 
@@ -64,6 +90,7 @@ export function toPostCardPost(dto: any): AnyPost {
 
   const normalized = {
     ...dto,
+    id: dto.id ?? dto.socialPostId ?? (dto.poll ? dto.poll.socialPostId : undefined),
     username: authorUsername,
     userDisplayName: dto.userDisplayName ?? authorUsername, // AuthorDto has no displayName
     userProfileImage: authorImage,
@@ -102,11 +129,14 @@ export function toPostCardPost(dto: any): AnyPost {
   // Handle Polls — poll data lives in dto.poll (PollSummaryDto)
   if (dto.variant === "poll" || dto.isPoll === true) {
     const poll = dto.poll || {};
+    const questionText = poll.question ?? dto.question ?? dto.content ?? "";
     return {
       ...normalized,
       variant: "poll",
+      id: normalized.id ?? poll.socialPostId ?? poll.pollId ?? dto.pollId ?? dto.id,
+      content: normalized.content || questionText,
       pollId: poll.pollId ?? dto.pollId ?? dto.id,
-      question: poll.question ?? dto.question ?? dto.content ?? "",
+      question: questionText,
       options: (poll.options ?? dto.options ?? []).map((o: any) => ({
         id: o.optionId ?? o.id,
         optionText: o.optionText ?? "",
@@ -115,11 +145,11 @@ export function toPostCardPost(dto: any): AnyPost {
       })),
       totalVotes: poll.totalVotes ?? dto.totalVotes ?? 0,
       allowMultipleVotes: poll.allowMultipleVotes ?? dto.allowMultipleVotes ?? false,
-      isExpired: poll.expired ?? poll.isExpired ?? dto.isExpired ?? false,
+      isExpired: poll.expired ?? poll.isExpired ?? dto.expired ?? dto.isExpired ?? false,
       userHasVoted: poll.userHasVoted ?? dto.userHasVoted ?? false,
-      votedOptionIds: poll.userVotedOptionIds ?? poll.votedOptionIds ?? dto.votedOptionIds ?? [],
+      votedOptionIds: poll.userVotedOptionIds ?? poll.votedOptionIds ?? dto.userVotedOptionIds ?? dto.votedOptionIds ?? [],
       showResults: poll.showResults ?? (poll.userHasVoted || poll.expired) ?? dto.showResults ?? false,
-      timeLeft: poll.timeLeft ?? dto.timeLeft ?? null,
+      timeLeft: poll.timeLeft ?? dto.timeLeft ?? formatTimeLeft(poll.expiresAt ?? dto.expiresAt),
       expiresAt: poll.expiresAt ?? dto.expiresAt ?? null,
     } as any;
   }

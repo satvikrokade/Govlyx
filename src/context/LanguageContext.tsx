@@ -6,6 +6,7 @@ import {
   useCallback,
   useRef,
 } from "react";
+import { useCurrentUser } from "../hooks/useUser";
 
 // ─── Language map ──────────────────────────────────────────────────────────────
 export const SUPPORTED_LANGUAGES = [
@@ -26,30 +27,42 @@ export type LangCode = typeof SUPPORTED_LANGUAGES[number]["code"];
 
 const STORAGE_KEY = "govlyx_ui_language";
 
+const translationCache = new Map<string, string>();
+
 // ─── Translate helper (Google unofficial endpoint) ────────────────────────────
 async function googleTranslateBatch(
   texts: string[],
   targetLang: string
 ): Promise<string[]> {
   if (targetLang === "en") return texts;
-  try {
-    const results: string[] = [];
-    for (const text of texts) {
+
+  const promises = texts.map(async (text) => {
+    const cacheKey = `${targetLang}:${text}`;
+    if (translationCache.has(cacheKey)) {
+      return translationCache.get(cacheKey)!;
+    }
+
+    try {
       const protectedText = text.replace(/Govlyx/gi, "GOVLYXTOKEN");
-      const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(protectedText)}`;
+      const url = `/translate-api/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(protectedText)}`;
       const res = await fetch(url);
+      if (!res.ok) throw new Error("Translation failed");
       const json = await res.json();
       // Response shape: [[["translatedText","sourceText",...],...],...]
       const translated = (json[0] as [string, string][])
         .map((seg) => seg[0])
         .join("");
       const restored = (translated || protectedText).replace(/GOVLYXTOKEN/gi, "Govlyx");
-      results.push(restored);
+      
+      translationCache.set(cacheKey, restored);
+      return restored;
+    } catch (err) {
+      console.error("Single translation failed for text:", text, err);
+      return text;
     }
-    return results;
-  } catch {
-    return texts;
-  }
+  });
+
+  return Promise.all(promises);
 }
 
 export async function translateText(
@@ -411,6 +424,18 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLanguageState(lang);
     localStorage.setItem(STORAGE_KEY, lang);
   }, []);
+
+  const { data: userProfile } = useCurrentUser();
+
+  useEffect(() => {
+    if (userProfile?.interfaceLanguage) {
+      const userLang = userProfile.interfaceLanguage as LangCode;
+      if (userLang !== language) {
+        setLanguageState(userLang);
+        localStorage.setItem(STORAGE_KEY, userLang);
+      }
+    }
+  }, [userProfile, language]);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);

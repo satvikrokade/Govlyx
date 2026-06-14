@@ -245,7 +245,7 @@ type PostCardProps = {
   hideDelete?: boolean;
 };
 
-
+const postTranslationCache = new Map<string, string>();
 
 function canUpdateResolution(post: IssuePost, currentUser?: CurrentUser): boolean {
   if (!currentUser) return false;
@@ -1361,17 +1361,50 @@ function ActionPill({
 function PollBody({
   post,
   onVote,
-  isProcessing,
 }: {
   post: PollPost;
   onVote?: (pollId: number, ids: number[]) => void;
   isProcessing?: boolean;
 }) {
   const [votedIds, setVotedIds] = useState<number[]>(post?.votedOptionIds || []);
+  const debounceTimerRef = useRef<any>(null);
+  const inFlightCountRef = useRef<number>(0);
+  const activeRequestPromiseRef = useRef<Promise<any> | null>(null);
+  const nextPendingVoteRef = useRef<number[] | null>(null);
+  const prevPollIdRef = useRef<number>(post?.pollId);
 
   useEffect(() => {
-    setVotedIds(post?.votedOptionIds || []);
-  }, [post?.votedOptionIds]);
+    // If pollId changed, reset completely
+    if (prevPollIdRef.current !== post?.pollId) {
+      prevPollIdRef.current = post?.pollId;
+      setVotedIds(post?.votedOptionIds || []);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      activeRequestPromiseRef.current = null;
+      nextPendingVoteRef.current = null;
+      return;
+    }
+
+    // Otherwise, only sync from props if we are not actively debouncing and there are no in-flight or pending requests
+    if (
+      !debounceTimerRef.current && 
+      inFlightCountRef.current === 0 && 
+      !activeRequestPromiseRef.current && 
+      !nextPendingVoteRef.current
+    ) {
+      setVotedIds(post?.votedOptionIds || []);
+    }
+  }, [post?.votedOptionIds, post?.pollId]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
 
   if (!post || !post.options || !Array.isArray(post.options) || post.options.length === 0) {
     return null;
@@ -1379,29 +1412,84 @@ function PollBody({
 
   const showResults = post.showResults || post.userHasVoted || post.isExpired || votedIds.length > 0;
 
+  const sendVoteSequentially = async (ids: number[]) => {
+    if (activeRequestPromiseRef.current) {
+      nextPendingVoteRef.current = ids;
+      return;
+    }
+
+    inFlightCountRef.current += 1;
+    const currentPromise = onVote?.(post.pollId, ids);
+    activeRequestPromiseRef.current = Promise.resolve(currentPromise);
+
+    try {
+      await activeRequestPromiseRef.current;
+    } finally {
+      activeRequestPromiseRef.current = null;
+      inFlightCountRef.current = Math.max(0, inFlightCountRef.current - 1);
+
+      if (nextPendingVoteRef.current) {
+        const nextIds = nextPendingVoteRef.current;
+        nextPendingVoteRef.current = null;
+        sendVoteSequentially(nextIds);
+      } else {
+        if (inFlightCountRef.current === 0 && !debounceTimerRef.current) {
+          setVotedIds(post?.votedOptionIds || []);
+        }
+      }
+    }
+  };
+
   const handleVote = (optionId: number) => {
-    if (post.isExpired || isProcessing) return;
+    if (post.isExpired) return;
+    
+    // For single-choice, if they have already voted, do nothing
+    if (!post.allowMultipleVotes && (post.userHasVoted || votedIds.length > 0)) return;
+    
+    // If the option is already selected, do nothing (cannot deselect)
+    if (votedIds.includes(optionId)) return;
+
     const next = post.allowMultipleVotes
-      ? votedIds.includes(optionId)
-        ? votedIds.filter((id) => id !== optionId)
-        : [...votedIds, optionId]
-      : votedIds.includes(optionId) ? [] : [optionId]; // toggle for single vote too
+      ? [...votedIds, optionId]
+      : [optionId];
+      
     setVotedIds(next);
-    onVote?.(post.pollId, next);
+
+    // Debounce the call to onVote
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    debounceTimerRef.current = setTimeout(() => {
+      debounceTimerRef.current = null;
+      sendVoteSequentially(next);
+    }, 500);
   };
 
   // ─── Optimistic Updates ──────────────────────────────────────────
-  const isOptimistic = !post.userHasVoted && votedIds.length > 0;
-  const displayedTotalVotes = isOptimistic ? post.totalVotes + 1 : post.totalVotes;
-  const displayedOptions = useMemo(() => {
-    if (!isOptimistic) return post.options;
-    return post.options.map((opt: PollOption) => {
-      const isSelected = votedIds.includes(opt.id);
-      const newCount = isSelected ? (opt.voteCount || 0) + 1 : (opt.voteCount || 0);
-      const newPercent = displayedTotalVotes > 0 ? (newCount / displayedTotalVotes) * 100 : 0;
-      return { ...opt, percentage: newPercent };
+  const { displayedOptions, displayedTotalVotes } = useMemo(() => {
+    const adjustedOptions = post.options.map((opt) => {
+      const wasServerVoted = (post.votedOptionIds || []).includes(opt.id);
+      const isLocallyVoted = votedIds.includes(opt.id);
+      
+      let count = opt.voteCount || 0;
+      if (isLocallyVoted && !wasServerVoted) {
+        count += 1;
+      } else if (!isLocallyVoted && wasServerVoted) {
+        count = Math.max(0, count - 1);
+      }
+      return { ...opt, voteCount: count };
     });
-  }, [post.options, votedIds, isOptimistic, displayedTotalVotes]);
+
+    const total = adjustedOptions.reduce((sum, opt) => sum + opt.voteCount, 0);
+
+    const mappedOptions = adjustedOptions.map((opt) => {
+      const pct = total > 0 ? (opt.voteCount / total) * 100 : 0;
+      return { ...opt, percentage: pct };
+    });
+
+    return { displayedOptions: mappedOptions, displayedTotalVotes: total };
+  }, [post.options, post.votedOptionIds, votedIds]);
   // ────────────────────────────────────────────────────────────────
 
   return (
@@ -1409,27 +1497,35 @@ function PollBody({
       <div className="space-y-2">
         {displayedOptions.map((opt) => {
           const isSelected = votedIds.includes(opt.id);
+          const canClick = !post.isExpired && 
+            (post.allowMultipleVotes 
+              ? !isSelected 
+              : !post.userHasVoted && votedIds.length === 0
+            );
           return (
             <motion.div
               key={opt.id}
-              onClick={() => handleVote(opt.id)}
-              whileHover={{ y: -1 }}
-              whileTap={{ scale: 0.98 }}
-              className={`relative overflow-hidden rounded-lg border transition-all cursor-pointer ${isSelected ? "border-blue-500/50 shadow-sm shadow-blue-500/10" : "border-base-content/10"
-                }`}
+              onClick={() => canClick && handleVote(opt.id)}
+              whileHover={canClick ? { y: -1 } : undefined}
+              whileTap={canClick ? { scale: 0.98 } : undefined}
+              className={`relative overflow-hidden rounded-lg border transition-all ${
+                canClick ? "cursor-pointer" : "cursor-default"
+              } ${isSelected ? "border-blue-500/50 shadow-sm shadow-blue-500/10" : "border-base-content/10"}`}
             >
               {/* Progress */}
               <motion.div
                 initial={false}
                 animate={{ width: showResults ? `${opt.percentage}%` : "0%" }}
-                className={`absolute left-0 top-0 h-full transition-all duration-500 ease-out ${isSelected ? "bg-blue-500/10" : "bg-base-content/5"
-                  }`}
+                transition={{ type: "spring", stiffness: 80, damping: 20 }}
+                className={`absolute left-0 top-0 h-full transition-colors duration-300 ${
+                  isSelected ? "bg-blue-500/10" : "bg-base-content/5"
+                }`}
               />
 
               {/* Content */}
               <div className="relative z-10 flex items-center justify-between px-3.5 py-2.5 text-sm">
                 <div className="flex items-center gap-3">
-                  {/* Radio Indicator */}
+                  {/* Selection Indicator */}
                   <div className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${isSelected ? "border-blue-500 bg-blue-500" : "border-base-content/20"
                     }`}>
                     {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
@@ -1455,7 +1551,7 @@ function PollBody({
         <span>{displayedTotalVotes.toLocaleString()} {displayedTotalVotes === 1 ? "vote" : "votes"}</span>
         <span className="flex items-center gap-1.5">
           <Clock size={12} />
-          {post.timeLeft || "Ended"}
+          {post.isExpired ? "Ended" : (post.timeLeft || "Active")}
         </span>
       </div>
     </div>
@@ -1515,28 +1611,45 @@ export default function PostCard({
   const instanceId = useRef(Math.random().toString()).current;
 
   const handleTranslateDynamic = async () => {
+    const preferredLang = currentUserProfile?.preferredLanguage || "en";
+    const cacheKey = `${post.variant}_${post.id}_${preferredLang}`;
+
     if (dynamicTranslation) {
       setShowOriginal((v) => !v);
       return;
     }
+
+    if (postTranslationCache.has(cacheKey)) {
+      setDynamicTranslation(postTranslationCache.get(cacheKey)!);
+      setShowOriginal(false);
+      return;
+    }
+
     setIsTranslating(true);
-    const preferredLang = currentUserProfile?.preferredLanguage || "en";
     try {
       const res = await fetch(
-        `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${preferredLang}&dt=t&q=${encodeURIComponent(post.content || "")}`
+        `/translate-api/translate_a/single?client=gtx&sl=auto&tl=${preferredLang}&dt=t&q=${encodeURIComponent(post.content || "")}`
       );
+      if (res.status === 429) {
+        throw new Error("RATE_LIMIT");
+      }
       if (!res.ok) throw new Error("Translation request failed");
       const data = await res.json();
       if (Array.isArray(data) && data[0]) {
         const translatedText = data[0].map((item: any) => item[0]).join("");
+        postTranslationCache.set(cacheKey, translatedText);
         setDynamicTranslation(translatedText);
         setShowOriginal(false);
       } else {
         throw new Error("Invalid response format");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Translation failed", err);
-      showToast.error("Failed to translate post. Please try again.");
+      if (err.message === "RATE_LIMIT") {
+        showToast.error("Translation service is busy. Please try again later.");
+      } else {
+        showToast.error("Failed to translate post. Please try again.");
+      }
     } finally {
       setIsTranslating(false);
     }
@@ -2099,7 +2212,6 @@ export default function PostCard({
   }
 
   async function handlePollVote(pollId: number, optionIds: number[]) {
-    if (isProcessing) return;
     setIsProcessing(true);
     try {
       // 1. Notify parent if needed
@@ -2112,10 +2224,15 @@ export default function PostCard({
       if (post.variant === "poll" && res) {
         res.isPoll = true;
         const updatedPoll = toPostCardPost(res) as PollPost;
-        // Merge the updated poll data into the current post object
-        Object.assign(post, updatedPoll);
-        // Force a re-render by updating a dummy state if needed, 
-        // but here we just rely on PollBody's internal sync with post.votedOptionIds
+        // Selectively merge poll-specific and response fields, keeping original author/metadata
+        post.options = updatedPoll.options;
+        post.totalVotes = updatedPoll.totalVotes;
+        post.userHasVoted = updatedPoll.userHasVoted;
+        post.votedOptionIds = updatedPoll.votedOptionIds;
+        post.showResults = updatedPoll.showResults;
+        post.timeLeft = updatedPoll.timeLeft || post.timeLeft;
+        post.expiresAt = updatedPoll.expiresAt;
+        post.isExpired = updatedPoll.isExpired;
       }
     } catch (err: any) {
       console.error("Poll vote failed:", err);

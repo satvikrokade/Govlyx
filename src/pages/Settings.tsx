@@ -175,7 +175,7 @@ const Settings = () => {
     if (savedInterfaceLang) {
       setInterfaceLanguage(savedInterfaceLang);
     } else {
-      const fallbackLang = u.preferredLanguage || "en";
+      const fallbackLang = u.interfaceLanguage || u.preferredLanguage || "en";
       setInterfaceLanguage(fallbackLang);
       setGlobalLanguage(fallbackLang as LangCode);
     }
@@ -245,6 +245,7 @@ const Settings = () => {
           email: email || undefined,
           pincode: pincode || undefined,
           preferredLanguage,
+          interfaceLanguage, // Sync preference to backend database
           autoTranslate,
           profanityFilterLevel,
           mutedWords,

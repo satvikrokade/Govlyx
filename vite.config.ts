@@ -37,6 +37,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/external-api/, ''),
       },
+      '/translate-api': {
+        target: 'https://translate.googleapis.com',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/translate-api/, ''),
+      },
       '/api': {
         target: 'https://jan-sahayak-ai-84vh.onrender.com',
         changeOrigin: true,
