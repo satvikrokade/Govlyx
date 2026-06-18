@@ -43,21 +43,21 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/translate-api/, ''),
       },
       '/api': {
-        target: 'https://jan-sahayak-ai-2.onrender.com',
+        target: 'https://jan-sahayak-ai-3fl3.onrender.com',
         changeOrigin: true,
       },
       '/ws': {
-        target: 'https://jan-sahayak-ai-2.onrender.com',
+        target: 'https://jan-sahayak-ai-3fl3.onrender.com',
         ws: true,
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'https://jan-sahayak-ai-2.onrender.com',
+        target: 'https://jan-sahayak-ai-3fl3.onrender.com',
         changeOrigin: true,
         secure: false, // For local dev against remote HTTPS
         headers: {
-          'Origin': 'https://jan-sahayak-ai-2.onrender.com',
-          'Referer': 'https://jan-sahayak-ai-2.onrender.com',
+          'Origin': 'https://jan-sahayak-ai-3fl3.onrender.com',
+          'Referer': 'https://jan-sahayak-ai-3fl3.onrender.com',
         },
         // Avoid 500 errors by rewriting or simple proxy
         rewrite: (path) => path,

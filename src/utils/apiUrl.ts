@@ -9,7 +9,7 @@
  * frontend's own origin and gets a 404.
  *
  * Setting VITE_API_URL in your deploy environment (e.g. to
- *   https://jan-sahayak-ai-2.onrender.com
+ *   https://jan-sahayak-ai-3fl3.onrender.com
  * ) makes every fetch go directly to the backend regardless of host.
  *
  * Usage:
@@ -19,7 +19,7 @@
 
 const FALLBACK_URL = "";
 const rawUrl = import.meta.env.VITE_API_URL || FALLBACK_URL;
-const BASE = ((rawUrl.includes("jan-sahayak-ai-2.onrender.com") || rawUrl.includes("jan-sahayak-ai-84vh.onrender.com")) && !import.meta.env.DEV)
+const BASE = ((rawUrl.includes("jan-sahayak-ai-3fl3.onrender.com") || rawUrl.includes("jan-sahayak-ai-2.onrender.com") || rawUrl.includes("jan-sahayak-ai-84vh.onrender.com")) && !import.meta.env.DEV)
   ? ""
   : rawUrl.replace(/\/$/, "");
 

@@ -11,15 +11,15 @@
     },
     {
       "source": "/api/:path*",
-      "destination": "https://jan-sahayak-ai-2.onrender.com/api/:path*"
+      "destination": "https://jan-sahayak-ai-3fl3.onrender.com/api/:path*"
     },
     {
       "source": "/uploads/:path*",
-      "destination": "https://jan-sahayak-ai-2.onrender.com/uploads/:path*"
+      "destination": "https://jan-sahayak-ai-3fl3.onrender.com/uploads/:path*"
     },
     {
       "source": "/ws/:path*",
-      "destination": "https://jan-sahayak-ai-2.onrender.com/ws/:path*"
+      "destination": "https://jan-sahayak-ai-3fl3.onrender.com/ws/:path*"
     },
     {
       "source": "/((?!assets|favicon.ico|manifest.json|workbox-.*).*)",
