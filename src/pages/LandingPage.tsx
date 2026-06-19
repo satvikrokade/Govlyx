@@ -34,13 +34,9 @@ import {
   Bot,
   MapPin,
   CheckCircle2,
-  Smartphone,
-  ShieldAlert as ShieldIcon,
   Landmark,
   Handshake,
-  Tv,
   XCircle,
-  Pin,
   Camera,
   Building,
   Lightbulb,
@@ -695,7 +691,7 @@ export default function LandingPage() {
       <div id="features" className="scroll-mt-20"></div>
 
       {/* ─── WHAT IS GOVLYX & PROBLEM/SOLUTION ─── */}
-      <section className="py-20 px-4 sm:px-6 lg:px-24 bg-base-100 border-t border-slate-100 dark:border-slate-800/40 transition-colors">
+      <section className="pt-20 pb-8 px-4 sm:px-6 lg:px-24 bg-base-100 border-t border-slate-100 dark:border-slate-800/40 transition-colors">
         <div className="max-w-[1400px] mx-auto">
           {/* Header */}
           <div className="text-center max-w-3xl mx-auto mb-16">
@@ -711,7 +707,7 @@ export default function LandingPage() {
           </div>
 
           {/* Pillars Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
             <div className="bg-base-200 border border-base-300 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-xl bg-[#1D4ED8]/10 dark:bg-[#1D4ED8]/20 text-[#1D4ED8] dark:text-[#1D4ED8] flex items-center justify-center shrink-0">
@@ -747,114 +743,12 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Problem vs Solution Split */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 bg-base-200 border border-base-300 p-8 sm:p-10 rounded-3xl transition-colors">
-            {/* Problems */}
-            <div className="space-y-6">
-              <h3 className="font-black text-xl sm:text-2xl text-red-500 dark:text-red-400 flex items-center gap-2">
-                <ShieldIcon className="w-6 h-6 shrink-0" /> Problems Every Indian Faces Daily
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-semibold">
-                Why does nobody know what is happening in their own neighbourhood?
-              </p>
 
-              <div className="space-y-4 pt-2">
-                <div className="flex gap-3.5 items-start">
-                  <div className="bg-red-500/10 text-red-500 dark:text-red-400 p-1.5 rounded-lg shrink-0 mt-0.5">
-                    <Smartphone className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white">WhatsApp Groups Are a Mess</h4>
-                    <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 leading-normal">Your mohalla group has 200 people, fake news, and memes. Nobody knows when the water was cut or why the road is broken.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3.5 items-start">
-                  <div className="bg-red-500/10 text-red-500 dark:text-red-400 p-1.5 rounded-lg shrink-0 mt-0.5">
-                    <Tv className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white">News Shows Only Big City Stories</h4>
-                    <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 leading-normal">Facebook and Instagram show you Bollywood and national politics. Local issues in your ward or village are completely invisible online.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3.5 items-start">
-                  <div className="bg-red-500/10 text-red-500 dark:text-red-400 p-1.5 rounded-lg shrink-0 mt-0.5">
-                    <Landmark className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white">Government Announcements Never Reach You</h4>
-                    <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 leading-normal">A new scheme was launched in your district last month. You never heard about it. Government posts on MyGov.in — but nobody visits it.</p>
-                  </div>
-                </div>
-
-                <div className="flex gap-3.5 items-start">
-                  <div className="bg-red-500/10 text-red-500 dark:text-red-400 p-1.5 rounded-lg shrink-0 mt-0.5">
-                    <XCircle className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white">No Safe Space to Speak Up</h4>
-                    <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 leading-normal">You want to report a corrupt official or a local problem — but you are afraid to put your name on it publicly. So you stay silent.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Solution */}
-            <div className="space-y-6 lg:border-l lg:border-slate-200 dark:lg:border-slate-800 lg:pl-10">
-              <h3 className="font-black text-xl sm:text-2xl text-green-500 flex items-center gap-2">
-                <CheckCircle2 className="w-6 h-6 shrink-0" /> Govlyx Solves All of This
-              </h3>
-              <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm font-semibold">
-                One app. Your pincode. Everything local and safe.
-              </p>
-
-              <div className="space-y-4 pt-2">
-                <div className="bg-base-200 border border-base-300 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
-                  <span className="text-red-500 dark:text-red-400 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1"><XCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" /> WhatsApp chaos</span>
-                  <span className="text-slate-400 text-xs rotate-90 sm:rotate-0">→</span>
-                  <span className="text-green-500 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> Organised Pincode Feed
-                  </span>
-                </div>
-
-                <div className="bg-base-200 border border-base-300 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
-                  <span className="text-red-500 dark:text-red-400 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1"><XCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" /> Missing Schemes</span>
-                  <span className="text-slate-400 text-xs rotate-90 sm:rotate-0">→</span>
-                  <span className="text-green-500 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> Direct Pincode Broadcasts
-                  </span>
-                </div>
-
-                <div className="bg-base-200 border border-base-300 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
-                  <span className="text-red-500 dark:text-red-400 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1"><XCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" /> Unresolved Issues</span>
-                  <span className="text-slate-400 text-xs rotate-90 sm:rotate-0">→</span>
-                  <span className="text-green-500 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> Post → Viral → Resolved
-                  </span>
-                </div>
-
-                <div className="bg-base-200 border border-base-300 p-3.5 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-3">
-                  <span className="text-red-500 dark:text-red-400 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1"><XCircle className="w-4 h-4 text-red-500 dark:text-red-400 shrink-0" /> Name Exposure Fear</span>
-                  <span className="text-slate-400 text-xs rotate-90 sm:rotate-0">→</span>
-                  <span className="text-green-500 text-xs sm:text-sm font-bold flex items-center justify-center sm:justify-start gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" /> Random Anonymity Protects You
-                  </span>
-                </div>
-
-                <div className="p-3 bg-blue-500/5 border border-blue-500/20 text-xs font-semibold rounded-xl text-blue-600 dark:text-blue-400 flex gap-2 items-center">
-                  <Pin className="w-4 h-4 rotate-45 shrink-0" />
-                  <span>Govlyx works on just one thing from you: your <strong>6-digit pincode</strong>. No GPS. No long forms. No complicated setup.</span>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
       {/* ─── CIVIC ISSUE LIFECYCLE ─── */}
-      <section className="py-20 px-4 sm:px-6 lg:px-24 bg-base-100 border-t border-base-300 transition-colors">
+      <section className="pt-8 pb-20 px-4 sm:px-6 lg:px-24 bg-base-100 border-t border-base-300 transition-colors">
         <div className="max-w-[1400px] mx-auto">
 
           {/* Civic Issue Lifecycle Block */}
