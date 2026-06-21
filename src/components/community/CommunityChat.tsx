@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useCommunityChat } from "../../hooks/useCommunityChat";
 import { communityService } from "../../api/communityService";
@@ -18,7 +19,9 @@ import {
   ChevronDown,
   ExternalLink,
   MessageSquare,
+  Smile,
 } from "lucide-react";
+import { OPENMOJI_STICKERS } from "../../utils/stickers";
 
 interface CommunityChatProps {
   communityId: number;
@@ -85,6 +88,8 @@ const ExpiryTimer = React.memo(({ expiresAt }: { expiresAt: string }) => {
 });
 
 export default function CommunityChat({ communityId, isAdmin }: CommunityChatProps) {
+  const navigate = useNavigate();
+  const [showStickerMenu, setShowStickerMenu] = useState(false);
   const { data: userProfile } = useCurrentUser();
   const usernameWatermark = userProfile?.actualUsername || userProfile?.username || "Govlyx User";
   const {
@@ -320,7 +325,7 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
       <div
         ref={chatContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-thin scroll-smooth relative"
+        className="flex-1 overflow-y-auto px-1.5 py-3 space-y-3 scrollbar-hide scroll-smooth relative"
       >
         {userProfile && <WatermarkOverlay username={usernameWatermark} />}
         {isLoading ? (
@@ -369,7 +374,7 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
                 <div
                   key={msg.id || msg.messageId || index}
                   id={`msg-${msg.id || msg.messageId}`}
-                  className={`flex items-start gap-2.5 group transition-colors rounded-lg ${
+                  className={`flex items-start gap-1.5 group transition-colors rounded-lg ${
                     isMe ? "justify-end" : "justify-start"
                   }`}
                 >
@@ -387,7 +392,7 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
                   )}
 
                   {/* Message Bubble Block */}
-                  <div className={`flex flex-col max-w-[75%] ${isMe ? "items-end" : "items-start"}`}>
+                  <div className={`flex flex-col max-w-[85%] ${isMe ? "items-end" : "items-start"}`}>
                     {/* Sender Display Name */}
                     {showAvatar && !isMe && (
                       <span className={`text-xs font-semibold mb-1 ml-1 ${getSenderColor(msg.sender.id)}`}>
@@ -402,8 +407,10 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
 
                     {/* The Bubble */}
                     <div
-                      className={`relative px-4 py-2.5 rounded-2xl shadow-sm transition-all duration-200 border ${
-                        isMe
+                      className={`relative px-3 py-1.5 rounded-xl shadow-sm transition-all duration-200 border ${
+                        msg.content && msg.content.startsWith("/openmoji-svg-color/")
+                          ? "bg-transparent border-transparent shadow-none"
+                          : isMe
                           ? "bg-primary text-primary-content border-primary/20 rounded-tr-none"
                           : "bg-base-100 text-base-content border-base-300 rounded-tl-none"
                       }`}
@@ -435,10 +442,14 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
                       {/* Message Content */}
                       {msg.messageType === "SHARE_POST" && msg.sharedPost ? (
                         <div
-                          onClick={() => window.open(`/post/${msg.sharedPost?.id}`, "_blank")}
-                          className="border border-base-300 rounded-xl p-3 bg-base-200/50 hover:bg-base-200 cursor-pointer transition-colors space-y-2 mt-1 min-w-[200px]"
+                          onClick={() => navigate(`/post/${msg.sharedPost?.id}`)}
+                          className={`border rounded-xl p-3 cursor-pointer transition-colors space-y-2 mt-1 min-w-[200px] ${
+                            isMe
+                              ? "bg-black/15 hover:bg-black/25 border-primary-content/10"
+                              : "bg-base-200/50 hover:bg-base-200 border-base-300"
+                          }`}
                         >
-                          <div className="flex items-center gap-1.5 text-xs font-semibold text-primary">
+                          <div className={`flex items-center gap-1.5 text-xs font-semibold ${isMe ? "text-blue-100" : "text-primary"}`}>
                             <ExternalLink size={12} />
                             <span>Shared Post by @{msg.sharedPost.authorUsername}</span>
                           </div>
@@ -446,8 +457,16 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
                             {msg.sharedPost.content}
                           </p>
                         </div>
+                      ) : msg.content && msg.content.startsWith("/openmoji-svg-color/") ? (
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center p-0.5">
+                          <img
+                            src={msg.content}
+                            alt="Sticker"
+                            className="w-full h-full object-contain drop-shadow-sm select-none"
+                          />
+                        </div>
                       ) : (
-                        <p className="text-sm whitespace-pre-wrap break-words leading-relaxed select-text">
+                        <p className="text-xs sm:text-[13px] whitespace-pre-wrap break-words leading-relaxed select-text">
                           {msg.content}
                         </p>
                       )}
@@ -584,26 +603,64 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
             <span>Administrator has disabled group chat in this community</span>
           </div>
         ) : (
-          <form onSubmit={handleSend} className="flex gap-2 items-center">
-            <input
-              type="text"
-              value={inputText}
-              onChange={(e) => {
-                setInputText(e.target.value);
-                sendTyping();
-              }}
-              placeholder="Write a message..."
-              className="input input-sm flex-1 bg-base-200 border-none rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-primary h-10 px-4"
-              disabled={isLoading || !!error}
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !!error || !inputText.trim()}
-              className="btn btn-primary btn-circle btn-sm h-10 w-10 shrink-0 shadow-sm transition-transform active:scale-95"
-            >
-              <Send size={14} />
-            </button>
-          </form>
+          <div className="relative w-full">
+            {/* Sticker Menu Overlay */}
+            {showStickerMenu && (
+              <div className="absolute bottom-[52px] left-0 right-0 bg-base-100 border border-base-300 rounded-2xl shadow-2xl p-3 z-30 max-h-[180px] overflow-y-auto scrollbar-hide">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Stickers</p>
+                <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+                  {OPENMOJI_STICKERS.map((url, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => {
+                        sendMessage(url, replyMessage?.id);
+                        setReplyMessage(null);
+                        setShowStickerMenu(false);
+                      }}
+                      className="p-1.5 hover:bg-base-200 rounded-lg transition-colors aspect-square flex items-center justify-center cursor-pointer"
+                    >
+                      <img
+                        src={url}
+                        alt="Sticker"
+                        loading="lazy"
+                        className="w-10 h-10 object-contain hover:scale-110 transition-transform"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleSend} className="flex gap-2 items-center">
+              <button
+                type="button"
+                onClick={() => setShowStickerMenu(!showStickerMenu)}
+                className={`btn btn-ghost btn-circle btn-sm h-10 w-10 shrink-0 shadow-sm transition-colors rounded-xl bg-base-200 border-none ${showStickerMenu ? "text-primary bg-primary/10" : "text-base-content/65 hover:text-base-content"}`}
+                title="Stickers"
+              >
+                <Smile size={18} />
+              </button>
+              <input
+                type="text"
+                value={inputText}
+                onChange={(e) => {
+                  setInputText(e.target.value);
+                  sendTyping();
+                }}
+                placeholder="Write a message..."
+                className="input input-sm flex-1 bg-base-200 border-none rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-primary h-10 px-4"
+                disabled={isLoading || !!error}
+              />
+              <button
+                type="submit"
+                disabled={isLoading || !!error || !inputText.trim()}
+                className="btn btn-primary btn-circle btn-sm h-10 w-10 shrink-0 shadow-sm transition-transform active:scale-95"
+              >
+                <Send size={14} />
+              </button>
+            </form>
+          </div>
         )}
       </div>
 

@@ -86,7 +86,19 @@ export default function LandingPage() {
   const [targetUrl, setTargetUrl] = useState("https://govlyx.com");
   const [destinationOpen, setDestinationOpen] = useState(false);
 
-  const letters = React.useMemo(() => Array.from("Neighbourhood & Govt"), []);
+  const words = React.useMemo(() => {
+    const textWords = ["Neighbourhood", "&", "Govt"];
+    let globalIndex = 0;
+    return textWords.map((word) => {
+      const chars = Array.from(word).map((char) => ({
+        char,
+        idx: globalIndex++
+      }));
+      globalIndex++;
+      return chars;
+    });
+  }, []);
+  const totalLetters = 20;
   const [titleHovered, setTitleHovered] = useState(false);
 
   // ─── Interactive Phone Mockup Post States ──────────────────────────────────
@@ -402,35 +414,38 @@ export default function LandingPage() {
               <span
                 onMouseEnter={() => setTitleHovered(true)}
                 onMouseLeave={() => setTitleHovered(false)}
-                className="relative inline-flex flex-wrap cursor-default select-none text-[#ff5f5f] pb-1"
+                className="relative inline-flex flex-wrap gap-x-[0.25em] cursor-default select-none text-[#ff5f5f] pb-1"
               >
-                {letters.map((char, idx) => (
-                  <motion.span
-                    key={idx}
-                    animate={titleHovered ? {
-                      y: idx % 2 === 0 ? -6 : -3,
-                      color: "#1D4ED8",
-                      textShadow: "0 12px 24px rgba(29, 78, 216, 0.28)",
-                    } : {
-                      y: 0,
-                      color: "#ff5f5f",
-                      textShadow: "0 0 0 rgba(29, 78, 216, 0)",
-                    }}
-                    transition={{
-                      type: "spring",
-                      stiffness: 420,
-                      damping: 24,
-                      mass: 0.55,
-                      delay: titleHovered ? idx * 0.018 : (letters.length - idx) * 0.006,
-                    }}
-                    style={{
-                      display: "inline-block",
-                      whiteSpace: char === " " ? "pre" : "normal"
-                    }}
-                    className="will-change-transform"
-                  >
-                    {char}
-                  </motion.span>
+                {words.map((wordChars, wordIdx) => (
+                  <span key={wordIdx} className="inline-block whitespace-nowrap">
+                    {wordChars.map(({ char, idx }) => (
+                      <motion.span
+                        key={idx}
+                        animate={titleHovered ? {
+                          y: idx % 2 === 0 ? -6 : -3,
+                          color: "#1D4ED8",
+                          textShadow: "0 12px 24px rgba(29, 78, 216, 0.28)",
+                        } : {
+                          y: 0,
+                          color: "#ff5f5f",
+                          textShadow: "0 0 0 rgba(29, 78, 216, 0)",
+                        }}
+                        transition={{
+                          type: "spring",
+                          stiffness: 420,
+                          damping: 24,
+                          mass: 0.55,
+                          delay: titleHovered ? idx * 0.018 : (totalLetters - idx) * 0.006,
+                        }}
+                        style={{
+                          display: "inline-block"
+                        }}
+                        className="will-change-transform"
+                      >
+                        {char}
+                      </motion.span>
+                    ))}
+                  </span>
                 ))}
                 <motion.span
                   aria-hidden="true"
@@ -447,13 +462,17 @@ export default function LandingPage() {
             </p>
 
             {/* Replicated Portal Gateway Card */}
-            <div className="bg-base-200 border border-base-300 rounded-2xl p-4 sm:p-5 shadow-soft dark:shadow-none text-left max-w-md mx-auto lg:mx-0 relative transition-colors">
+            <div className="bg-base-200 border border-black/10 dark:border-base-300 rounded-2xl p-4 sm:p-5 shadow-soft dark:shadow-none text-left max-w-md mx-auto lg:mx-0 relative transition-colors">
+              {/* 18+ warning sticker */}
+              <div className="absolute -top-3 -right-3 bg-red-600 border border-red-500 text-white font-black text-[11px] px-2.5 py-0.5 rounded-lg shadow-lg shadow-red-500/20 rotate-12 select-none z-20">
+                18+
+              </div>
               <h3 className="font-bold text-base sm:text-lg text-slate-900 dark:text-white mb-0.5">Welcome to Govlyx</h3>
               <p className="text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mb-4 leading-normal">
                 Select your destination below to enter the platform.
               </p>
               
-              <div className="bg-base-300/30 border border-base-300 rounded-xl p-3 sm:p-4 transition-colors">
+              <div className="bg-base-300/30 border border-black/10 dark:border-base-300 rounded-xl p-3 sm:p-4 transition-colors">
                 <label className="block text-[10px] sm:text-[11px] font-bold text-slate-500 dark:text-slate-500 tracking-wider uppercase mb-1.5">
                   Select Destination
                 </label>
@@ -465,7 +484,7 @@ export default function LandingPage() {
                   className={`w-full bg-base-200 border rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-left text-slate-700 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#1D4ED8]/40 transition-all cursor-pointer flex items-center justify-between gap-3 ${
                     destinationOpen
                       ? "border-[#1D4ED8]"
-                      : "border-base-300 hover:border-[#1D4ED8]/60 dark:hover:border-[#1D4ED8]/60"
+                      : "border-black/10 dark:border-base-300 hover:border-[#1D4ED8]/60 dark:hover:border-[#1D4ED8]/60"
                   }`}
                   >
                     <span className="truncate">{selectedDestination.name}</span>
@@ -478,7 +497,7 @@ export default function LandingPage() {
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 4 }}
-                        className="absolute left-0 right-0 top-full mt-1.5 z-30 overflow-hidden rounded-lg border border-base-300 bg-base-200 shadow-xl"
+                        className="absolute left-0 right-0 top-full mt-1.5 z-30 overflow-hidden rounded-lg border border-black/10 dark:border-base-300 bg-base-200 shadow-xl"
                       >
                         {DESTINATIONS.map((dest) => {
                           const active = dest.url === targetUrl;
@@ -507,7 +526,7 @@ export default function LandingPage() {
 
                 <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 mb-3 notranslate">
                   <div className="dropdown dropdown-top w-full">
-                    <div tabIndex={0} role="button" className="w-full bg-base-200 border border-base-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:border-[#1D4ED8]/60 transition-all cursor-pointer flex items-center justify-between gap-3">
+                    <div tabIndex={0} role="button" className="w-full bg-base-200 border border-black/10 dark:border-base-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:border-[#1D4ED8]/60 transition-all cursor-pointer flex items-center justify-between gap-3">
                       <span className="flex items-center gap-2 min-w-0">
                         <Globe className="w-3.5 h-3.5 shrink-0 text-slate-500" />
                         <span className="truncate">
@@ -516,7 +535,7 @@ export default function LandingPage() {
                       </span>
                       <ChevronDown className="w-3.5 h-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
                     </div>
-                    <ul tabIndex={0} className="dropdown-content menu left-0 p-1.5 shadow-2xl bg-base-100 border border-base-300 rounded-2xl w-full z-[120] mb-1.5 gap-0.5 max-h-44 overflow-y-auto flex-nowrap">
+                    <ul tabIndex={0} className="dropdown-content menu left-0 p-1.5 shadow-2xl bg-base-100 border border-black/10 dark:border-base-300 rounded-2xl w-full z-[120] mb-1.5 gap-0.5 max-h-44 overflow-y-auto flex-nowrap">
                       {SUPPORTED_LANGUAGES.map((l) => (
                         <li key={l.code}>
                           <button
@@ -538,7 +557,7 @@ export default function LandingPage() {
                   <button
                     type="button"
                     onClick={toggleTheme}
-                    className="bg-base-200 border border-base-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:border-[#1D4ED8]/60 transition-all cursor-pointer flex items-center justify-center gap-2"
+                    className="bg-base-200 border border-black/10 dark:border-base-300 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:border-[#1D4ED8]/60 transition-all cursor-pointer flex items-center justify-center gap-2"
                     aria-label="Toggle Theme"
                   >
                     {theme === "light" ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}

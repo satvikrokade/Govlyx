@@ -1,8 +1,8 @@
 // src/components/layout/StrangerChat.tsx
 import { useEffect, useRef, useState, useCallback, useMemo, type KeyboardEvent } from "react";
-import { Dices, Zap, Search, AlertTriangle, Plus, Image as ImageIcon, Video, X, Eye, EyeOff, Send, Trash2, LogOut, ChevronLeft, ChevronRight, Copy, Check, MoreVertical } from "lucide-react";
+import { Dices, Zap, Search, AlertTriangle, Plus, Image as ImageIcon, Video, X, Eye, EyeOff, Send, Trash2, LogOut, ChevronLeft, ChevronRight, Copy, Check, MoreVertical, Smile } from "lucide-react";
+import { FaRocketchat } from "react-icons/fa";
 import { showToast } from "../../utils/toast";
-import { FiSmile } from "react-icons/fi";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { useChat } from "../../hooks/useChat";
 import { sendMedia } from "../../api/chatApi.service";
@@ -836,69 +836,94 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
 
             {chat.status === "CONNECTED" ? (
               <div className="flex flex-col gap-2 relative z-50">
-                <div className="flex items-end gap-2 w-full px-1 md:px-0">
-                  {/* WhatsApp style chat bar */}
-                  <div className="flex-1 min-w-0 flex items-end bg-base-100 rounded-2xl min-h-[38px] shadow-sm border border-base-content/10 px-0.5 py-0.5 relative">
-                    <button onClick={() => { setShowStickerMenu(!showStickerMenu); setShowAttachMenu(false); }} className={`btn btn-ghost btn-circle btn-xs shrink-0 mb-[1px] ml-0.5 transition-colors ${showStickerMenu ? "text-red-500 dark:text-red-400" : "text-base-content/50 hover:text-base-content"}`}>
-                      <FiSmile size={18} />
-                    </button>
-
-                    <AnimatePresence>
-                      {showStickerMenu && (
-                        <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="absolute bottom-full left-0 mb-4 w-72 h-80 bg-base-200 border border-base-content/10 shadow-2xl rounded-2xl p-3 z-50 flex flex-col">
-                          <p className="text-xs font-bold text-base-content/50 mb-2 uppercase tracking-widest px-1 shrink-0">Stickers</p>
-                          <div className="flex-1 overflow-y-auto custom-scrollbar grid grid-cols-4 gap-2 pr-1">
-                            {OPENMOJI_STICKERS.map((url, i) => (
-                              <button key={i} onClick={() => handleSendSticker(url)} className="p-2 hover:bg-base-300 rounded-lg transition-colors aspect-square flex items-center justify-center">
-                                <img src={url} alt="Sticker" loading="lazy" className="w-full h-full object-contain drop-shadow-sm hover:scale-110 transition-transform" />
-                              </button>
-                            ))}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-
-                    <textarea
-                      ref={inputRef}
-                      rows={1}
-                      value={draft}
-                      onChange={(e) => { setDraft(e.target.value); chat.notifyTyping(); }}
-                      onKeyDown={handleKeyDown}
-                      placeholder="Message"
-                      className="flex-1 bg-transparent border-none outline-none focus:outline-none focus:ring-0 text-base-content placeholder-base-content/40 resize-none py-[7px] px-2 text-[16px] md:text-[13px] max-h-32 min-h-[18px] leading-tight shadow-none"
-                    />
-
-                    <div className="relative group/attach flex items-end shrink-0 mb-[1px] right-0.5">
-                      <button onClick={() => { setShowAttachMenu(!showAttachMenu); setShowStickerMenu(false); }} className={`btn btn-ghost btn-circle btn-xs transition-transform duration-300 ${showAttachMenu ? "rotate-45 text-red-500 dark:text-red-400" : "text-base-content/50 hover:text-base-content"}`}>
-                        <Plus size={18} />
-                      </button>
-                      <AnimatePresence>
-                         {showAttachMenu && (
-                           <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="absolute bottom-full right-0 mb-4 flex flex-col gap-1.5 min-w-[200px] p-2.5 rounded-2xl bg-base-200/95 backdrop-blur-xl border border-base-content/10 shadow-2xl z-50 origin-bottom-right">
-                             <button onClick={() => handleFileSelect("IMAGE")} className="group flex items-center gap-3.5 px-4 py-3 rounded-xl hover:bg-base-300 text-base-content transition-all cursor-pointer w-full text-left">
-                               <div className="p-2.5 rounded-xl bg-emerald-500/15 dark:bg-emerald-400/20 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 group-hover:bg-emerald-500/25 dark:group-hover:bg-emerald-400/35 transition-all duration-200">
-                                 <ImageIcon size={18} className="stroke-[2.5]" />
-                               </div>
-                               <span className="text-sm font-bold tracking-wide transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400">Photo</span>
-                             </button>
-                             <button onClick={() => handleFileSelect("VIDEO")} className="group flex items-center gap-3.5 px-4 py-3 rounded-xl hover:bg-base-300 text-base-content transition-all cursor-pointer w-full text-left">
-                               <div className="p-2.5 rounded-xl bg-rose-500/15 dark:bg-rose-400/20 text-rose-600 dark:text-rose-400 group-hover:scale-105 group-hover:bg-rose-500/25 dark:group-hover:bg-rose-400/35 transition-all duration-200">
-                                 <Video size={18} className="stroke-[2.5]" />
-                               </div>
-                               <span className="text-sm font-bold tracking-wide transition-colors group-hover:text-rose-600 dark:group-hover:text-rose-400">Video</span>
-                             </button>
-                           </motion.div>
-                         )}
-                      </AnimatePresence>
+                <div className="flex items-center gap-2 w-full px-1 md:px-0 relative">
+                  
+                  {/* Sticker Menu Overlay */}
+                  {showStickerMenu && (
+                    <div className="absolute bottom-[52px] left-0 right-0 bg-base-100 border border-base-300 rounded-2xl shadow-2xl p-3 z-30 max-h-[180px] overflow-y-auto scrollbar-hide">
+                      <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-2 px-1">Stickers</p>
+                      <div className="grid grid-cols-6 sm:grid-cols-8 gap-2">
+                        {OPENMOJI_STICKERS.map((url, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => {
+                              handleSendSticker(url);
+                              setShowStickerMenu(false);
+                            }}
+                            className="p-1.5 hover:bg-base-200 rounded-lg transition-colors aspect-square flex items-center justify-center cursor-pointer bg-transparent border-none"
+                          >
+                            <img
+                              src={url}
+                              alt="Sticker"
+                              loading="lazy"
+                              className="w-10 h-10 object-contain hover:scale-110 transition-transform"
+                            />
+                          </button>
+                        ))}
+                      </div>
                     </div>
+                  )}
+
+                  {/* Sticker Toggle Button */}
+                  <button
+                    type="button"
+                    onClick={() => { setShowStickerMenu(!showStickerMenu); setShowAttachMenu(false); }}
+                    className={`btn btn-ghost btn-circle btn-sm h-10 w-10 shrink-0 shadow-sm transition-colors rounded-xl bg-base-200 border ${showStickerMenu ? "text-[#1D4ED8] bg-[#1D4ED8]/10 border-[#1D4ED8]/25" : "text-base-content/65 hover:text-base-content border-base-content/10"}`}
+                    title="Stickers"
+                  >
+                    <Smile size={18} />
+                  </button>
+
+                  {/* Text Input */}
+                  <textarea
+                    ref={inputRef}
+                    rows={1}
+                    value={draft}
+                    onChange={(e) => { setDraft(e.target.value); chat.notifyTyping(); }}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Write a message..."
+                    className="flex-1 bg-base-200 border border-base-content/10 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#1D4ED8] py-[9px] px-4 max-h-32 min-h-[40px] resize-none leading-tight shadow-none scrollbar-hide text-base-content"
+                  />
+
+                  {/* Attachments Trigger Button */}
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => { setShowAttachMenu(!showAttachMenu); setShowStickerMenu(false); }}
+                      className={`btn btn-ghost btn-circle btn-sm h-10 w-10 shrink-0 shadow-sm transition-colors rounded-xl bg-base-200 border ${showAttachMenu ? "text-[#1D4ED8] bg-[#1D4ED8]/10 border-[#1D4ED8]/25" : "text-base-content/65 hover:text-base-content border-base-content/10"}`}
+                      title="Attachments"
+                    >
+                      <Plus size={18} />
+                    </button>
+                    <AnimatePresence>
+                       {showAttachMenu && (
+                         <motion.div initial={{ opacity: 0, scale: 0.9, y: 10 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 10 }} className="absolute bottom-[48px] right-0 flex flex-col gap-1.5 min-w-[160px] p-2 rounded-2xl bg-base-200/95 backdrop-blur-xl border border-base-content/10 shadow-2xl z-50 origin-bottom-right">
+                           <button onClick={() => { handleFileSelect("IMAGE"); setShowAttachMenu(false); }} className="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-base-300 text-base-content transition-all cursor-pointer w-full text-left bg-transparent border-none">
+                             <div className="p-2 rounded-xl bg-emerald-500/15 dark:bg-emerald-400/20 text-emerald-600 dark:text-emerald-400 transition-all duration-200">
+                               <ImageIcon size={16} className="stroke-[2.5]" />
+                             </div>
+                             <span className="text-xs font-bold tracking-wide">Photo</span>
+                           </button>
+                           <button onClick={() => { handleFileSelect("VIDEO"); setShowAttachMenu(false); }} className="group flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-base-300 text-base-content transition-all cursor-pointer w-full text-left bg-transparent border-none">
+                             <div className="p-2 rounded-xl bg-rose-500/15 dark:bg-rose-400/20 text-rose-600 dark:text-rose-400 transition-all duration-200">
+                               <Video size={16} className="stroke-[2.5]" />
+                             </div>
+                             <span className="text-xs font-bold tracking-wide">Video</span>
+                           </button>
+                         </motion.div>
+                       )}
+                    </AnimatePresence>
                   </div>
 
-                  {/* Primary Action Button (Send) */}
-                  <div className="flex items-end h-full pb-0.5 shrink-0">
-                    <button onClick={handleSend} disabled={!draft.trim()} className="btn bg-[#1D4ED8] hover:bg-[#1e40af] disabled:bg-base-content/10 disabled:text-base-content/30 disabled:shadow-none text-white btn-circle shrink-0 h-[36px] w-[36px] shadow-lg shadow-[#1D4ED8]/20 border-none transition-all duration-200 flex items-center justify-center">
-                      <Send size={15} className="ml-0.5" />
-                    </button>
-                  </div>
+                  {/* Send Button */}
+                  <button
+                    onClick={handleSend}
+                    disabled={!draft.trim()}
+                    className="btn btn-primary bg-[#1D4ED8] hover:bg-[#1e40af] border-none text-white btn-circle btn-sm h-10 w-10 shrink-0 shadow-sm transition-transform active:scale-95 flex items-center justify-center"
+                  >
+                    <Send size={14} />
+                  </button>
                 </div>
                 <div className="flex items-center justify-between px-1 md:px-2 mt-2">
                   <div className="flex items-center gap-3 flex-wrap">
@@ -1080,9 +1105,8 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
 function IdleScreen({ onStart }: { onStart: () => void }) {
   return (
     <div className="h-full flex flex-col items-center justify-center p-6 md:p-8 text-center bg-transparent">
-      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="w-16 h-16 md:w-20 md:h-20 rounded-[24px] md:rounded-[32px] bg-gradient-to-br from-[#1D4ED8]/10 to-[#1D4ED8]/5 flex items-center justify-center text-[#1D4ED8] mb-6 md:mb-8 shadow-inner border border-[#1D4ED8]/10 relative shrink-0">
-        <div className="absolute inset-0 bg-[#1D4ED8]/20 blur-2xl rounded-full scale-50 opacity-50" />
-        <Dices size={24} className="md:w-8 md:h-8 relative z-10" />
+      <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} className="flex items-center justify-center text-[#1D4ED8] dark:text-white mb-6 md:mb-8 relative shrink-0">
+        <FaRocketchat size={64} className="text-[#1D4ED8] dark:text-white" />
       </motion.div>
       <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}>
         <h3 className="text-2xl md:text-4xl font-black text-base-content tracking-tighter mb-4">Connect with Neighbors.</h3>
@@ -1267,7 +1291,7 @@ function MessageArea({
   return (
     <div 
       ref={messageAreaRef} 
-      className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-2 md:p-4 scrollbar-hide flex flex-col gap-2 relative ${
+      className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-1.5 py-2 md:p-4 scrollbar-hide flex flex-col gap-2 relative ${
         !hasUserMessages ? "justify-center" : ""
       }`}
     >

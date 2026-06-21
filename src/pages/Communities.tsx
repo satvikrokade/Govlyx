@@ -2315,7 +2315,7 @@ function DetailPanel({
   return (
     <div className="fixed inset-0 z-[110] flex" onClick={closeViaUI}>
       <div className="absolute inset-0 bg-black/60" />
-      <div className="relative ml-auto w-full max-w-xl h-full bg-base-100 flex flex-col shadow-2xl overflow-hidden"
+      <div className="relative ml-auto w-full max-w-2xl sm:max-w-3xl h-full bg-base-100 flex flex-col shadow-2xl overflow-hidden"
         style={{ animation: "slideR .22s ease-out" }} onClick={e => e.stopPropagation()}>
 
         <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-base-300">
@@ -2348,7 +2348,7 @@ function DetailPanel({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="p-4 space-y-4">
+          <div className="p-2 sm:p-4 space-y-3 sm:space-y-4">
             <CommunityHeader
               community={c}
               acting={acting}
@@ -2444,18 +2444,8 @@ function DetailPanel({
                             post={cardPost}
                             currentUser={currentUser || undefined}
                             hideCommunityStrip={true}
+                            onShareToCommunity={(c.isMember || c.isOwner) ? (postId, content) => sharePostToChat(postId, content) : undefined}
                           />
-                          {(c.isMember || c.isOwner) && (
-                            <div className="flex justify-end px-2 -mt-2 mb-3">
-                              <button
-                                onClick={() => sharePostToChat(post.id, post.content)}
-                                className="btn btn-ghost btn-xs text-xs font-semibold text-[#1D4ED8] hover:bg-blue-50/50 flex items-center gap-1.5"
-                              >
-                                <MessageSquare size={12} />
-                                <span>Share to Chat</span>
-                              </button>
-                            </div>
-                          )}
                         </div>
                       );
                     })}

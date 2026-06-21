@@ -2,7 +2,6 @@ import { NavLink, useLocation, Link } from "react-router-dom";
 import {
   Home,
   Users,
-  Dices,
   User,
   Settings,
   LayoutDashboard,
@@ -13,6 +12,7 @@ import {
   Megaphone,
   BarChart2,
 } from "lucide-react";
+import { FaRocketchat } from "react-icons/fa";
 import { useTheme } from "../../hooks/useTheme";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useUnreadNotificationsCount } from "../../hooks/useNotification";
@@ -26,7 +26,7 @@ const BASE_NAV_ITEMS = [
   { label: "Home", icon: Home, to: "/dashboard" },
   { label: "Communities", icon: Users, to: "/communities" },
   { label: "Notifications", icon: Bell, to: "/notifications" },
-  { label: "Quick Chat", icon: Dices, to: "/quick-chat" },
+  { label: "Quick Chat", icon: FaRocketchat, to: "/quick-chat" },
   { label: "Profile", icon: User, to: "/profile" },
   { label: "Settings", icon: Settings, to: "/settings" },
 ];
