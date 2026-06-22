@@ -1715,6 +1715,7 @@ export default function PostCard({
   const [isProcessing, setIsProcessing] = useState(false);
   const [isContentRevealed, setIsContentRevealed] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [locallyHidden, setLocallyHidden] = useState(false);
   // Translation toggle — when true shows the original untranslated text
   const [showOriginal, setShowOriginal] = useState(false);
   const [dynamicTranslation, setDynamicTranslation] = useState<string | null>(null);
@@ -1916,6 +1917,7 @@ export default function PostCard({
   }, [post.id, instanceId]);
 
   if (!post) return null;
+  if (locallyHidden) return null;
   if ((post as any).status === "DELETED") {
     return null;
   }
@@ -2409,38 +2411,52 @@ export default function PostCard({
           {/* Header Row: Author + Join */}
           <div className="flex items-start justify-between gap-3">
             {isGovt ? (
-              <motion.div
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="flex items-center gap-3"
-              >
-                <div className="relative shrink-0">
-                  {post.userProfileImage ? (
-                    <img
-                      src={post.userProfileImage}
-                      className="w-10 h-10 rounded-full object-cover ring-2 ring-red-500/20 ring-offset-2 ring-offset-base-100"
-                      alt=""
-                    />
-                  ) : (
-                    <img
-                      src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(
-                        post.username || "?"
-                      )}`}
-                      className="w-10 h-10 rounded-full object-cover bg-red-500/5 ring-2 ring-red-500/20 ring-offset-2 ring-offset-base-100"
-                      alt="Avatar"
-                    />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-[#EF4444] dark:text-[#F87171] text-sm truncate tracking-tight notranslate">
-                      {(post as GovernmentPost).department || post.username}
-                    </span>
-                    <BadgeCheck size={16} className="text-red-500 fill-red-500/10 shrink-0" />
+              <>
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="flex items-center gap-3 min-w-0"
+                >
+                  <div className="relative shrink-0">
+                    {post.userProfileImage ? (
+                      <img
+                        src={post.userProfileImage}
+                        className="w-10 h-10 rounded-full object-cover ring-2 ring-red-500/20 ring-offset-2 ring-offset-base-100"
+                        alt=""
+                      />
+                    ) : (
+                      <img
+                        src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(
+                          post.username || "?"
+                        )}`}
+                        className="w-10 h-10 rounded-full object-cover bg-red-500/5 ring-2 ring-red-500/20 ring-offset-2 ring-offset-base-100"
+                        alt="Avatar"
+                      />
+                    )}
                   </div>
-                  <p className="text-[10px] text-base-content/50 mt-0.5">{post.timeAgo ?? "just now"}</p>
-                </div>
-              </motion.div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-[#EF4444] dark:text-[#F87171] text-sm truncate tracking-tight notranslate">
+                        {(post as GovernmentPost).department || post.username}
+                      </span>
+                      <BadgeCheck size={16} className="text-red-500 fill-red-500/10 shrink-0" />
+                    </div>
+                    <p className="text-[10px] text-base-content/50 mt-0.5">{post.timeAgo ?? "just now"}</p>
+                  </div>
+                </motion.div>
+                <motion.button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmNotInterestedOpen(true);
+                  }}
+                  whileHover={{ scale: 1.12, y: -1 }}
+                  whileTap={{ scale: 0.94 }}
+                  className="group/not-interested relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-base-300/40 text-base-content/40 transition-all duration-300 hover:border-base-content/20 hover:bg-base-300/10 hover:text-base-content backdrop-blur-md"
+                  title="Not Interested"
+                >
+                  <EyeOff size={16} className="relative z-10 transition-transform duration-300" />
+                </motion.button>
+              </>
             ) : (
               <AuthorRow
                 post={post}
@@ -2450,38 +2466,34 @@ export default function PostCard({
                 showDelete={(post as any).canDelete !== undefined ? !!(post as any).canDelete : (currentUser && post.username === currentUser.username)}
                 hideDelete={hideDelete}
                 rightAction={
-                  (currentUser && post.username !== currentUser.username) || onNotInterested ? (
-                    <div className="flex items-center gap-1.5">
-                      {onNotInterested && (
-                        <motion.button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setConfirmNotInterestedOpen(true);
-                          }}
-                          whileHover={{ scale: 1.12, y: -1 }}
-                          whileTap={{ scale: 0.94 }}
-                          className="group/not-interested relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-base-300/40 text-base-content/40 transition-all duration-300 hover:border-base-content/20 hover:bg-base-300/10 hover:text-base-content backdrop-blur-md"
-                          title="Not Interested"
-                        >
-                          <EyeOff size={16} className="relative z-10 transition-transform duration-300" />
-                        </motion.button>
-                      )}
-                      {currentUser && post.username !== currentUser.username && (
-                        <motion.button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setReportOpen(true);
-                          }}
-                          whileHover={{ scale: 1.12, y: -1 }}
-                          whileTap={{ scale: 0.94 }}
-                          className="group/report relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-base-300/40 text-base-content/40 transition-all duration-300 hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-600 hover:shadow-lg hover:shadow-red-500/10 backdrop-blur-md"
-                          title="Report content"
-                        >
-                          <Flag size={16} className="relative z-10 transition-transform duration-300 group-hover/report:rotate-6" />
-                        </motion.button>
-                      )}
-                    </div>
-                  ) : undefined
+                  <div className="flex items-center gap-1.5">
+                    <motion.button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmNotInterestedOpen(true);
+                      }}
+                      whileHover={{ scale: 1.12, y: -1 }}
+                      whileTap={{ scale: 0.94 }}
+                      className="group/not-interested relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-base-300/40 text-base-content/40 transition-all duration-300 hover:border-base-content/20 hover:bg-base-300/10 hover:text-base-content backdrop-blur-md"
+                      title="Not Interested"
+                    >
+                      <EyeOff size={16} className="relative z-10 transition-transform duration-300" />
+                    </motion.button>
+                    {currentUser && post.username !== currentUser.username && (
+                      <motion.button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReportOpen(true);
+                        }}
+                        whileHover={{ scale: 1.12, y: -1 }}
+                        whileTap={{ scale: 0.94 }}
+                        className="group/report relative flex h-9 w-9 items-center justify-center rounded-xl border border-transparent bg-base-300/40 text-base-content/40 transition-all duration-300 hover:border-red-500/30 hover:bg-red-500/5 hover:text-red-600 hover:shadow-lg hover:shadow-red-500/10 backdrop-blur-md"
+                        title="Report content"
+                      >
+                        <Flag size={16} className="relative z-10 transition-transform duration-300 group-hover/report:rotate-6" />
+                      </motion.button>
+                    )}
+                  </div>
                 }
               />
             )}
@@ -2767,6 +2779,8 @@ export default function PostCard({
           setConfirmNotInterestedOpen(false);
           if (onNotInterested) {
             onNotInterested(post.id);
+          } else {
+            setLocallyHidden(true);
           }
         }}
         title="Not Interested"

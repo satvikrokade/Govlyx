@@ -2296,6 +2296,7 @@ function DetailPanel({
       if (!res.ok) { alert((await res.json().catch(() => ({}))).message || "Could not leave."); return; }
       setC(p => ({ ...p, isMember: false, memberCount: p.memberCount - 1 }));
       onMembershipChange(c.id, false, -1, false, { ...c, isMember: false, memberCount: c.memberCount - 1 });
+      showToast.info("💔 You left us... we'll remember you.");
     } catch {
       alert("Could not leave.");
     } finally {
@@ -2324,6 +2325,11 @@ function DetailPanel({
         else if (joined) removePendingLocal(c.id);
         setC(p => ({ ...p, isMember: joined, hasPendingRequest: newHasPending, memberCount: joined ? p.memberCount + 1 : p.memberCount }));
         onMembershipChange(c.id, joined, joined ? 1 : 0, newHasPending, { ...c, isMember: joined, hasPendingRequest: newHasPending, memberCount: joined ? c.memberCount + 1 : c.memberCount });
+        if (joined) {
+          showToast.success("👋 Hey there, newcomer! Make yourself at home.");
+        } else if (newHasPending) {
+          showToast.info("Request sent. We saved you a seat while the admins review it.");
+        }
         
         // Cache the community if we successfully joined it
         if (joined) {
@@ -3113,6 +3119,11 @@ const Community = () => {
       setRecommended(prev => prev.map(item => item.id === c.id ? { ...item, isMember: joined, hasPendingRequest: newHasPending, memberCount: joined ? item.memberCount + 1 : item.memberCount } : item));
       
       syncMembership(c.id, joined, joined ? 1 : 0, newHasPending);
+      if (joined) {
+        showToast.success("👋 Hey there, newcomer! Make yourself at home.");
+      } else if (newHasPending) {
+        showToast.info("Request sent. We saved you a seat while the admins review it.");
+      }
     } catch {
       alert("Action failed.");
     } finally {
