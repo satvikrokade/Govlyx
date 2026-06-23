@@ -66,13 +66,13 @@ export default function LimitReachedModal({
                 }}
                 className="btn btn-sm w-full bg-[#1D4ED8] hover:bg-blue-800 text-white border-none rounded-xl py-2 flex items-center justify-center gap-1.5 text-xs font-semibold shadow-sm transition-all duration-200 cursor-pointer animate-none"
               >
-                Change Plan
+                Buy a Plan
               </button>
               <button
                 onClick={onClose}
                 className="btn btn-sm btn-ghost w-full rounded-xl text-xs font-semibold cursor-pointer"
               >
-                Cancel
+                Close
               </button>
             </div>
           </motion.div>

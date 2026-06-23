@@ -570,6 +570,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [limitModalMessage, setLimitModalMessage] = useState("");
+  const [hasReachedChatLimit, setHasReachedChatLimit] = useState(false);
   const [replyTo, setReplyTo] = useState<ReplyTo | null>(null);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [showStickerMenu, setShowStickerMenu] = useState(false);
@@ -586,9 +587,16 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
   useEffect(() => {
     if (chat.status === "ERROR" && isLimitError) {
       setLimitModalMessage(chat.error ?? "You have reached your daily matchmaking limit. Upgrade to a premium pass for unlimited chats.");
+      setHasReachedChatLimit(true);
       setShowLimitModal(true);
     }
   }, [chat.status, chat.error, isLimitError]);
+
+  useEffect(() => {
+    if (billing?.currentTier && billing.currentTier !== "GOVLYX_FREE") {
+      setHasReachedChatLimit(false);
+    }
+  }, [billing?.currentTier]);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -621,6 +629,20 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
     setDraft("");
     setReplyTo(null);
   };
+
+  const openChatLimitModal = useCallback(() => {
+    setLimitModalMessage(chat.error ?? "You have reached your daily matchmaking limit. Buy a plan to continue chatting.");
+    setHasReachedChatLimit(true);
+    setShowLimitModal(true);
+  }, [chat.error]);
+
+  const handleStartSearch = useCallback(() => {
+    if (hasReachedChatLimit || isLimitError) {
+      openChatLimitModal();
+      return;
+    }
+    chat.startSearch();
+  }, [chat, hasReachedChatLimit, isLimitError, openChatLimitModal]);
 
   const handleFileSelect = (type: "IMAGE" | "VIDEO") => {
     if (fileInputRef.current) {
@@ -766,8 +788,8 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
 
   const handleNext = useCallback(async () => {
     await chat.leaveSession();
-    chat.startSearch();
-  }, [chat]);
+    handleStartSearch();
+  }, [chat, handleStartSearch]);
 
   const handleBackdrop = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget && chat.status !== "CONNECTED" && onClose) onClose();
@@ -830,7 +852,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
         <AnimatePresence mode="wait">
           {chat.status === "IDLE" && (
             <motion.div key="idle" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }} className="flex-1 min-h-0">
-              <IdleScreen onStart={chat.startSearch} theme={theme} />
+              <IdleScreen onStart={handleStartSearch} theme={theme} />
             </motion.div>
           )}
           {chat.status === "SEARCHING" && (
@@ -856,7 +878,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
             <motion.div key="error" className="flex-1 min-h-0">
               <ErrorScreen 
                 error={chat.error} 
-                onRetry={chat.startSearch} 
+                onRetry={handleStartSearch} 
                 onUpgrade={() => setIsPricingModalOpen(true)} 
               />
             </motion.div>
@@ -1000,7 +1022,7 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
               <div className="flex flex-col items-center gap-3 bg-base-300/30 p-5 rounded-2xl border border-base-content/5 backdrop-blur-md max-w-sm mx-auto">
                 <p className="text-[10px] text-base-content/50 font-black uppercase tracking-[0.2em]">Stranger disconnected</p>
                 <div className="flex gap-2 w-full">
-                  <button onClick={chat.startSearch} className="btn btn-sm bg-[#1D4ED8] hover:bg-[#1D4ED8]/90 text-white flex-1 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#1D4ED8]/20 border-none">Find New</button>
+                  <button onClick={handleStartSearch} className="btn btn-sm bg-[#1D4ED8] hover:bg-[#1D4ED8]/90 text-white flex-1 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-[#1D4ED8]/20 border-none">Find New</button>
                   <button onClick={onClose} className="btn btn-sm bg-base-content/5 border-none flex-1 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest">Exit</button>
                 </div>
               </div>
