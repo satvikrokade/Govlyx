@@ -26,6 +26,7 @@ import {
 } from "../../utils/searchCache";
 import type { CacheItem } from "../../utils/searchCache";
 import { apiUrl } from "../../utils/apiUrl";
+import { getAuthToken } from "../../utils/auth";
 
 // ─── Raw backend shape — defensive: accept every possible field name ──────────
 // SearchDto.Result fields (from SearchService builder calls):
@@ -103,16 +104,6 @@ function normalise(r: RawResult): NormResult {
 }
 
 // ─── Auth helper ──────────────────────────────────────────────────────────────
-
-function getAuthToken(): string | null {
-  return (
-    localStorage.getItem("authToken") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("jwt") ||
-    localStorage.getItem("access_token") ||
-    null
-  );
-}
 function authHeaders(): HeadersInit {
   const t = getAuthToken();
   return t ? { Authorization: `Bearer ${t}` } : {};

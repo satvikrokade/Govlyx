@@ -35,6 +35,8 @@ export interface CommunityMessage {
   createdAt: string;
   expiresAt?: string;
   clientSideId?: string; // Optional client-side correlation ID
+  isDeleted?: boolean;
+  deletedByType?: "USER" | "ADMINISTRATOR";
 }
 
 export interface TypingIndicator {

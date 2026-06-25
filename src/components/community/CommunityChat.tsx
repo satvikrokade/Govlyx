@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useCommunityChat } from "../../hooks/useCommunityChat";
@@ -25,6 +25,7 @@ import {
 import { OPENMOJI_STICKERS } from "../../utils/stickers";
 import { useMyBilling } from "../../hooks/useBilling";
 import PricingModal from "../billing/PricingModal";
+import type { CommunityMessage } from "../../types/CommunityChat.types";
 
 interface CommunityChatProps {
   communityId: number;
@@ -109,10 +110,12 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
     sendTyping,
     loadMoreMessages,
     fetchInitialMessages,
+    deleteMessage,
+    pinnedMessage,
   } = useCommunityChat(communityId, userProfile || null);
 
   const [inputText, setInputText] = useState("");
-  const [replyMessage, setReplyMessage] = useState<any | null>(null);
+  const [replyMessage, setReplyMessage] = useState<CommunityMessage | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [chatSettings, setChatSettings] = useState({
     isGroupChatEnabled: true,
@@ -123,7 +126,7 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
     chatRetentionDays: 30,
   });
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [reportModalMessage, setReportModalMessage] = useState<any | null>(null);
+  const [reportModalMessage, setReportModalMessage] = useState<CommunityMessage | null>(null);
   const [reportCategory, setReportCategory] = useState("SPAM");
   const [reportDescription, setReportDescription] = useState("");
 
@@ -135,8 +138,8 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        if ((communityService as any).getChatSettings) {
-          const res = await (communityService as any).getChatSettings(communityId);
+        if (communityService.getChatSettings) {
+          const res = await communityService.getChatSettings(communityId);
           if (res?.data) {
             setChatSettings(res.data);
           }
@@ -203,9 +206,7 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
   };
 
   // ── 3. Find Pinned Message ──
-  const pinnedMessage = useMemo(() => {
-    return [...messages].reverse().find((m) => m.isPinned);
-  }, [messages]);
+  // Pinned message is loaded and kept up to date by the useCommunityChat hook
 
   const scrollToPinned = () => {
     if (!pinnedMessage) return;
@@ -238,25 +239,13 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
   };
 
   const handleSaveSettings = async () => {
-    const payload: any = {};
-    let hasChanges = false;
-
-    if (tempSettings.isGroupChatEnabled !== chatSettings.isGroupChatEnabled) {
-      payload.isGroupChatEnabled = tempSettings.isGroupChatEnabled;
-      hasChanges = true;
-    }
-    if (tempSettings.chatRetentionDays !== chatSettings.chatRetentionDays) {
-      payload.chatRetentionDays = tempSettings.chatRetentionDays;
-      hasChanges = true;
-    }
-
-    if (!hasChanges) {
-      setIsSettingsOpen(false);
-      return;
-    }
+    const payload = {
+      isGroupChatEnabled: tempSettings.isGroupChatEnabled,
+      chatRetentionDays: tempSettings.chatRetentionDays,
+    };
 
     try {
-      await (communityService as any).updateChatSettings(communityId, payload);
+      await communityService.updateChatSettings(communityId, payload);
       setChatSettings(tempSettings);
       showToast.success("Chat settings updated successfully");
       setIsSettingsOpen(false);
@@ -269,15 +258,14 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
   };
 
   // ── 6. Message actions (Pin/Delete/Report) ──
-  const handlePinToggle = async (msg: any) => {
+  const handlePinToggle = async (msg: CommunityMessage) => {
     setActiveDropdown(null);
+    const msgId = msg.id ?? msg.messageId;
+    if (!msgId) return;
     try {
-      // Simulate/Trigger STOMP update for pinning
-      // In a full implementation, you send a STOMP frame or call a REST endpoint.
-      // We will call a REST setting or mock update and notify via toast.
-      showToast.success(msg.isPinned ? "Message unpinned" : "Message pinned");
-    } catch (err) {
-      showToast.error("Failed to pin message");
+      await communityService.pinChatMessage(communityId, msgId);
+    } catch (err: any) {
+      showToast.error(err.response?.data?.message || "Failed to pin/unpin message");
     }
   };
 
@@ -291,7 +279,7 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
       showToast.success("Message reported successfully");
       setReportModalMessage(null);
       setReportDescription("");
-    } catch (err) {
+    } catch {
       showToast.error("Failed to report message");
     }
   };
@@ -451,22 +439,30 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
                     {/* The Bubble */}
                     <div
                       className={`relative px-3 py-1.5 rounded-xl shadow-sm transition-all duration-200 border ${
-                        msg.content && msg.content.startsWith("/openmoji-svg-color/")
+                        msg.content && msg.content.startsWith("/openmoji-svg-color/") && !msg.isDeleted
                           ? "bg-transparent border-transparent shadow-none"
+                          : msg.isDeleted
+                          ? "bg-base-200/40 text-base-content/40 border-base-300/60 rounded-xl"
                           : isMe
                           ? "bg-primary text-primary-content border-primary/20 rounded-tr-none"
                           : "bg-base-100 text-base-content border-base-300 rounded-tl-none"
                       }`}
                     >
                       {/* Reply preview inside bubble */}
-                      {msg.replyToId && (() => {
+                      {!msg.isDeleted && msg.replyToId && (() => {
                         const target = messages.find((m) => m.id === msg.replyToId);
                         if (!target) return null;
                         return (
                           <div
                             onClick={() => {
                               const el = document.getElementById(`msg-${msg.replyToId}`);
-                              el?.scrollIntoView({ behavior: "smooth", block: "center" });
+                              if (el) {
+                                el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                el.classList.add("bg-blue-500/20");
+                                setTimeout(() => {
+                                  el.classList.remove("bg-blue-500/20");
+                                }, 2000);
+                              }
                             }}
                             className={`mb-2 py-1 px-2.5 border-l-2 text-xs rounded bg-black/5 dark:bg-white/5 cursor-pointer hover:opacity-80 transition-opacity flex flex-col ${
                               isMe ? "border-primary-content/40" : "border-primary/50"
@@ -483,7 +479,12 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
                       })()}
 
                       {/* Message Content */}
-                      {msg.messageType === "SHARE_POST" && msg.sharedPost ? (
+                      {msg.isDeleted ? (
+                        <p className="text-xs sm:text-[13px] italic opacity-60 select-none flex items-center gap-1.5 py-0.5">
+                          <Trash2 size={12} className="opacity-50" />
+                          <span>{msg.deletedByType === "ADMINISTRATOR" ? "This message was deleted by the administrator" : "This message was deleted by the user"}</span>
+                        </p>
+                      ) : msg.messageType === "SHARE_POST" && msg.sharedPost ? (
                         <div
                           onClick={() => navigate(`/post/${msg.sharedPost?.id}`)}
                           className={`border rounded-xl p-3 cursor-pointer transition-colors space-y-2 mt-1 min-w-[200px] ${
@@ -529,87 +530,96 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
                       </div>
 
                       {/* Actions Trigger (Hover menu) */}
-                      <div
-                        className={`absolute top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-base-100 rounded-full border border-base-300 shadow-md p-0.5 z-10 ${
-                          isMe ? "-left-12" : "-right-12"
-                        }`}
-                      >
-                        <button
-                          onClick={() => setReplyMessage(msg)}
-                          className="btn btn-ghost btn-circle btn-xs text-base-content/70 hover:text-primary"
-                          title="Reply"
+                      {!msg.isDeleted && (
+                        <div
+                          className={`absolute top-1/2 -translate-y-1/2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity bg-base-100 rounded-full border border-base-300 shadow-md p-0.5 z-10 ${
+                            isMe ? "-left-14" : "-right-14"
+                          }`}
                         >
-                          <Reply size={12} />
-                        </button>
-
-                        <div className="relative">
                           <button
-                            onClick={() => {
-                              const mId = String(msg.id || msg.messageId);
-                              setActiveDropdown(activeDropdown === mId ? null : mId);
-                            }}
+                            onClick={() => setReplyMessage(msg)}
                             className="btn btn-ghost btn-circle btn-xs text-base-content/70 hover:text-primary"
+                            title="Reply"
                           >
-                            <MoreVertical size={12} />
+                            <Reply size={12} />
                           </button>
 
-                          {activeDropdown === String(msg.id || msg.messageId) && (
-                            <div
-                              className={`absolute mt-1 w-28 bg-base-100 rounded-lg shadow-xl border border-base-300 py-1 z-20 ${
-                                isMe ? "left-0" : "right-0"
-                              }`}
+                          <div className="relative">
+                            <button
+                              onClick={() => {
+                                const mId = String(msg.id || msg.messageId);
+                                setActiveDropdown(activeDropdown === mId ? null : mId);
+                              }}
+                              className="btn btn-ghost btn-circle btn-xs text-base-content/70 hover:text-primary"
                             >
-                              {isAdmin && (
-                                <button
-                                  onClick={() => {
-                                    if (billing?.currentTier !== "GOVLYX_VIP") {
-                                      showToast.error("Message pinning requires a Govlyx VIP Pass");
-                                      setIsPricingModalOpen(true);
+                              <MoreVertical size={12} />
+                            </button>
+
+                            {activeDropdown === String(msg.id || msg.messageId) && (
+                              <div
+                                className={`absolute mt-1 w-28 bg-base-100 rounded-lg shadow-xl border border-base-300 py-1 z-20 ${
+                                  isMe ? "left-0" : "right-0"
+                                }`}
+                              >
+                                {isAdmin && (
+                                  <button
+                                    onClick={() => {
+                                      if (billing?.currentTier !== "GOVLYX_VIP") {
+                                        showToast.error("Message pinning requires a Govlyx VIP Pass");
+                                        setIsPricingModalOpen(true);
+                                        setActiveDropdown(null);
+                                        return;
+                                      }
+                                      handlePinToggle(msg);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-base-content hover:bg-base-200 flex items-center justify-between font-medium"
+                                  >
+                                    <div className="flex items-center gap-1.5">
+                                      <Pin size={12} />
+                                      <span>{msg.isPinned ? "Unpin" : "Pin"}</span>
+                                    </div>
+                                    {billing?.currentTier !== "GOVLYX_VIP" && (
+                                      <Crown size={10} className="text-amber-500 shrink-0" />
+                                    )}
+                                  </button>
+                                )}
+                                {!isMe && (
+                                  <button
+                                    onClick={() => {
                                       setActiveDropdown(null);
-                                      return;
-                                    }
-                                    handlePinToggle(msg);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs hover:bg-base-200 flex items-center justify-between"
-                                >
-                                  <div className="flex items-center gap-1.5">
-                                    <Pin size={12} />
-                                    <span>{msg.isPinned ? "Unpin" : "Pin"}</span>
-                                  </div>
-                                  {billing?.currentTier !== "GOVLYX_VIP" && (
-                                    <Crown size={10} className="text-amber-500 shrink-0" />
-                                  )}
-                                </button>
-                              )}
-                              {!isMe && (
-                                <button
-                                  onClick={() => {
-                                    setActiveDropdown(null);
-                                    setReportModalMessage(msg);
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-warning hover:bg-base-200 flex items-center gap-1.5 font-medium"
-                                >
-                                  <AlertTriangle size={12} />
-                                  <span>Report</span>
-                                </button>
-                              )}
-                              {isAdmin && (
-                                <button
-                                  onClick={() => {
-                                    setActiveDropdown(null);
-                                    // mock deletion logic
-                                    showToast.success("Message deleted");
-                                  }}
-                                  className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-base-200 flex items-center gap-1.5 font-medium border-t border-base-300"
-                                >
-                                  <Trash2 size={12} />
-                                  <span>Delete</span>
-                                </button>
-                              )}
-                            </div>
-                          )}
+                                      setReportModalMessage(msg);
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-warning hover:bg-base-200 flex items-center gap-1.5 font-medium"
+                                  >
+                                    <AlertTriangle size={12} />
+                                    <span>Report</span>
+                                  </button>
+                                )}
+                                {(isAdmin || isMe) && (
+                                  <button
+                                    onClick={async () => {
+                                      setActiveDropdown(null);
+                                      const messageId = msg.id || msg.messageId || msg.clientSideId;
+                                      if (messageId) {
+                                        try {
+                                          await deleteMessage(messageId);
+                                          showToast.success("Message deleted");
+                                        } catch {
+                                          showToast.error("Failed to delete message");
+                                        }
+                                      }
+                                    }}
+                                    className="w-full text-left px-3 py-1.5 text-xs text-red-500 hover:bg-base-200 flex items-center gap-1.5 font-medium border-t border-base-300"
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Delete</span>
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -631,25 +641,37 @@ export default function CommunityChat({ communityId, isAdmin }: CommunityChatPro
       )}
 
       {/* ── Reply Bar Indicator ── */}
-      {replyMessage && (
-        <div className="shrink-0 flex items-center justify-between px-4 py-2 bg-base-100 border-t border-base-300 text-xs">
-          <div className="flex items-center gap-2 border-l-2 border-primary pl-2 overflow-hidden mr-4">
-            <Reply size={12} className="text-primary shrink-0" />
-            <div className="truncate text-base-content/85">
-              <span className="font-semibold">
-                Replying to @{replyMessage.sender.actualUsername || replyMessage.sender.username}
-              </span>
-              <p className="truncate opacity-60 max-w-xs">{replyMessage.content}</p>
+      {replyMessage && (() => {
+        const latestMsg = messages.find((m) => {
+          const mId = m.id || m.messageId;
+          const rId = replyMessage.id || replyMessage.messageId;
+          return mId && rId && String(mId) === String(rId);
+        });
+        const isMsgDeleted = latestMsg?.isDeleted;
+        const displayContent = isMsgDeleted
+          ? (latestMsg.deletedByType === "ADMINISTRATOR" ? "This message was deleted by the administrator" : "This message was deleted by the user")
+          : replyMessage.content;
+
+        return (
+          <div className="shrink-0 flex items-center justify-between px-4 py-2 bg-base-100 border-t border-base-300 text-xs">
+            <div className="flex items-center gap-2 border-l-2 border-primary pl-2 overflow-hidden mr-4">
+              <Reply size={12} className="text-primary shrink-0" />
+              <div className="truncate text-base-content/85">
+                <span className="font-semibold">
+                  Replying to @{replyMessage.sender.actualUsername || replyMessage.sender.username}
+                </span>
+                <p className={`truncate opacity-60 max-w-xs ${isMsgDeleted ? "italic opacity-40 font-medium" : ""}`}>{displayContent}</p>
+              </div>
             </div>
+            <button
+              onClick={() => setReplyMessage(null)}
+              className="btn btn-ghost btn-circle btn-xs text-base-content/65 hover:text-error"
+            >
+              <X size={14} />
+            </button>
           </div>
-          <button
-            onClick={() => setReplyMessage(null)}
-            className="btn btn-ghost btn-circle btn-xs text-base-content/65 hover:text-error"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── Input Composer ── */}
       <div className="shrink-0 p-3 bg-base-100 border-t border-base-300 backdrop-blur-md bg-base-100/90">

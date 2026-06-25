@@ -93,7 +93,7 @@ function _normalise(err: unknown): Error {
   ) {
     const res = err.response as { status: number; data?: ApiResponse<unknown> };
     if (res.status === 401) return new ChatAuthError();
-    const msg = res.data?.message ?? "Request failed";
+    const msg = res.data?.error || res.data?.message || "Request failed";
     return new ChatApiError(res.status, msg);
   }
   if (err instanceof Error) return err;

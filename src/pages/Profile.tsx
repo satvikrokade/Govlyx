@@ -24,12 +24,11 @@ import type { AnyPost, CurrentUser } from "../components/post/PostCard";
 import { useCurrentUser } from "../hooks/useUser";
 import { toPostCardPost, resolveMediaUrl } from "../utils/postUtils";
 import { apiUrl } from "../utils/apiUrl";
-import { getUserRole } from "../utils/auth";
+import { getUserRole, getAuthToken } from "../utils/auth";
 
 // ─── auth helpers ─────────────────────────────────────────────────────────────
 function authHeaders(): HeadersInit {
-  const token =
-    localStorage.getItem("authToken") ?? localStorage.getItem("token") ?? "";
+  const token = getAuthToken() ?? "";
   return token
     ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
     : { "Content-Type": "application/json" };
@@ -349,6 +348,12 @@ const Profile = () => {
       isSaved: saved,
       isSavedByCurrentUser: saved
     } as Partial<AnyPost>);
+  }, [updatePostState]);
+
+  const handleShare = useCallback((postId: number, variant: string) => {
+    updatePostState(postId, variant, (post) => ({
+      shareCount: (post.shareCount ?? 0) + 1
+    }));
   }, [updatePostState]);
 
   useEffect(() => {
@@ -828,6 +833,7 @@ const Profile = () => {
                 onLike={(id, liked) => handleLike(id, p.variant, liked)}
                 onDislike={(id, disliked) => handleDislike(id, p.variant, disliked)}
                 onSave={(id, saved) => handleSave(id, p.variant, saved)}
+                onShare={(id) => handleShare(id, p.variant)}
               />
             ))
           )}
@@ -886,6 +892,7 @@ const Profile = () => {
                       onLike={(id, liked) => handleLike(id, p.variant, liked)}
                       onDislike={(id, disliked) => handleDislike(id, p.variant, disliked)}
                       onSave={(id, saved) => handleSave(id, p.variant, saved)}
+                      onShare={(id) => handleShare(id, p.variant)}
                     />
                   ))}
 
@@ -933,6 +940,7 @@ const Profile = () => {
                       onLike={(id, liked) => handleLike(id, p.variant, liked)}
                       onDislike={(id, disliked) => handleDislike(id, p.variant, disliked)}
                       onSave={(id, saved) => handleSave(id, p.variant, saved)}
+                      onShare={(id) => handleShare(id, p.variant)}
                     />
                   ))}
 
@@ -1009,6 +1017,7 @@ const Profile = () => {
                     onLike={(id, liked) => handleLike(id, post.variant, liked)}
                     onDislike={(id, disliked) => handleDislike(id, post.variant, disliked)}
                     onSave={(id, saved) => handleSave(id, post.variant, saved)}
+                    onShare={(id) => handleShare(id, post.variant)}
                   />
                 ))
               )}

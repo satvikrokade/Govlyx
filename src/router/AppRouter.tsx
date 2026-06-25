@@ -68,6 +68,7 @@ const isLoggedIn = (): boolean => {
 const useTokenExpiryWatcher = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const token = getAuthToken();
 
   useEffect(() => {
     // Disable expiry checking if already on public routes
@@ -95,7 +96,6 @@ const useTokenExpiryWatcher = () => {
     const interval = setInterval(check, 60 * 1000);
 
     // Also schedule a precise redirect exactly when the token expires
-    const token = getAuthToken();
     if (token) {
       try {
         const decoded = jwtDecode<{ exp: number }>(token);
@@ -115,10 +115,10 @@ const useTokenExpiryWatcher = () => {
         clearAuthTokens();
         navigate("/login?error=expired", { replace: true });
       }
-       }
+    }
 
     return () => clearInterval(interval);
-  }, [navigate, location.pathname]);
+  }, [navigate, location.pathname, token]);
 };
 
 // ── Dashboard Redirect Helper ──────────────────────────────────────────────────

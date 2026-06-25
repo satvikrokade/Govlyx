@@ -5,11 +5,12 @@ export interface ApiResponse<T> {
   success: boolean;
   message: string;
   data: T | null;
+  error?: string;
 }
 
 // ── Message ──────────────────────────────────────────────────────────────────
 
-export type MessageType = "TEXT" | "SYSTEM" | "USER_JOINED" | "USER_LEFT" | "CHAT_ENDED" | "IMAGE" | "VIDEO" | "STICKER" | "MEDIA_WIPED";
+export type MessageType = "TEXT" | "SYSTEM" | "USER_JOINED" | "USER_LEFT" | "CHAT_ENDED" | "IMAGE" | "VIDEO" | "STICKER" | "MEDIA_WIPED" | "MESSAGE_DELIVERED" | "MESSAGE_SEEN";
 
 export interface ChatMessageDto {
   messageId:   string;
@@ -18,6 +19,10 @@ export interface ChatMessageDto {
   messageType: MessageType;
   timestamp:   string;   // ISO-8601
   replyToId?:  string;   // optional: messageId of the message being replied to
+
+  // Delivery / read receipts
+  delivered?:  boolean;  // true once the partner's device acknowledged receipt
+  seen?:       boolean;  // true once the partner has read the message
 
   // Media fields
   mediaPayload?: string; // base64 data-URI or file UUID from server

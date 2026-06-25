@@ -42,6 +42,16 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/translate-api/, ''),
       },
+      '/lingva-api': {
+        target: 'https://lingva.ml',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/lingva-api/, ''),
+      },
+      '/mymemory-api': {
+        target: 'https://api.mymemory.translated.net',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/mymemory-api/, ''),
+      },
       '/api': {
         target: 'https://jan-sahayak-ai-3fl3.onrender.com',
         changeOrigin: true,

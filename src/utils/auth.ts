@@ -10,25 +10,46 @@ interface JwtPayload {
   iat: number;
 }
 
-const TOKEN_KEYS = ["token", "authToken", "jwt", "access_token"];
+let inMemoryToken: string | null = null;
 
 export function getAuthToken(): string | null {
-  for (const key of TOKEN_KEYS) {
-    const token = localStorage.getItem(key);
-    if (token) return token;
-  }
-  return null;
+  return inMemoryToken;
+}
+
+export function setAuthToken(token: string | null) {
+  inMemoryToken = token;
 }
 
 export function persistAuthToken(token: string) {
-  localStorage.setItem("token", token);
-  localStorage.setItem("authToken", token);
-  localStorage.removeItem("jwt");
-  localStorage.removeItem("access_token");
+  inMemoryToken = token;
+  try {
+    localStorage.setItem("isLoggedIn", "true");
+  } catch {
+    /* ignore private-browsing */
+  }
 }
 
 export function clearAuthTokens() {
-  TOKEN_KEYS.forEach((key) => localStorage.removeItem(key));
+  inMemoryToken = null;
+  try {
+    localStorage.setItem("isLoggedIn", "false");
+    localStorage.removeItem("token");
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("jwt");
+    localStorage.removeItem("access_token");
+  } catch {
+    /* ignore */
+  }
+}
+
+// Synchronize logouts across multiple tabs
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (event) => {
+    if (event.key === "isLoggedIn" && event.newValue === "false") {
+      inMemoryToken = null;
+      window.location.reload();
+    }
+  });
 }
 
 export function decodeAuthToken(token = getAuthToken()): JwtPayload | null {

@@ -27,12 +27,7 @@ import {
 
 import { apiUrl } from "../../utils/apiUrl";
 import { showToast } from "../../utils/toast";
-
-/**
- * Gets the JWT stored by your auth flow (localStorage key is configurable).
- */
-const getAuthToken = (): string | null =>
-  localStorage.getItem("authToken") ?? localStorage.getItem("token") ?? null;
+import { getAuthToken } from "../../utils/auth";
 
 const authHeaders = (): HeadersInit => {
   const token = getAuthToken();
@@ -467,6 +462,8 @@ function PostForm({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [targetPincode, setTargetPincode] = useState("");
   const [isReportingIssue, setIsReportingIssue] = useState(false);
+  const [pincodeDetails, setPincodeDetails] = useState<string | null>(null);
+  const [fetchingPincode, setFetchingPincode] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -864,6 +861,36 @@ function PostForm({
     }
   }, [targetPincode, isReportingIssue]);
 
+  // Fetch place name for pincode (Scenario B / Civic Issue)
+  useEffect(() => {
+    if (isReportingIssue && /^[1-9]\d{5}$/.test(targetPincode)) {
+      const fetchPincodeDetails = async () => {
+        setFetchingPincode(true);
+        setPincodeDetails(null);
+        try {
+          const res = await fetch(apiUrl(`/api/pincode/${targetPincode}`), {
+            headers: authHeaders(),
+          });
+          const json = await res.json();
+          if (json?.success && json?.data) {
+            const data = json.data;
+            const locationStr = `${data.areaName ? data.areaName + ", " : ""}${data.city || data.district}, ${data.state}`;
+            setPincodeDetails(locationStr);
+          } else {
+            setPincodeDetails("Invalid location");
+          }
+        } catch (err) {
+          setPincodeDetails("Location not found");
+        } finally {
+          setFetchingPincode(false);
+        }
+      };
+      fetchPincodeDetails();
+    } else {
+      setPincodeDetails(null);
+    }
+  }, [targetPincode, isReportingIssue]);
+
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-6 text-center">
@@ -886,6 +913,7 @@ function PostForm({
               setContent("");
               setFiles([]);
               setTargetPincode("");
+              setPincodeDetails(null);
               setError(null);
               setCachedActivePosts(null);
               preFetchPromiseRef.current = null;
@@ -969,6 +997,23 @@ function PostForm({
                 value={targetPincode}
                 onChange={(e) => { setTargetPincode(e.target.value.replace(/\D/g, "")); setError(null); }}
               />
+              <div className="text-[10px] min-h-[14px] mt-0.5">
+                {fetchingPincode ? (
+                  <span className="flex items-center gap-1 text-base-content/60">
+                    <Loader2 size={11} className="animate-spin text-green-600 dark:text-green-400" />
+                    <span>Fetching location details...</span>
+                  </span>
+                ) : pincodeDetails ? (
+                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-semibold">
+                    <MdLocationOn size={11} className="text-green-500 shrink-0" />
+                    <span>{pincodeDetails}</span>
+                  </span>
+                ) : (
+                  <span className="text-base-content/40 font-semibold">
+                    6-digit Indian pincode — used for local content
+                  </span>
+                )}
+              </div>
             </div>
           </motion.div>
         )}
@@ -1905,7 +1950,7 @@ const CreatePost = ({ open, onClose, communityId, communityName, onPostCreated }
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

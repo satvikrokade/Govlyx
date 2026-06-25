@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { apiUrl } from "../../utils/apiUrl";
+import { getAuthToken } from "../../utils/auth";
 import ConfirmModal from "./ConfirmModal";
 import ReportModal from "../modals/ReportModal";
 import { checkProfanity } from "../../utils/profanity";
@@ -26,8 +27,7 @@ import { parseError } from "../../utils/error-handler";
 
 // ─── auth helpers ─────────────────────────────────────────────────────────────
 function authHeaders(): HeadersInit {
-  const token =
-    localStorage.getItem("authToken") ?? localStorage.getItem("token") ?? "";
+  const token = getAuthToken() ?? "";
   return token
     ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
     : { "Content-Type": "application/json" };
@@ -971,7 +971,7 @@ export default function CommentSection({
     setComments((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
   }, []);
 
-  const isLoggedIn = !!(localStorage.getItem("authToken") || localStorage.getItem("token"));
+  const isLoggedIn = !!getAuthToken();
 
   return (
     <motion.div

@@ -1,6 +1,6 @@
 // src/components/layout/StrangerChat.tsx
 import { useEffect, useRef, useState, useCallback, useMemo, type KeyboardEvent } from "react";
-import { Dices, Zap, Search, AlertTriangle, Plus, Image as ImageIcon, Video, X, Eye, EyeOff, Send, Trash2, LogOut, ChevronLeft, ChevronRight, Copy, Check, MoreVertical, Smile, Crown } from "lucide-react";
+import { Dices, Zap, Search, AlertTriangle, Plus, Image as ImageIcon, Video, X, Eye, EyeOff, Send, Trash2, LogOut, ChevronLeft, ChevronRight, Copy, Check, CheckCheck, MoreVertical, Smile, Crown } from "lucide-react";
 import { showToast } from "../../utils/toast";
 import { motion, AnimatePresence, useMotionValue, useTransform } from "framer-motion";
 import { useChat } from "../../hooks/useChat";
@@ -12,6 +12,7 @@ import { useCurrentUser } from "../../hooks/useUser";
 import { useMyBilling } from "../../hooks/useBilling";
 import { useTheme } from "../../hooks/useTheme";
 import PricingModal from "../billing/PricingModal";
+import { getAuthToken } from "../../utils/auth";
 import LimitReachedModal from "../modals/LimitReachedModal";
 
 
@@ -181,10 +182,7 @@ export function SafeImage({
     setLoading(true);
     setError(false);
 
-    const token = localStorage.getItem("authToken") || 
-                  localStorage.getItem("token") || 
-                  localStorage.getItem("jwt") || 
-                  localStorage.getItem("access_token");
+    const token = getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
     fetch(`${API_BASE_URL}/api/chat/${sessionId}/media/${mediaPayload}`, { headers })
@@ -267,10 +265,7 @@ export function SafeVideo({
     setLoading(true);
     setError(false);
 
-    const token = localStorage.getItem("authToken") || 
-                  localStorage.getItem("token") || 
-                  localStorage.getItem("jwt") || 
-                  localStorage.getItem("access_token");
+    const token = getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
     fetch(`${API_BASE_URL}/api/chat/${sessionId}/media/${mediaPayload}`, { headers })
@@ -365,10 +360,7 @@ function PrivateMediaViewer({
       return;
     }
 
-    const token = localStorage.getItem("authToken") || 
-                  localStorage.getItem("token") || 
-                  localStorage.getItem("jwt") || 
-                  localStorage.getItem("access_token");
+    const token = getAuthToken();
     const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
 
     fetch(`${API_BASE_URL}/api/chat/${sessionId}/media/${uuid}`, { headers })
@@ -743,6 +735,11 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
 
   const handleSendSticker = async (stickerUrl: string) => {
     if (!chat.session) return;
+    if (billing?.currentTier === "GOVLYX_FREE") {
+      setLimitModalMessage("Stickers in chat are a premium feature. Upgrade to a Pro or VIP plan to start using stickers with your matches.");
+      setShowLimitModal(true);
+      return;
+    }
     try {
       const response = await fetch(stickerUrl);
       const blob = await response.blob();
@@ -943,7 +940,15 @@ export default function StrangerChat({ onClose, standalone }: { onClose?: () => 
                   {/* Sticker Toggle Button */}
                   <button
                     type="button"
-                    onClick={() => { setShowStickerMenu(!showStickerMenu); setShowAttachMenu(false); }}
+                    onClick={() => {
+                      if (billing?.currentTier === "GOVLYX_FREE") {
+                        setLimitModalMessage("Stickers in chat are a premium feature. Upgrade to a Pro or VIP plan to start using stickers with your matches.");
+                        setShowLimitModal(true);
+                        return;
+                      }
+                      setShowStickerMenu(!showStickerMenu);
+                      setShowAttachMenu(false);
+                    }}
                     className={`btn btn-ghost btn-circle btn-sm h-10 w-10 shrink-0 shadow-sm transition-colors rounded-xl bg-base-200 border ${showStickerMenu ? "text-[#1D4ED8] bg-[#1D4ED8]/10 border-[#1D4ED8]/25" : "text-base-content/65 hover:text-base-content border-base-content/10"}`}
                     title="Stickers"
                   >
@@ -1520,6 +1525,44 @@ function MessageArea({
     </div>
   );
 }
+// ── Message tick indicator (WhatsApp-style) ───────────────────────────────────
+function MessageTicks({
+  isMine,
+  delivered,
+  seen,
+}: {
+  isMine: boolean;
+  delivered?: boolean;
+  seen?: boolean;
+}) {
+  if (!isMine) return null;
+
+  // Two blue ticks — seen by partner
+  if (seen) {
+    return (
+      <span className="shrink-0 flex items-center translate-y-[-1px]" title="Seen">
+        <CheckCheck size={12} className="text-sky-300" strokeWidth={2.5} />
+      </span>
+    );
+  }
+
+  // Two gray ticks — delivered to partner's device
+  if (delivered) {
+    return (
+      <span className="shrink-0 flex items-center translate-y-[-1px]" title="Delivered">
+        <CheckCheck size={12} className="text-white/50" strokeWidth={2.5} />
+      </span>
+    );
+  }
+
+  // Single gray tick — sent to server (partner not yet received)
+  return (
+    <span className="shrink-0 flex items-center translate-y-[-1px]" title="Sent">
+      <Check size={12} className="text-white/40" strokeWidth={2.5} />
+    </span>
+  );
+}
+
 function Bubble({ 
   msgGroup, 
   isMine, 
@@ -1758,10 +1801,33 @@ function Bubble({
             </div>
           )}
 
-          {isMultiMedia ? renderMultiMedia() : isSingleMedia ? renderSingleMedia() : (
+          {isMultiMedia ? (
+            <>
+              {renderMultiMedia()}
+              {isMine && (
+                <div className={`flex items-center gap-1 justify-end mt-1 pr-0.5`}>
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-base-content/40">{time}</span>
+                  <MessageTicks isMine={isMine} delivered={msg.delivered} seen={msg.seen} />
+                </div>
+              )}
+            </>
+          ) : isSingleMedia ? (
+            <>
+              {renderSingleMedia()}
+              {isMine && (
+                <div className={`flex items-center gap-1 justify-end mt-1 pr-0.5`}>
+                  <span className="text-[8px] font-bold uppercase tracking-widest text-base-content/40">{time}</span>
+                  <MessageTicks isMine={isMine} delivered={msg.delivered} seen={msg.seen} />
+                </div>
+              )}
+            </>
+          ) : (
             <div className="flex items-end justify-between gap-3 min-w-[50px] relative">
               <p className="text-[13px] whitespace-pre-wrap break-words leading-[1.4] font-medium tracking-tight flex-1 text-left py-0.5 notranslate">{msg.content}</p>
-              <span className={`shrink-0 text-[8px] font-bold uppercase tracking-widest translate-y-[-2px] ${isMine ? "text-white/60" : "text-base-content/40"}`}>{time}</span>
+              <div className="flex items-center gap-1 shrink-0 translate-y-[-2px]">
+                <span className={`text-[8px] font-bold uppercase tracking-widest ${isMine ? "text-white/60" : "text-base-content/40"}`}>{time}</span>
+                <MessageTicks isMine={isMine} delivered={msg.delivered} seen={msg.seen} />
+              </div>
             </div>
           )}
         </motion.div>

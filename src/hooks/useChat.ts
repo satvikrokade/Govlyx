@@ -130,6 +130,27 @@ function mergeMessages(
   );
 }
 
+/**
+ * Patch delivery/seen status onto an existing message by id.
+ * Returns the same array reference if nothing changed (avoids re-render).
+ */
+function applyReceipt(
+  current: ChatMessageDto[],
+  messageId: string,
+  patch: Partial<Pick<ChatMessageDto, "delivered" | "seen">>,
+): ChatMessageDto[] {
+  let changed = false;
+  const next = current.map((m) => {
+    if (m.messageId !== messageId) return m;
+    const updated = { ...m, ...patch };
+    // Only mark as changed if something actually flipped
+    if (patch.delivered !== undefined && !m.delivered && updated.delivered) changed = true;
+    if (patch.seen      !== undefined && !m.seen      && updated.seen)      changed = true;
+    return updated;
+  });
+  return changed ? next : current;
+}
+
 // ── Hook ──────────────────────────────────────────────────────────────────────
 
 export function useChat(): UseChatReturn {
@@ -155,6 +176,23 @@ export function useChat(): UseChatReturn {
   const onTypingRef  = useRef<(n: TypingNotification) => void>(() => {});
   const onMatchRef   = useRef<(n: MatchNotification) => void>(() => {});
 
+  // Queue of partner message IDs received while the tab was hidden/blurred.
+  // Flushed (sendSeen) when the user returns to the tab.
+  const pendingSeenRef = useRef<string[]>([]);
+
+  /** Returns true only when the user is actively looking at this tab. */
+  const _isTabVisible = () =>
+    typeof document !== "undefined" &&
+    document.visibilityState === "visible" &&
+    document.hasFocus();
+
+  /** Drain the pending-seen queue — called on tab focus / visibility restore. */
+  const _flushPendingSeen = useCallback(() => {
+    const ids = pendingSeenRef.current.splice(0);
+    if (ids.length === 0 || !chatSocket.isConnected) return;
+    ids.forEach((id) => chatSocket.sendSeen(id));
+  }, []);
+
   // Global cleanup on unmount
   useEffect(() => {
     return () => {
@@ -164,6 +202,19 @@ export function useChat(): UseChatReturn {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Flush pending seen receipts when the user returns to the tab
+  useEffect(() => {
+    const handleVisible = () => {
+      if (_isTabVisible()) _flushPendingSeen();
+    };
+    document.addEventListener("visibilitychange", handleVisible);
+    window.addEventListener("focus", handleVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisible);
+      window.removeEventListener("focus", handleVisible);
+    };
+  }, [_flushPendingSeen]);
 
   // ── Internal helpers ──────────────────────────────────────────────────────
 
@@ -195,6 +246,18 @@ export function useChat(): UseChatReturn {
   // ── Socket handler implementations (kept fresh via refs) ──────────────────
 
   onMessageRef.current = (msg: ChatMessageDto) => {
+    // ── Delivery receipt: patch the sender-side message, no new bubble ──────
+    if (msg.messageType === "MESSAGE_DELIVERED") {
+      setMessages((prev) => applyReceipt(prev, msg.messageId, { delivered: true }));
+      return;
+    }
+
+    // ── Seen receipt: patch the sender-side message, no new bubble ──────────
+    if (msg.messageType === "MESSAGE_SEEN") {
+      setMessages((prev) => applyReceipt(prev, msg.messageId, { delivered: true, seen: true }));
+      return;
+    }
+
     // MEDIA_WIPED: mark the target message as wiped, clear its payload
     if (msg.messageType === "MEDIA_WIPED") {
       setMessages((prev) =>
@@ -215,7 +278,29 @@ export function useChat(): UseChatReturn {
       _stopPolling();
       return;
     }
+
+    // Regular incoming message — add to list, then send receipts
     setMessages((prev: ChatMessageDto[]) => mergeMessages(prev, [msg]));
+
+    // Only send receipts for real partner text messages (skip own optimistic + system)
+    const myAnonymousId = sessionRef.current?.yourAnonymousId;
+    const isPartnerMsg =
+      msg.senderId !== "SYSTEM" &&
+      msg.senderId !== myAnonymousId &&
+      msg.messageType === "TEXT";
+
+    if (isPartnerMsg && chatSocket.isConnected) {
+      // ── delivered: fires immediately (device received the message) ──
+      chatSocket.sendDelivered(msg.messageId);
+
+      // ── seen: fires only when the user is actually looking at this tab ──
+      // If the tab is hidden or blurred, queue the id and flush on return.
+      if (_isTabVisible()) {
+        chatSocket.sendSeen(msg.messageId);
+      } else {
+        pendingSeenRef.current.push(msg.messageId);
+      }
+    }
   };
 
   onTypingRef.current = (_n: TypingNotification) => {

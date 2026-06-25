@@ -3,6 +3,7 @@
 import { Client, type IMessage, type StompSubscription } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { API_BASE_URL } from "./axiosConfig";
+import { getAuthToken } from "../utils/auth";
 import type {
   ChatMessageDto,
   MatchNotification,
@@ -11,7 +12,7 @@ import type {
 
 // ── Auth helpers ──────────────────────────────────────────────────────────────
 function getToken(): string | null {
-  return localStorage.getItem("token");
+  return getAuthToken();
 }
 
 function buildAuthHeaders(): Record<string, string> {
@@ -133,6 +134,16 @@ class ChatSocketService {
   /** Notify partner of typing → @MessageMapping("/chat.typing") */
   sendTyping(): void {
     this._publish("/app/chat.typing", {});
+  }
+
+  /** Notify sender that their message was delivered → @MessageMapping("/chat.delivered") */
+  sendDelivered(messageId: string): void {
+    this._publish("/app/chat.delivered", { messageId });
+  }
+
+  /** Notify sender that their message was seen → @MessageMapping("/chat.seen") */
+  sendSeen(messageId: string): void {
+    this._publish("/app/chat.seen", { messageId });
   }
 
   get isConnected(): boolean {

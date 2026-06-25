@@ -45,6 +45,61 @@ try {
   console.error("Failed to load translation cache from localStorage", e);
 }
 
+// ─── Translate fallback utility (Google -> Lingva -> MyMemory) ────────────────
+export async function translateTextWithFallback(
+  text: string,
+  targetLang: string
+): Promise<string> {
+  if (!text || targetLang === "en") return text;
+
+  // Protect brand name "Govlyx"
+  const protectedText = text.replace(/Govlyx/gi, "GOVLYXTOKEN");
+  const restoreBrand = (str: string) => str.replace(/GOVLYXTOKEN/gi, "Govlyx");
+
+  // Tier 1: Google Translate
+  try {
+    const url = `/translate-api/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(protectedText)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Google Translate failed with status ${res.status}`);
+    const json = await res.json();
+    const translated = (json[0] as [string, string][])
+      .map((seg) => seg[0])
+      .join("");
+    return restoreBrand(translated || protectedText);
+  } catch (err) {
+    console.warn("Google Translate failed, trying Lingva fallback...", err);
+  }
+
+  // Tier 2: Lingva API
+  try {
+    const url = `/lingva-api/api/v1/auto/${targetLang}/${encodeURIComponent(protectedText)}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Lingva failed with status ${res.status}`);
+    const json = await res.json();
+    if (json && json.translation) {
+      return restoreBrand(json.translation);
+    }
+    throw new Error("Invalid response shape from Lingva");
+  } catch (err) {
+    console.warn("Lingva fallback failed, trying MyMemory...", err);
+  }
+
+  // Tier 3: MyMemory API
+  try {
+    const url = `/mymemory-api/get?q=${encodeURIComponent(protectedText)}&langpair=auto|${targetLang}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`MyMemory failed with status ${res.status}`);
+    const json = await res.json();
+    if (json && json.responseData && json.responseData.translatedText) {
+      return restoreBrand(json.responseData.translatedText);
+    }
+    throw new Error("Invalid response shape from MyMemory");
+  } catch (err) {
+    console.error("All translation layers failed", err);
+    return text;
+  }
+}
+
 // ─── Translate helper (Google unofficial endpoint) ────────────────────────────
 async function googleTranslateBatch(
   texts: string[],
@@ -59,22 +114,14 @@ async function googleTranslateBatch(
     }
 
     try {
-      const protectedText = text.replace(/Govlyx/gi, "GOVLYXTOKEN");
-      const url = `/translate-api/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(protectedText)}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error("Translation failed");
-      const json = await res.json();
-      // Response shape: [[["translatedText","sourceText",...],...],...]
-      const translated = (json[0] as [string, string][])
-        .map((seg) => seg[0])
-        .join("");
-      const restored = (translated || protectedText).replace(/GOVLYXTOKEN/gi, "Govlyx");
-      
-      translationCache.set(cacheKey, restored);
-      try {
-        localStorage.setItem(STORAGE_PREFIX + cacheKey, restored);
-      } catch (e) {
-        console.warn("Failed to save translation cache item to localStorage", e);
+      const restored = await translateTextWithFallback(text, targetLang);
+      if (restored !== text) {
+        translationCache.set(cacheKey, restored);
+        try {
+          localStorage.setItem(STORAGE_PREFIX + cacheKey, restored);
+        } catch (e) {
+          console.warn("Failed to save translation cache item to localStorage", e);
+        }
       }
       return restored;
     } catch (err) {

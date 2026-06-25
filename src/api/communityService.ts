@@ -1,7 +1,7 @@
 import axiosInstance from "./axiosConfig";
 
 export const communityService = {
-  getCommunities: async (params?: Record<string, any>) => {
+  getCommunities: async (params?: Record<string, unknown>) => {
     const response = await axiosInstance.get("/api/communities", { params });
     return response.data;
   },
@@ -21,12 +21,12 @@ export const communityService = {
     return response.data;
   },
 
-  getMembers: async (id: number, params?: Record<string, any>) => {
+  getMembers: async (id: number, params?: Record<string, unknown>) => {
     const response = await axiosInstance.get(`/api/communities/${id}/members`, { params });
     return response.data;
   },
 
-  getJoinRequests: async (id: number, params?: Record<string, any>) => {
+  getJoinRequests: async (id: number, params?: Record<string, unknown>) => {
     const response = await axiosInstance.get(`/api/communities/${id}/join-requests`, { params });
     return response.data;
   },
@@ -67,6 +67,21 @@ export const communityService = {
 
   reportChatMessage: async (id: number, messageId: string, payload: { category: string; description: string }) => {
     const response = await axiosInstance.post(`/api/communities/${id}/chat/messages/${messageId}/report`, payload);
+    return response.data;
+  },
+
+  deleteChatMessage: async (id: number, messageId: number | string) => {
+    const response = await axiosInstance.delete(`/api/communities/${id}/chat/messages/${messageId}`);
+    return response.data;
+  },
+
+  pinChatMessage: async (id: number, messageId: number | string) => {
+    const response = await axiosInstance.post(`/api/communities/${id}/chat/messages/${messageId}/pin`);
+    return response.data;
+  },
+
+  getPinnedMessages: async (id: number) => {
+    const response = await axiosInstance.get(`/api/communities/${id}/chat/pinned`);
     return response.data;
   }
 };

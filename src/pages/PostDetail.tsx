@@ -144,6 +144,9 @@ const PostDetail: React.FC = () => {
           onSave={(savedId, saved) => {
             setPost(prev => prev && prev.id === savedId ? { ...prev, isSaved: saved, isSavedByCurrentUser: saved } as any : prev);
           }}
+          onShare={(shareId) => {
+            setPost(prev => prev && prev.id === shareId ? { ...prev, shareCount: (prev.shareCount ?? 0) + 1 } as any : prev);
+          }}
           onDelete={() => {
             navigate("/", { replace: true });
           }}

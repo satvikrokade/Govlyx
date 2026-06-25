@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X, Check, Crown, Zap, Sparkles, Loader2 } from "lucide-react";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useMyBilling } from "../../hooks/useBilling";
@@ -7,6 +8,52 @@ import { loadRazorpayScript } from "../../utils/razorpay";
 import { showToast } from "../../utils/toast";
 import { toast } from "react-hot-toast";
 import { useQueryClient } from "@tanstack/react-query";
+
+const GOVLYX_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 540">
+  <!-- Circle Background -->
+  <circle cx="256" cy="270" r="230" fill="#1D4ED8" />
+
+  <!-- Dome & Structure (moved upward by 6px) -->
+  <g fill="#FFFFFF" transform="translate(0, -6)">
+    <path d="M256 150c-40 0-72 32-72 72v20h144v-20c0-40-32-72-72-72z"/>
+    <rect x="220" y="242" width="72" height="16"/>
+    <rect x="204" y="220" width="12" height="40"/>
+    <rect x="296" y="220" width="12" height="40"/>
+  </g>
+
+  <!-- Stars -->
+  <g fill="#FFFFFF" transform="translate(0, -6)">
+    <circle cx="170" cy="210" r="6"/>
+    <circle cx="196" cy="230" r="4"/>
+    <circle cx="342" cy="210" r="6"/>
+    <circle cx="318" cy="230" r="4"/>
+    <circle cx="256" cy="190" r="5"/>
+  </g>
+
+  <!-- Circuits Curve -->
+  <path fill="#FFFFFF" d="M150 300h212l-8 16H158z"/>
+
+  <!-- Circuit Lines -->
+  <g fill="#FFFFFF">
+    <rect x="248" y="300" width="16" height="120"/>
+    <rect x="198" y="300" width="16" height="80"/>
+    <rect x="298" y="300" width="16" height="80"/>
+  </g>
+
+  <!-- Circuit Nodes (side circles enlarged) -->
+  <g fill="#FFFFFF">
+    <circle cx="256" cy="440" r="18"/>
+    <circle cx="206" cy="380" r="20"/>
+    <circle cx="306" cy="380" r="20"/>
+  </g>
+
+  <!-- Flag on Dome Top -->
+  <g>
+    <rect x="252" y="118" width="8" height="32" fill="#FFFFFF"/>
+    <path d="M260 118h45v22l-45-8z" fill="#FFFFFF"/>
+    <path d="M260 118l35 16l-35-6z" fill="#FFFFFF" opacity="0.4"/>
+  </g>
+</svg>`;
 
 interface PricingModalProps {
   isOpen: boolean;
@@ -47,6 +94,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
         amount: tier === "GOVLYX_VIP" ? 14900 : 4900, // paise (₹149 / ₹49)
         currency: "INR",
         name: "Govlyx",
+        image: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(GOVLYX_LOGO_SVG)))}`,
         description: tier === "GOVLYX_VIP" ? "Govlyx VIP Monthly Pass" : "Govlyx Pro Monthly Pass",
         order_id: orderData.orderId,
         handler: async (response: any) => {
@@ -92,7 +140,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
       <div className="relative w-full max-w-4xl rounded-2xl bg-base-200 border border-base-300 p-6 sm:p-8 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
         
@@ -181,7 +229,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 <span className="text-3xl font-black text-base-content">₹49</span>
                 <span className="text-xs opacity-60">/month</span>
               </div>
-              <p className="text-xs opacity-70 mb-6">Enhance your communication and create private groups.</p>
+              <p className="text-xs opacity-70 mb-6">Enhance your communication and create exclusive groups.</p>
               
               <div className="divider my-0 opacity-40" />
               
@@ -196,7 +244,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 </li>
                 <li className="flex items-start gap-2 font-semibold">
                   <Check size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                  <span>Create 3 Private Communities</span>
+                  <span>Create 3 Private or Secret Communities</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check size={14} className="text-blue-500 shrink-0 mt-0.5" />
@@ -263,7 +311,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 </li>
                 <li className="flex items-start gap-2 font-semibold">
                   <Check size={14} className="text-amber-500 shrink-0 mt-0.5" />
-                  <span>Create 5 Private Communities</span>
+                  <span>Create 5 Private or Secret Communities</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check size={14} className="text-amber-500 shrink-0 mt-0.5" />
@@ -296,6 +344,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
           <p>By upgrading, you agree to our Terms of Service and Refund Policy.</p>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -27,6 +27,7 @@ import {
   getPincodeDistricts,
 } from "../api/departmentService";
 import { apiUrl } from "../utils/apiUrl";
+import { getAuthToken } from "../utils/auth";
 import type {
   DashboardTab,
   IssueFilter,
@@ -42,7 +43,7 @@ function useCurrentUser() {
   const [username, setUsername] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
-    const token = localStorage.getItem("token");
+    const token = getAuthToken();
     fetch(apiUrl("/api/users/me"), {
       headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     })

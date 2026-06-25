@@ -10,6 +10,21 @@ interface UserProfile {
   profileImage: string | null;
 }
 
+function normalizeMessage(msg: any): CommunityMessage {
+  if (!msg) return msg;
+  const normalized = { ...msg };
+  if (normalized.pinned !== undefined && normalized.isPinned === undefined) {
+    normalized.isPinned = normalized.pinned;
+  }
+  if (normalized.deleted !== undefined && normalized.isDeleted === undefined) {
+    normalized.isDeleted = normalized.deleted;
+  }
+  if (normalized.edited !== undefined && normalized.isEdited === undefined) {
+    normalized.isEdited = normalized.edited;
+  }
+  return normalized;
+}
+
 export function useCommunityChat(communityId: number, currentUser: UserProfile | null) {
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [typingUsers, setTypingUsers] = useState<{ [userId: number]: { username: string; timestamp: number } }>({});
@@ -17,6 +32,7 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
   const [isFetchingMore, setIsFetchingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pinnedMessage, setPinnedMessage] = useState<CommunityMessage | null>(null);
 
   const lastTypingSentRef = useRef<number>(0);
   const pendingMessagesRef = useRef<Set<string>>(new Set());
@@ -26,6 +42,7 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
     if (!communityId) return;
     setIsLoading(true);
     setError(null);
+    setPinnedMessage(null); // Clear pinned message on room switch
     try {
       const response = await communityService.getChatMessages(communityId, null, 25);
       // Expected structure: ApiResponse<CommunityMessage[]> or direct list or paginated payload
@@ -45,10 +62,28 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
           : list.length >= 25);
 
       // If descending (newest first), reverse it so older is at the top, newer is at bottom
-      const sorted = [...list].reverse();
+      const sorted = [...list].reverse().map(normalizeMessage);
       setMessages(sorted);
       setHasMore(hasMoreFlag);
-    } catch (err: any) {
+
+      // Fetch pinned messages
+      try {
+        if (communityService.getPinnedMessages) {
+          const pinRes = await communityService.getPinnedMessages(communityId);
+          const pinList = pinRes?.data ?? pinRes;
+          if (Array.isArray(pinList) && pinList.length > 0) {
+            const firstPin = normalizeMessage(pinList[0]);
+            if (firstPin && !firstPin.isDeleted) {
+              setPinnedMessage(firstPin);
+            } else {
+              setPinnedMessage(null);
+            }
+          }
+        }
+      } catch (pinErr) {
+        console.error("Failed to load pinned messages:", pinErr);
+      }
+    } catch (err) {
       console.error("Failed to load initial chat history:", err);
       setError("Failed to load chat history.");
     } finally {
@@ -80,9 +115,11 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
           : list.length >= 25);
 
       if (list.length === 0) {
-        hasMore && setHasMore(false);
+        if (hasMore) {
+          setHasMore(false);
+        }
       } else {
-        const sorted = [...list].reverse();
+        const sorted = [...list].reverse().map(normalizeMessage);
         setMessages((prev) => [...sorted, ...prev]);
         setHasMore(hasMoreFlag);
       }
@@ -94,7 +131,51 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
   }, [communityId, messages, isFetchingMore, hasMore]);
 
   // ── 3. WebSocket Handlers ──
-  const handleIncomingMessage = useCallback((msg: CommunityMessage) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleIncomingMessage = useCallback((rawMsg: any) => {
+    const msg = normalizeMessage(rawMsg);
+    if (msg.isDeleted === true) {
+      setPinnedMessage((currentPin) => {
+        const pinId = currentPin?.id || currentPin?.messageId;
+        const msgId = msg.id || msg.messageId;
+        if (pinId && msgId && String(pinId) === String(msgId)) {
+          return null;
+        }
+        return currentPin;
+      });
+      setMessages((prev) =>
+        prev.map((m) => {
+          const id = m.id || m.messageId;
+          if (id && String(id) === String(msg.messageId || msg.id)) {
+            return {
+              ...m,
+              isDeleted: true,
+              deletedByType: msg.deletedByType || "USER",
+              content: msg.deletedByType === "ADMINISTRATOR" ? "This message was deleted by the administrator" : "This message was deleted by the user",
+            };
+          }
+          return m;
+        })
+      );
+      return;
+    }
+
+    // Handle pin updates via websocket
+    if (typeof msg.isPinned === "boolean") {
+      setPinnedMessage((currentPin) => {
+        if (msg.isPinned) {
+          return msg;
+        } else {
+          const pinId = currentPin?.id || currentPin?.messageId;
+          const msgId = msg.id || msg.messageId;
+          if (pinId && msgId && String(pinId) === String(msgId)) {
+            return null;
+          }
+        }
+        return currentPin;
+      });
+    }
+
     setMessages((prev) => {
       // 1. Check if this resolves an optimistic/pending message
       // Since backend doesn't return clientSideId, we match by sender and content:
@@ -108,12 +189,20 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
         return updated;
       }
 
-      // 2. Prevent duplication of messages that are already in list
+      // 2. If message is already in the list, update it in place (e.g. pin toggles, edits)
       if (prev.some((m) => m.id === msg.id)) {
-        return prev;
+        return prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m));
       }
 
-      // 3. Otherwise append new message to the bottom
+      // 3. Prevent appending older messages (like pin-updates for history messages) to the bottom
+      if (prev.length > 0) {
+        const lastMsg = prev[prev.length - 1];
+        if (msg.id && lastMsg.id && msg.id < lastMsg.id) {
+          return prev;
+        }
+      }
+
+      // 4. Otherwise append new message to the bottom
       return [...prev, msg];
     });
   }, []);
@@ -134,6 +223,7 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
     if (!communityId) return;
 
     // Trigger initial REST fetch
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchInitialMessages();
 
     // Connect & subscribe
@@ -186,6 +276,14 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
         });
         return filtered.length === prev.length ? prev : filtered;
       });
+
+      setPinnedMessage((prevPin) => {
+        if (!prevPin || !prevPin.expiresAt) return prevPin;
+        if (new Date(prevPin.expiresAt).getTime() <= now) {
+          return null;
+        }
+        return prevPin;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
@@ -237,6 +335,15 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
     }
   }, [communityId]);
 
+  const deleteMessage = useCallback(async (messageId: number | string) => {
+    try {
+      await communityService.deleteChatMessage(communityId, messageId);
+    } catch (err) {
+      console.error("Failed to delete community message:", err);
+      throw err;
+    }
+  }, [communityId]);
+
   return {
     messages,
     typingUsers: Object.values(typingUsers),
@@ -249,5 +356,7 @@ export function useCommunityChat(communityId: number, currentUser: UserProfile |
     sendTyping,
     loadMoreMessages,
     fetchInitialMessages,
+    deleteMessage,
+    pinnedMessage,
   };
 }

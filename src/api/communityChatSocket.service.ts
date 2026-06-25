@@ -1,16 +1,11 @@
 import { Client, type IMessage, type StompSubscription } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import { API_BASE_URL } from "./axiosConfig";
+import { getAuthToken } from "../utils/auth";
 import type { CommunityMessage, TypingIndicator } from "../types/CommunityChat.types";
 
 function getToken(): string | null {
-  return (
-    localStorage.getItem("authToken") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("jwt") ||
-    localStorage.getItem("access_token") ||
-    null
-  );
+  return getAuthToken();
 }
 
 function buildAuthHeaders(): Record<string, string> {

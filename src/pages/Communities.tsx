@@ -28,6 +28,7 @@ import type { CurrentUser as CardUser } from "../components/post/PostCard";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import ConfirmModal from "../components/post/ConfirmModal";
 import LimitReachedModal from "../components/modals/LimitReachedModal";
+import { getAuthToken } from "../utils/auth";
 import { useMyBilling } from "../hooks/useBilling";
 import PricingModal from "../components/billing/PricingModal";
 import { toPostCardPost } from "../utils/postUtils";
@@ -116,13 +117,7 @@ interface CreateForm {
 
 /* ─── auth ──────────────────────────────────────────────────────────────── */
 function getToken(): string | null {
-  return (
-    localStorage.getItem("authToken") ||
-    localStorage.getItem("token") ||
-    localStorage.getItem("jwt") ||
-    localStorage.getItem("access_token") ||
-    null
-  );
+  return getAuthToken();
 }
 function hdrs(): Record<string, string> {
   const t = getToken();
@@ -162,6 +157,11 @@ interface Post {
   timeAgo?: string;
   createdAt?: string;
   isLikedByMe?: boolean;
+  likedByMe?: boolean;
+  isSavedByMe?: boolean;
+  savedByMe?: boolean;
+  isPoll?: boolean;
+  [key: string]: any; // allow extra backend fields (e.g. poll data, feedReach)
 }
 
 
@@ -2227,10 +2227,11 @@ function DetailPanel({
       const postData = raw?.data || raw;
       return toPostCardPost({
         ...postData,
-        variant: "social",
+        variant: postData.isPoll ? "poll" : "social",
         username: postData.authorUsername || postData.username,
         userProfileImage: postData.authorProfileImage || postData.userProfileImage,
-        isLikedByCurrentUser: postData.isLikedByMe || postData.isLikedByCurrentUser,
+        isLikedByCurrentUser: postData.isLikedByMe ?? postData.likedByMe ?? postData.isLikedByCurrentUser ?? false,
+        isSavedByCurrentUser: postData.isSavedByMe ?? postData.savedByMe ?? postData.isSavedByCurrentUser ?? postData.isSaved ?? false,
         communityId: c.id,
         communityName: c.name,
         communityAvatar: c.avatarUrl || undefined,
@@ -2407,6 +2408,21 @@ function DetailPanel({
     });
   }, [queryClient, updatePostState]);
 
+  const handleShare = useCallback((postId: number) => {
+    updatePostState(postId, (p: any) => ({
+      ...p,
+      shareCount: (p.shareCount ?? 0) + 1
+    }));
+
+    queryClient.setQueryData(["social-post", String(postId)], (prev: any) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        shareCount: (prev.shareCount ?? 0) + 1
+      };
+    });
+  }, [queryClient, updatePostState]);
+
   async function handleLeaveConfirm() {
     setActing(true);
     setShowLeaveConfirm(false);
@@ -2563,6 +2579,7 @@ function DetailPanel({
                         hideCommunityStrip={true}
                         onLike={handleLike}
                         onSave={handleSave}
+                        onShare={handleShare}
                         onShareToCommunity={(c.isMember || c.isOwner) ? (postId, content) => sharePostToChat(postId, content) : undefined}
                       />
                     )}
@@ -2625,10 +2642,11 @@ function DetailPanel({
                     {posts.map(post => {
                       const cardPost = toPostCardPost({
                         ...post,
-                        variant: "social", // allow toPostCardPost to re-detect if it's a poll
+                        variant: post.isPoll ? "poll" : "social", // allow toPostCardPost to re-detect if it's a poll
                         username: post.authorUsername,
                         userProfileImage: post.authorProfileImage,
-                        isLikedByCurrentUser: post.isLikedByMe,
+                        isLikedByCurrentUser: post.isLikedByMe ?? post.likedByMe ?? post.isLikedByCurrentUser,
+                        isSavedByCurrentUser: post.isSavedByMe ?? post.savedByMe ?? post.isSavedByCurrentUser,
                         communityId: c.id,
                         communityName: c.name,
                         communityAvatar: c.avatarUrl || undefined,
@@ -2644,6 +2662,7 @@ function DetailPanel({
                             hideCommunityStrip={true}
                             onLike={handleLike}
                             onSave={handleSave}
+                            onShare={handleShare}
                             onShareToCommunity={(c.isMember || c.isOwner) ? (postId, content) => sharePostToChat(postId, content) : undefined}
                           />
                         </div>
@@ -2874,6 +2893,8 @@ function RecommendedCarousel({
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [visibleCards, setVisibleCards] = useState(3);
+  const [transitionEnabled, setTransitionEnabled] = useState(true);
+  const [isAnimating, setIsAnimating] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartX = useRef<number | null>(null);
 
@@ -2893,34 +2914,64 @@ function RecommendedCarousel({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  const maxIndex = Math.max(0, recommended.length - visibleCards);
-
   const nextSlide = useCallback(() => {
-    if (recommended.length === 0) return;
+    if (recommended.length === 0 || recommended.length <= visibleCards || isAnimating) return;
+    setIsAnimating(true);
     setActiveIndex((prev) => {
-      if (prev >= maxIndex) {
-        return 0; // Wrap around to start
+      if (prev >= recommended.length) {
+        return 1;
       }
       return prev + 1;
     });
-  }, [recommended.length, maxIndex]);
+  }, [recommended.length, visibleCards, isAnimating]);
 
   const prevSlide = useCallback(() => {
-    if (recommended.length === 0) return;
-    setActiveIndex((prev) => {
-      if (prev <= 0) {
-        return maxIndex; // Wrap around to end
-      }
-      return prev - 1;
-    });
-  }, [recommended.length, maxIndex]);
-
-  // Adjust activeIndex if window resized and activeIndex exceeds maxIndex
-  useEffect(() => {
-    if (activeIndex > maxIndex) {
-      setActiveIndex(maxIndex);
+    if (recommended.length === 0 || recommended.length <= visibleCards || isAnimating) return;
+    setIsAnimating(true);
+    if (activeIndex === 0) {
+      setTransitionEnabled(false);
+      setActiveIndex(recommended.length);
+      setTimeout(() => {
+        setTransitionEnabled(true);
+        setActiveIndex(recommended.length - 1);
+      }, 30);
+    } else {
+      setActiveIndex((prev) => prev - 1);
     }
-  }, [maxIndex, activeIndex]);
+  }, [recommended.length, activeIndex, visibleCards, isAnimating]);
+
+  // Reset activeIndex if it gets out of bounds
+  useEffect(() => {
+    if (activeIndex > recommended.length) {
+      setActiveIndex(0);
+    }
+  }, [recommended.length, activeIndex]);
+
+  // Handle instant wrap-around and animation state unlock after transition completes
+  useEffect(() => {
+    if (recommended.length <= visibleCards) return;
+    
+    let timer: ReturnType<typeof setTimeout>;
+    
+    if (activeIndex === recommended.length) {
+      timer = setTimeout(() => {
+        setTransitionEnabled(false);
+        setActiveIndex(0);
+        setTimeout(() => {
+          setTransitionEnabled(true);
+          setIsAnimating(false);
+        }, 30);
+      }, 500); // match transition duration-500
+    } else if (isAnimating) {
+      timer = setTimeout(() => {
+        setIsAnimating(false);
+      }, 500); // transition length
+    }
+    
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [activeIndex, recommended.length, visibleCards, isAnimating]);
 
   // Autoplay loop
   useEffect(() => {
@@ -2961,17 +3012,20 @@ function RecommendedCarousel({
   const getCardImage = (c: CommunityData) => {
     let url = c.coverImageUrl || c.avatarUrl || "";
     if (!url) {
-      // Return a nice default Unsplash pattern if no image exists
       return `https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=500&q=80`;
     }
     if (url.includes("unsplash.com")) {
-      // Replace w=150 with w=500 for crisp quality on large displays
       url = url.replace(/w=\d+/, "w=500").replace(/q=\d+/, "q=90");
     }
     return url;
   };
 
-  const dotCount = recommended.length - visibleCards + 1;
+  const extendedRecommended = recommended.length > visibleCards
+    ? [...recommended, ...recommended.slice(0, visibleCards)]
+    : recommended;
+
+  const dotCount = recommended.length;
+  const activeDotIndex = activeIndex % recommended.length;
 
   return (
     <div 
@@ -3024,15 +3078,15 @@ function RecommendedCarousel({
           onTouchEnd={handleTouchEnd}
         >
           <div 
-            className="flex transition-transform duration-500 ease-out -mx-2.5"
+            className={`flex -mx-2.5 ${transitionEnabled ? "transition-transform duration-500 ease-out" : ""}`}
             style={{
               transform: `translateX(-${activeIndex * (100 / visibleCards)}%)`
             }}
           >
-            {recommended.map((c) => {
+            {extendedRecommended.map((c, index) => {
               return (
                 <div
-                  key={c.id}
+                  key={`${c.id}-${index}`}
                   style={{
                     width: `${100 / visibleCards}%`,
                     flexShrink: 0,
@@ -3041,7 +3095,7 @@ function RecommendedCarousel({
                   onClick={() => onSelect(c)}
                 >
                   {/* Card Container */}
-                  <div className="w-full bg-base-100 rounded-3xl border border-base-200/80 p-4.5 flex flex-col justify-between shadow-[0_4px_18px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.07)] transition-all duration-300 h-[310px] cursor-pointer hover:border-base-300">
+                  <div className="w-full bg-base-100 rounded-3xl border border-base-300 p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-300 h-[310px] cursor-pointer hover:border-base-content/20">
                     <div className="flex flex-col h-full justify-between">
                       <div>
                         {/* Cover Image at Top */}
@@ -3111,9 +3165,14 @@ function RecommendedCarousel({
           {Array.from({ length: dotCount }).map((_, i) => (
             <button
               key={i}
-              onClick={() => setActiveIndex(i)}
+              onClick={() => {
+                if (isAnimating) return;
+                setIsAnimating(true);
+                setTransitionEnabled(true);
+                setActiveIndex(i);
+              }}
               className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                activeIndex === i ? "bg-[#1D4ED8] w-5" : "bg-base-content/20 w-2"
+                activeDotIndex === i ? "bg-[#1D4ED8] w-5" : "bg-base-content/20 w-2"
               }`}
               aria-label={`Go to slide ${i + 1}`}
             />

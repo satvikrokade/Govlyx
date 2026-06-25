@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, ShieldCheck, Crown, Zap, Clock } from "lucide-react";
 import axiosInstance from "../../api/axiosConfig";
 import { resolveMediaUrl } from "../../utils/postUtils";
+import { useCurrentUser } from "../../hooks/useUser";
+import { useMyBilling } from "../../hooks/useBilling";
 
 type Props = {
   isOpen: boolean;
@@ -45,16 +47,36 @@ export default function UserProfileModal({
   fallbackDisplayName,
   fallbackProfileImage,
 }: Props) {
+  const { data: currentUser } = useCurrentUser();
+  const { data: billing } = useMyBilling();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !username) return;
 
+    const cleanQuery = cleanEmail(username);
+
+    // If it's the current user, resolve immediately from active context
+    const isSelf = currentUser && (
+      cleanEmail(currentUser.actualUsername || currentUser.username || "").toLowerCase() === cleanQuery.toLowerCase() ||
+      cleanEmail(currentUser.username || "").toLowerCase() === cleanQuery.toLowerCase()
+    );
+
+    if (isSelf) {
+      setProfile({
+        username: currentUser.username,
+        actualUsername: currentUser.actualUsername || currentUser.username,
+        profileImage: currentUser.profileImage || null,
+        createdAt: currentUser.createdAt || null,
+        tier: billing?.currentTier || "GOVLYX_FREE"
+      });
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setProfile(null);
-
-    const cleanQuery = cleanEmail(username);
 
     axiosInstance
       .get(`/api/users/search?query=${encodeURIComponent(cleanQuery)}&limit=10`)
@@ -69,11 +91,19 @@ export default function UserProfileModal({
           const match = data.find((u: any) => {
             const candidate1 = cleanEmail(u.actualUsername || u.username || "").toLowerCase();
             const candidate2 = cleanEmail(u.username || "").toLowerCase();
+            const candidate3 = cleanEmail(u.displayName || "").toLowerCase();
             const target = cleanQuery.toLowerCase();
-            return candidate1 === target || candidate2 === target;
+            return (
+              candidate1 === target ||
+              candidate2 === target ||
+              candidate3 === target
+            );
           });
           if (match) {
-            setProfile(match);
+            setProfile({
+              ...match,
+              actualUsername: match.actualUsername || match.displayName || match.username
+            });
             return;
           }
         }
@@ -99,7 +129,7 @@ export default function UserProfileModal({
       .finally(() => {
         setLoading(false);
       });
-  }, [isOpen, username, fallbackDisplayName, fallbackProfileImage]);
+  }, [isOpen, username, fallbackDisplayName, fallbackProfileImage, currentUser, billing]);
 
   return (
     <AnimatePresence>
@@ -147,7 +177,7 @@ export default function UserProfileModal({
                           "social-posts"
                         ) ||
                         `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(
-                          profile.username || username
+                          profile.actualUsername || username
                         )}`
                       }
                       alt="User Avatar"
@@ -165,7 +195,7 @@ export default function UserProfileModal({
                     <ShieldCheck size={16} className="text-[#1D4ED8] shrink-0" />
                   </div>
                   <p className="text-[10px] text-base-content/40 font-black uppercase tracking-wider notranslate">
-                    @{cleanEmail(profile.username || username)}
+                    @{profile.actualUsername || username}
                   </p>
                 </div>
 

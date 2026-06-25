@@ -107,6 +107,8 @@ export function toPostCardPost(dto: any): AnyPost {
     timeAgo,
     contentHidden: dto.contentHidden || dto.isFlagged || dto.status === "FLAGGED" || false,
     hiddenReason: dto.hiddenReason || dto.flagReason || "Violates community guidelines",
+    isLikedByCurrentUser: dto.isLikedByMe ?? dto.likedByMe ?? dto.isLikedByCurrentUser ?? false,
+    isSavedByCurrentUser: dto.isSavedByMe ?? dto.savedByMe ?? dto.isSavedByCurrentUser ?? dto.isSaved ?? false,
   };
 
   // If it's explicitly a government post or is marked as a government broadcast

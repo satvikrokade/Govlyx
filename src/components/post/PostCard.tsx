@@ -41,6 +41,8 @@ import { checkProfanity } from "../../utils/profanity";
 import { showToast } from "../../utils/toast";
 import { parseError } from "../../utils/error-handler";
 import { useTheme } from "../../hooks/useTheme";
+import { getAuthToken } from "../../utils/auth";
+import { translateText } from "../../context/LanguageContext";
 
 const POST_ACTION_ACTIVE_CLASS = "text-[#1d4ed8] dark:text-white bg-[#1d4ed8]/10 border-[#1d4ed8]/30 dark:border-white";
 const POST_ACTION_HOVER_GLOW = "rgba(29,78,216,0.65)";
@@ -96,7 +98,7 @@ function PostActionGif({
 
 // ─── API helpers ──────────────────────────────────────────────────────────────
 async function apiFetch(url: string, method: string, body?: unknown): Promise<unknown> {
-  const token = localStorage.getItem("authToken") ?? localStorage.getItem("token");
+  const token = getAuthToken();
   const res = await fetch(apiUrl(url), {
     method,
     headers: {
@@ -1833,29 +1835,17 @@ export default function PostCard({
 
     setIsTranslating(true);
     try {
-      const res = await fetch(
-        `/translate-api/translate_a/single?client=gtx&sl=auto&tl=${preferredLang}&dt=t&q=${encodeURIComponent(post.content || "")}`
-      );
-      if (res.status === 429) {
-        throw new Error("RATE_LIMIT");
-      }
-      if (!res.ok) throw new Error("Translation request failed");
-      const data = await res.json();
-      if (Array.isArray(data) && data[0]) {
-        const translatedText = data[0].map((item: any) => item[0]).join("");
+      const translatedText = await translateText(post.content || "", preferredLang);
+      if (translatedText && translatedText !== post.content) {
         postTranslationCache.set(cacheKey, translatedText);
         setDynamicTranslation(translatedText);
         setShowOriginal(false);
       } else {
-        throw new Error("Invalid response format");
+        throw new Error("Translation failed or returned original text");
       }
     } catch (err: any) {
       console.error("Translation failed", err);
-      if (err.message === "RATE_LIMIT") {
-        showToast.error("Translation service is busy. Please try again later.");
-      } else {
-        showToast.error("Failed to translate post. Please try again.");
-      }
+      showToast.error("Failed to translate post. Please try again.");
     } finally {
       setIsTranslating(false);
     }

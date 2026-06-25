@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
 import { useTheme } from "../hooks/useTheme";
+import { getAuthToken, clearAuthTokens } from "../utils/auth";
 import { useLanguage, SUPPORTED_LANGUAGES, type LangCode } from "../context/LanguageContext";
 import GovlyxLogo from "../components/ui/GovlyxLogo";
 import { 
@@ -52,16 +53,15 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
-// Helper check for logged-in user session
 const isLoggedIn = (): boolean => {
-  const token = localStorage.getItem("token") || localStorage.getItem("authToken");
+  const token = getAuthToken();
   if (!token) return false;
 
   try {
     const decoded = jwtDecode<{ exp: number }>(token);
     const isExpired = decoded.exp * 1000 < Date.now();
     if (isExpired) {
-      localStorage.removeItem("token");
+      clearAuthTokens();
       return false;
     }
     return true;

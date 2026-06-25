@@ -45,6 +45,10 @@ export function parseError(err: unknown): string {
         .join(", ");
       return fieldErrors || data.error || data.message;
     }
+    // For authentication/registration requests, prefer user-friendly message over generic error categories
+    if (err.config?.url?.includes("/api/auth/")) {
+      return data.message || data.error || "Request failed";
+    }
     // Return detailed error first, fallback to message
     return data.error || data.message || "Request failed";
   }

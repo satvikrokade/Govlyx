@@ -552,13 +552,19 @@ const Settings = () => {
                 })}
               </p>
             )}
-            <p className="text-xs opacity-60 leading-relaxed max-w-xl">
-              {billing?.currentTier === "GOVLYX_VIP" 
-                ? "Priority matchmaking, disappearing messages settings, toggle pinning in chat, and 5 private community creation quota." 
-                : billing?.currentTier === "GOVLYX_PRO" 
+            {billing?.currentTier === "GOVLYX_VIP" ? (
+              <p className="text-xs opacity-60 leading-relaxed max-w-[370px]">
+                Priority matchmaking, disappearing messages settings,
+                <br />
+                toggle pinning in chat, and 5 private community creation quota.
+              </p>
+            ) : (
+              <p className="text-xs opacity-60 leading-relaxed max-w-xl">
+                {billing?.currentTier === "GOVLYX_PRO" 
                   ? "Unlimited matchmaking, chat media, matchmaking filters, and 3 private community creation quota." 
                   : "3 matches per day limit. Text-only stranger chat."}
-            </p>
+              </p>
+            )}
             {billing?.currentTier !== "GOVLYX_FREE" && typeof billing?.privateCommunityQuota === "number" && (
               <div className="pt-1 text-xs font-semibold text-blue-700 dark:text-blue-400">
                 Private Community Quota: {billing.privateCommunityQuota} remaining
