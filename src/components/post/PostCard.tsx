@@ -1812,7 +1812,19 @@ export default function PostCard({
   );
   const [shareCount, setShareCount] = useState(post?.shareCount ?? 0);
   const [commentCount, setCommentCount] = useState(post?.commentCount ?? 0);
-  const [hasSharedLocally, setHasSharedLocally] = useState(false);
+  const [hasSharedLocally, setHasSharedLocally] = useState(() => {
+    if (!post) return false;
+    const isIssue = post.variant === "issue";
+    const isGovt = post.variant === "government";
+    const type = (isIssue || isGovt) ? "posts" : "social-posts";
+    const userId = currentUserProfile?.id || currentUser?.id || currentUserProfile?.username || currentUser?.username || "guest";
+    const key = `govlyx_shared_${userId}_${type}_${post.id}`;
+    try {
+      return localStorage.getItem(key) === "true";
+    } catch {
+      return false;
+    }
+  });
   const [resolveOpen, setResolveOpen] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
@@ -1991,9 +2003,19 @@ export default function PostCard({
       setIsContentRevealed(false);
       setDynamicTranslation(null);
       setShowOriginal(false);
-      setHasSharedLocally(false);
+      
+      const isIssue = post.variant === "issue";
+      const isGovt = post.variant === "government";
+      const type = (isIssue || isGovt) ? "posts" : "social-posts";
+      const userId = currentUserProfile?.id || currentUser?.id || currentUserProfile?.username || currentUser?.username || "guest";
+      const key = `govlyx_shared_${userId}_${type}_${post.id}`;
+      try {
+        setHasSharedLocally(localStorage.getItem(key) === "true");
+      } catch {
+        setHasSharedLocally(false);
+      }
     }
-  }, [post]);
+  }, [post, currentUserProfile, currentUser]);
 
   useEffect(() => {
     if (post?.id) {
@@ -2094,6 +2116,7 @@ export default function PostCard({
       } else if (e.detail.source === 'share') {
         if (e.detail.shareCount !== undefined) {
           setShareCount(e.detail.shareCount);
+          setHasSharedLocally(true);
           // Notify parent to sync cache
           callbacksRef.current.onShare?.(post.id);
         }
@@ -2524,6 +2547,18 @@ export default function PostCard({
         const nextShareCount = shareCount + 1;
         setShareCount(nextShareCount);
         setHasSharedLocally(true);
+        if (post) {
+          const isIssue = post.variant === "issue";
+          const isGovt = post.variant === "government";
+          const type = (isIssue || isGovt) ? "posts" : "social-posts";
+          const userId = currentUserProfile?.id || currentUser?.id || currentUserProfile?.username || currentUser?.username || "guest";
+          const key = `govlyx_shared_${userId}_${type}_${post.id}`;
+          try {
+            localStorage.setItem(key, "true");
+          } catch (e) {
+            console.error("Failed to save share to localStorage", e);
+          }
+        }
         onShare?.(post.id);
         
         window.dispatchEvent(new CustomEvent('POST_SYNC', {

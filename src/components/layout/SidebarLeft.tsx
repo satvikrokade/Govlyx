@@ -11,10 +11,13 @@ import {
   Inbox,
   Megaphone,
   BarChart2,
+  Crown,
+  Zap,
 } from "lucide-react";
 import { useTheme } from "../../hooks/useTheme";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useUnreadNotificationsCount } from "../../hooks/useNotification";
+import { useMyBilling } from "../../hooks/useBilling";
 import { useQuery } from "@tanstack/react-query";
 import { resolveMediaUrl } from "../../utils/postUtils";
 import { getUserRole } from "../../utils/auth";
@@ -155,6 +158,7 @@ const ADMIN_NAV_SECTIONS = [
 const SidebarLeft = () => {
   const { data: user, isLoading: loading } = useCurrentUser();
   const { data: unreadCount } = useUnreadNotificationsCount();
+  const { data: billing } = useMyBilling();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
 
@@ -247,20 +251,60 @@ const SidebarLeft = () => {
   const navItemActive = "bg-[#1D4ED8] text-white font-bold";
   const navItemInactive = "hover:bg-base-300 text-base-content/70";
 
+  const tier = billing?.currentTier || "GOVLYX_FREE";
+
+  const passBadge = (() => {
+    if (tier === "GOVLYX_VIP") {
+      return {
+        borderColor: "border-amber-500 dark:border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+        badgeBg: "bg-amber-500 text-white",
+        icon: <Crown className="w-2.5 h-2.5" />,
+        text: "VIP",
+        textClass: "text-amber-500 font-bold",
+        bgLight: "bg-amber-500/10 text-amber-500 border-amber-500/20"
+      };
+    }
+    if (tier === "GOVLYX_PRO") {
+      return {
+        borderColor: "border-blue-500 dark:border-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.6)]",
+        badgeBg: "bg-blue-500 text-white",
+        icon: <Zap className="w-2.5 h-2.5" />,
+        text: "PRO",
+        textClass: "text-blue-500 font-bold",
+        bgLight: "bg-blue-500/10 text-blue-500 border-blue-500/20"
+      };
+    }
+    return null;
+  })();
+
   return (
     <aside className="flex min-h-full flex-col gap-4 pb-8">
 
       {/* Profile Card */}
-      <div className="rounded-xl bg-base-200 p-4">
+      <div className="rounded-xl bg-base-200 p-4 shadow-sm border border-base-content/5">
         <div className="flex items-center gap-3">
-          <div className="avatar placeholder">
-            <div className="w-10 rounded-full overflow-hidden bg-base-200 border-2 border-[#1D4ED8] dark:border-white">
+          <div className="avatar placeholder relative">
+            <div className={`w-10 h-10 rounded-full overflow-hidden bg-base-200 border-2 transition-all ${passBadge ? passBadge.borderColor : "border-[#1D4ED8] dark:border-white"}`}>
               <img src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(displayName)}`} alt="Avatar" className="w-full h-full object-cover" />
             </div>
+            {passBadge && (
+              <div className={`absolute -top-1 -left-1 w-4.5 h-4.5 rounded-full ${passBadge.badgeBg} border border-white dark:border-base-200 flex items-center justify-center shadow-md`}>
+                {passBadge.icon}
+              </div>
+            )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="font-semibold text-sm truncate notranslate" title={displayName}>{displayName}</p>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <p className="font-semibold text-sm truncate notranslate" title={displayName}>{displayName}</p>
+              {passBadge && (
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${passBadge.bgLight} shrink-0`}>
+                  {passBadge.icon}
+                  <span>{passBadge.text}</span>
+                </span>
+              )}
+            </div>
             {isAdmin && <p className="text-[10px] font-mono uppercase tracking-wider text-green-500 opacity-80">Admin</p>}
+            {isDept && <p className="text-[10px] font-mono uppercase tracking-wider text-blue-500 opacity-80">Dept</p>}
           </div>
         </div>
       </div>

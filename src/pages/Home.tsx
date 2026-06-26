@@ -17,7 +17,8 @@ const FEED_SIZE = 10;
 
 function useFeed(sourceTab: string, sortTab: string) {
   const queryClient = useQueryClient();
-  const queryKey = ["feed", sourceTab, sortTab];
+  const { data: user } = useCurrentUser();
+  const queryKey = ["feed", sourceTab, sortTab, user?.pincode];
 
   const {
     data,
@@ -32,14 +33,20 @@ function useFeed(sourceTab: string, sortTab: string) {
   } = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam = null }: { pageParam?: number | null }) => {
-      const params = {
+      const params: any = {
         sort: sortTab.toUpperCase(),
         size: FEED_SIZE,
         ...(pageParam !== null && { lastPostId: pageParam })
       };
 
       let endpoint = "/api/v1/feed/for-you";
-      if (sourceTab === "location") endpoint = "/api/v1/feed/local";
+      if (sourceTab === "location") {
+        endpoint = "/api/v1/feed/local";
+        if (user?.pincode) {
+          params.pincode = user.pincode;
+          params.targetPincode = user.pincode;
+        }
+      }
       else if (sourceTab === "following") endpoint = "/api/v1/feed/following";
       else if (sourceTab === "official") endpoint = "/api/v1/feed/official";
 
