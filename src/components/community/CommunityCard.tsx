@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Users, Lock, EyeOff, ArrowRight } from "lucide-react";
+import { Users, Lock, EyeOff, ArrowRight, Trophy, TrendingUp } from "lucide-react";
 
 export type CommunityCardProps = {
   id: number;
@@ -12,10 +12,12 @@ export type CommunityCardProps = {
   isMember?: boolean;
   isOwner?: boolean;
   hasPendingRequest?: boolean;
+  rankLabel?: string;
+  momentumScore?: number;
   onClick?: () => void;
 };
 
-const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privacy, isMember, isOwner, hasPendingRequest, onClick }: CommunityCardProps) => {
+const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privacy, isMember, isOwner, hasPendingRequest, rankLabel, momentumScore, onClick }: CommunityCardProps) => {
   const navigate = useNavigate();
 
   const handlePress = () => {
@@ -27,7 +29,7 @@ const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privac
 
   return (
     <div
-      className="group relative rounded-2xl border border-base-300 bg-base-100 overflow-hidden cursor-pointer transition-all duration-200 min-w-0"
+      className={`group relative rounded-2xl border bg-base-100 overflow-hidden cursor-pointer transition-all duration-200 min-w-0 ${rankLabel ? "border-amber-500/35 shadow-sm shadow-amber-500/10" : "border-base-300"}`}
       style={{ transform: "translateZ(0)" }}
       onClick={handlePress}
     >
@@ -76,6 +78,21 @@ const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privac
               </span>
             ) : null}
           </div>
+
+          {(rankLabel || typeof momentumScore === "number") && (
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              {rankLabel && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                  <Trophy size={10} /> {rankLabel}
+                </span>
+              )}
+              {typeof momentumScore === "number" && (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                  <TrendingUp size={10} /> {Math.round(momentumScore)} momentum
+                </span>
+              )}
+            </div>
+          )}
 
           {description ? (
             <p className="text-xs text-base-content/60 line-clamp-2 leading-relaxed">{description}</p>

@@ -100,6 +100,11 @@ export interface CommunityData {
   allowMemberPosts?: boolean;
   requirePostApproval?: boolean;
   feedEligible?: boolean;
+  healthScore?: number;
+  momentumScore?: number;
+  rankLabel?: string;
+  cityRank?: number;
+  percentile?: number;
   createdAt: string;
 }
 
@@ -269,6 +274,22 @@ const PRIV_DESC = {
   PRIVATE: "Requires moderator approval",
   SECRET: "Invite only — not discoverable",
 };
+
+function getCommunityMomentum(c: CommunityData): number {
+  return c.momentumScore ?? c.healthScore ?? Math.min(100, Math.round((c.memberCount * 0.04) + (c.postCount * 1.8)));
+}
+
+function getCommunityRankLabel(c: CommunityData): string {
+  if (c.rankLabel) return c.rankLabel;
+  if (c.cityRank && c.cityRank <= 3) return `#${c.cityRank} Most Active Ward`;
+  if (typeof c.percentile === "number" && c.percentile <= 1) return "Top 1% in Pune";
+  if (typeof c.percentile === "number" && c.percentile <= 5) return "Top 5% in Pune";
+  const score = getCommunityMomentum(c);
+  if (score >= 90) return "Top 1% in Pune";
+  if (score >= 70) return "Top 5% Growing";
+  if (score >= 45) return "Rising Mohalla";
+  return "";
+}
 
 function highlight(text: string, query: string): React.ReactNode {
   if (!query.trim() || !text) return text;
@@ -3111,6 +3132,16 @@ function RecommendedCarousel({
                         </div>
 
                         {/* Title */}
+                        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                          {getCommunityRankLabel(c) && (
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                              <Trophy size={10} /> {getCommunityRankLabel(c)}
+                            </span>
+                          )}
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                            <Activity size={10} /> {getCommunityMomentum(c)} momentum
+                          </span>
+                        </div>
                         <h3 className="font-extrabold text-sm sm:text-base text-base-content leading-tight mb-1 truncate notranslate">
                           {c.name}
                         </h3>
@@ -3688,6 +3719,7 @@ const Community = () => {
                 return (
                   <CommunityCard key={c.id} id={c.id} slug={c.slug} name={c.name} description={c.description}
                     members={c.memberCount} avatarUrl={c.avatarUrl} privacy={c.privacy}
+                    rankLabel={getCommunityRankLabel(c)} momentumScore={getCommunityMomentum(c)}
                     isMember={!!local?.isMember} isOwner={!!local?.isOwner} hasPendingRequest={!!local?.hasPendingRequest}
                     onClick={() => {
                       openCommunity(local ? { ...c, isMember: local.isMember, isOwner: local.isOwner, hasPendingRequest: local.hasPendingRequest } : c);
@@ -3795,7 +3827,9 @@ const Community = () => {
                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                     {joinedOnly.map(c => (
                       <CommunityCard key={c.id} id={c.id} slug={c.slug} name={c.name} description={c.description}
-                        members={c.memberCount} avatarUrl={c.avatarUrl} privacy={c.privacy} onClick={() => { openCommunity(c); }} />
+                        members={c.memberCount} avatarUrl={c.avatarUrl} privacy={c.privacy}
+                        rankLabel={getCommunityRankLabel(c)} momentumScore={getCommunityMomentum(c)}
+                        onClick={() => { openCommunity(c); }} />
                     ))}
                   </div>
                 </div>

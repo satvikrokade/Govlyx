@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { Users, Settings, Crown, Camera, Check, Clock } from "lucide-react";
+import { Users, Settings, Crown, Camera, Check, Clock, Trophy, Activity } from "lucide-react";
 import { communityService } from "../../api/communityService";
 import { showToast } from "../../utils/toast";
 import ImageEditorModal from "../modals/ImageEditorModal";
@@ -16,6 +16,12 @@ type CommunityHeaderProps = {
     isMember?: boolean;
     isOwner?: boolean;
     hasPendingRequest?: boolean;
+    rankLabel?: string;
+    cityRank?: number;
+    percentile?: number;
+    momentumScore?: number;
+    healthScore?: number;
+    postCount?: number;
   };
   acting?: boolean;
   onJoinClick?: () => void;
@@ -32,6 +38,8 @@ const CommunityHeader = ({
   const finalOwner = c.isOwner ?? false;
   const finalPending = c.hasPendingRequest ?? false;
   const isSecret = c.privacy === "SECRET" && !finalMember;
+  const momentumScore = c.momentumScore ?? c.healthScore ?? Math.min(100, Math.round((c.memberCount * 0.04) + ((c.postCount ?? 0) * 1.8)));
+  const rankLabel = c.rankLabel || (c.cityRank && c.cityRank <= 3 ? `#${c.cityRank} Most Active Ward` : c.percentile && c.percentile <= 5 ? `Top ${c.percentile}% in Pune` : momentumScore >= 70 ? "Top 5% Growing" : "Rising Mohalla");
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -223,6 +231,14 @@ const CommunityHeader = ({
             <span className="flex items-center gap-1.5">
               <Users size={16} /> 
               {(c.memberCount || 0).toLocaleString()} members
+            </span>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-black text-amber-700">
+              <Trophy size={12} /> {rankLabel}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+              <Activity size={12} /> {momentumScore} momentum
             </span>
           </div>
         </div>
