@@ -14,6 +14,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useRef, useEffect, type JSX } from "react";
 import { createPortal } from "react-dom";
 import { useCurrentUser } from "../../hooks/useUser";
+import { useCreatePost, useCreatePoll } from "../../hooks/usePostInteractions";
 import { MdLocationOn } from "react-icons/md";
 import {
   RiAttachment2,
@@ -32,6 +33,17 @@ import { getAuthToken } from "../../utils/auth";
 const authHeaders = (): HeadersInit => {
   const token = getAuthToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
+const generateUUID = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 };
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -122,132 +134,6 @@ async function apiGetActivePosts(limit: number = 40): Promise<ApiResult> {
 
 
 // ─── API CALLS ────────────────────────────────────────────────────────────────
-
-/**
- * Civic / Issue Post — POST /api/posts
- */
-async function apiCreatePost(
-  content: string,
-  targetPincode: string,
-  forceSubmit?: boolean
-): Promise<ApiResult> {
-  const res = await fetch(apiUrl(`/api/posts`), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({
-      content,
-      targetPincode,
-      broadcastScope: "AREA",
-      forceSubmit,
-    }),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    return {
-      ok: false,
-      status: res.status,
-      message: json?.error ?? json?.message ?? `HTTP ${res.status}`,
-      data: json?.data ?? null,
-    };
-  }
-  return { ok: true, message: json?.message, data: json?.data ?? null, status: res.status };
-}
-
-/**
- * Civic / Issue Post WITH media — POST /api/posts/with-media (multipart)
- */
-async function apiCreatePostWithMedia(
-  content: string,
-  targetPincode: string,
-  mediaFile: File,
-  forceSubmit?: boolean
-): Promise<ApiResult> {
-  const form = new FormData();
-  form.append("content", content);
-  form.append("targetPincode", targetPincode);
-  form.append("media", mediaFile);
-  if (forceSubmit !== undefined) {
-    form.append("forceSubmit", forceSubmit ? "true" : "false");
-  }
-
-  const res = await fetch(apiUrl(`/api/posts/with-media`), {
-    method: "POST",
-    headers: { ...authHeaders() },
-    body: form,
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    return {
-      ok: false,
-      status: res.status,
-      message: json?.error ?? json?.message ?? `HTTP ${res.status}`,
-      data: json?.data ?? null,
-    };
-  }
-  return { ok: true, message: json?.message, data: json?.data ?? null, status: res.status };
-}
-
-/**
- * Social Post (text-only) — POST /api/social-posts/text
- */
-async function apiCreateSocialPost(content: string, communityId?: number): Promise<ApiResult> {
-  const res = await fetch(apiUrl(`/api/social-posts/text`), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify({ content, allowComments: true, communityId }),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, message: json?.error ?? json?.message ?? `HTTP ${res.status}` };
-  return { ok: true, message: json?.message, data: json?.data ?? null };
-}
-
-/**
- * Social Post WITH media — POST /api/social-posts/with-media (multipart)
- */
-async function apiCreateSocialPostWithMedia(
-  content: string,
-  files: File[],
-  communityId?: number
-): Promise<ApiResult> {
-  const form = new FormData();
-  form.append(
-    "post",
-    new Blob([JSON.stringify({ content, allowComments: true, communityId })], {
-      type: "application/json",
-    })
-  );
-  files.forEach((f) => form.append("media", f));
-
-  const res = await fetch(apiUrl(`/api/social-posts/with-media`), {
-    method: "POST",
-    headers: { ...authHeaders() },
-    body: form,
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, message: json?.error ?? json?.message ?? `HTTP ${res.status}` };
-  return { ok: true, message: json?.message, data: json?.data ?? null };
-}
-
-/**
- * Poll Post — POST /api/polls/create
- */
-async function apiCreatePoll(payload: {
-  question: string;
-  options: string[];
-  expiresIn: string;
-  allowMultipleVotes: boolean;
-  showResultsBeforeExpiry?: boolean;
-  communityId?: number;
-}): Promise<ApiResult> {
-  const res = await fetch(apiUrl(`/api/polls/create`), {
-    method: "POST",
-    headers: { "Content-Type": "application/json", ...authHeaders() },
-    body: JSON.stringify(payload),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) return { ok: false, message: json?.error ?? json?.message ?? `HTTP ${res.status}` };
-  return { ok: true, message: json?.message, data: json?.data ?? json };
-}
 
 
 // ─── MEDIA UPLOAD ZONE ────────────────────────────────────────────────────────
@@ -458,6 +344,9 @@ function PostForm({
   communityId?: number;
   onPostCreated?: (post: any) => void;
 }) {
+  const { data: currentUser } = useCurrentUser();
+  const createPostMutation = useCreatePost();
+
   const [content, setContent] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [targetPincode, setTargetPincode] = useState("");
@@ -573,34 +462,34 @@ function PostForm({
           }
       }
 
-      let result: ApiResult;
-
-      if (isReportingIssue) {
-        // We already performed the duplicate check locally. By passing forceSubmit: true,
-        // we bypass the backend check entirely to avoid the backend's duplicate exceptions 500-error bug.
-        const forceToBypassBackend = true;
-        if (files.length > 0) {
-          result = await apiCreatePostWithMedia(content.trim(), targetPincode.trim(), files[0], forceToBypassBackend);
-        } else {
-          result = await apiCreatePost(content.trim(), targetPincode.trim(), forceToBypassBackend);
+      const idempotencyKey = generateUUID();
+      createPostMutation.mutate({
+        isReportingIssue,
+        content: content.trim(),
+        targetPincode: targetPincode.trim(),
+        files,
+        communityId,
+        forceSubmit: isReportingIssue ? true : undefined,
+        idempotencyKey,
+        currentUser: {
+          username: currentUser?.username || "unknown",
+          actualUsername: currentUser?.actualUsername,
+          profileImage: currentUser?.profileImage || null,
         }
-      } else {
-        if (files.length > 0) {
-          result = await apiCreateSocialPostWithMedia(content.trim(), files, communityId);
-        } else {
-          result = await apiCreateSocialPost(content.trim(), communityId);
+      }, {
+        onSuccess: (res) => {
+          const syncedData = res.data ?? res;
+          if (onPostCreated) onPostCreated(syncedData);
+          window.dispatchEvent(new CustomEvent("postCreated", { detail: { post: syncedData, communityId } }));
+        },
+        onError: (err: any) => {
+          setError({ type: "error", msg: err.message ?? "Something went wrong. Please try again." });
+          setLoading(false);
         }
-      }
-
-      if (!result.ok) {
-        // Fallback in case of server errors
-        setError({ type: "error", msg: result.message ?? "Something went wrong. Please try again." });
-        return;
-      }
+      });
 
       setSubmitted(true);
-      if (onPostCreated) onPostCreated(result.data);
-      window.dispatchEvent(new CustomEvent("postCreated", { detail: { post: result.data, communityId } }));
+      onClose();
 
     } catch (e: unknown) {
       const isNetwork = e instanceof TypeError && e.message.toLowerCase().includes("fetch");
@@ -1387,6 +1276,7 @@ function PollForm({
   const [expiresIn, setExpiresIn] = useState("1d");
   const [files, setFiles] = useState<File[]>([]);
   const { data: currentUser } = useCurrentUser();
+  const createPollMutation = useCreatePoll();
 
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activeField, setActiveField] = useState<{ type: "question" | "option"; index?: number } | null>(null);
@@ -1426,56 +1316,42 @@ function PollForm({
         communityId,
       };
 
-      let result;
-      if (files.length > 0) {
-        const formData = new FormData();
-        formData.append(
-          "poll",
-          new Blob([JSON.stringify(payload)], { type: "application/json" })
-        );
-        files.forEach((f) => {
-          formData.append("media", f);
-        });
-
-        const res = await fetch(apiUrl(`/api/polls/create-with-media`), {
-          method: "POST",
-          headers: { ...authHeaders() },
-          body: formData,
-        });
-
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          result = { ok: false, message: json?.error ?? json?.message ?? `HTTP ${res.status}` };
-        } else {
-          result = { ok: true, message: json?.message, data: json?.data ?? json };
+      const idempotencyKey = generateUUID();
+      createPollMutation.mutate({
+        payload,
+        files,
+        idempotencyKey,
+        currentUser: {
+          username: currentUser?.username || "unknown",
+          actualUsername: currentUser?.actualUsername,
+          profileImage: currentUser?.profileImage || null,
         }
-      } else {
-        result = await apiCreatePoll(payload);
-      }
-
-      if (!result.ok) {
-        setApiError(result.message ?? "Failed to create poll. Please try again.");
-        return;
-      }
-
-      const augmentedPoll = {
-        ...result.data,
-        variant: "poll",
-        actualUsername: currentUser?.actualUsername,
-        username: currentUser?.actualUsername ?? currentUser?.username,
-        userDisplayName: currentUser?.actualUsername ?? currentUser?.username,
-        userProfileImage: currentUser?.profileImage,
-        poll: result.data,
-      };
+      }, {
+        onSuccess: (res) => {
+          const syncedData = res.data ?? res;
+          const augmentedPoll = {
+            ...syncedData,
+            variant: "poll",
+            actualUsername: currentUser?.actualUsername,
+            username: currentUser?.actualUsername ?? currentUser?.username,
+            userDisplayName: currentUser?.actualUsername ?? currentUser?.username,
+            userProfileImage: currentUser?.profileImage,
+            poll: syncedData,
+          };
+          if (onPostCreated) onPostCreated(augmentedPoll);
+          window.dispatchEvent(
+            new CustomEvent("postCreated", {
+              detail: { post: augmentedPoll, communityId },
+            })
+          );
+        },
+        onError: (err: any) => {
+          setApiError(err.message ?? "Failed to create poll. Please try again.");
+          setLoading(false);
+        }
+      });
 
       setSubmitted(true);
-      if (onPostCreated) onPostCreated(augmentedPoll);
-      window.dispatchEvent(
-        new CustomEvent("postCreated", {
-          detail: { post: augmentedPoll, communityId },
-        })
-      );
-      // Wait a bit to show success animation then close
       setTimeout(() => onClose(), 1500);
     } catch (e: unknown) {
       const isNet = e instanceof TypeError && (e as TypeError).message?.toLowerCase().includes("fetch");

@@ -19,7 +19,13 @@ registerSW({
 
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
+import { onlineManager } from "@tanstack/react-query";
 import { queryClient } from "./api/queryClient";
+
+// Initialize and sync onlineManager
+onlineManager.setOnline(navigator.onLine);
+window.addEventListener("online", () => onlineManager.setOnline(true));
+window.addEventListener("offline", () => onlineManager.setOnline(false));
 
 const persister = createSyncStoragePersister({
   storage: window.localStorage,
@@ -40,6 +46,7 @@ ReactDOM.createRoot(
             const key = query.queryKey[0];
             return key === "feed" || key === "currentUser";
           },
+          shouldDehydrateMutation: (mutation) => mutation.state.isPaused,
         },
       }}
     >

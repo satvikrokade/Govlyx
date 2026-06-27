@@ -177,3 +177,14 @@ export const deleteMedia = (
   messageId: string,
 ): Promise<ApiResponse<{ wiped: boolean }>> =>
   del<{ wiped: boolean }>(`/api/chat/${sessionId}/media/${messageId}`);
+
+export const sendCommunityMessage = async (
+  communityId: number,
+  payload: { content?: string; replyToId?: number; sharedPostId?: number },
+  idempotencyKey?: string
+) => {
+  const response = await axiosInstance.post(`/api/communities/${communityId}/chat/messages`, payload, {
+    headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+  });
+  return response.data;
+};

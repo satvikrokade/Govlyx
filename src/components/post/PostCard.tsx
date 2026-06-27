@@ -187,6 +187,7 @@ type BasePost = {
   authorKarmaScore?: number;
   communitySewaScore?: number;
   communityFlair?: string;
+  isPendingSync?: boolean;
 };
 
 export type IssuePost = BasePost & {
@@ -1068,8 +1069,14 @@ function AuthorRow({
             </span>
           )}
         </div>
-        <p className="text-[10px] text-base-content/50 mt-0.5 font-bold uppercase tracking-tighter">
+        <p className="text-[10px] text-base-content/50 mt-0.5 font-bold uppercase tracking-tighter flex items-center gap-1">
           {post.timeAgo ?? "just now"}
+          {post.isPendingSync && (
+            <span className="inline-flex items-center gap-0.5 text-[8px] text-base-content/40 font-bold uppercase tracking-tighter bg-base-300/40 px-1.5 py-0.5 rounded">
+              <Clock size={10} className="animate-pulse" />
+              Pending Sync
+            </span>
+          )}
         </p>
       </div>
       <div className="flex items-center gap-2 shrink-0">
@@ -2863,7 +2870,15 @@ export default function PostCard({
                       </span>
                       <BadgeCheck size={16} className="text-red-500 fill-red-500/10 shrink-0" />
                     </div>
-                    <p className="text-[10px] text-base-content/50 mt-0.5">{post.timeAgo ?? "just now"}</p>
+                    <p className="text-[10px] text-base-content/50 mt-0.5 flex items-center gap-1">
+                      {post.timeAgo ?? "just now"}
+                      {post.isPendingSync && (
+                        <span className="inline-flex items-center gap-0.5 text-[8px] text-base-content/40 font-bold uppercase tracking-tighter bg-base-300/40 px-1.5 py-0.5 rounded">
+                          <Clock size={10} className="animate-pulse" />
+                          Pending Sync
+                        </span>
+                      )}
+                    </p>
                   </div>
                 </motion.div>
                 <div className="flex items-center gap-1.5 shrink-0">

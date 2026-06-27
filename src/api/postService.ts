@@ -38,4 +38,80 @@ export const postService = {
     });
     return response.data;
   },
+
+  createPost: async (payload: { content: string; targetPincode: string; forceSubmit?: boolean }, idempotencyKey?: string) => {
+    const response = await axiosInstance.post("/api/posts", payload, {
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+    });
+    return response.data;
+  },
+
+  createPostWithMedia: async (payload: { content: string; targetPincode: string; media: File; forceSubmit?: boolean }, idempotencyKey?: string) => {
+    const form = new FormData();
+    form.append("content", payload.content);
+    form.append("targetPincode", payload.targetPincode);
+    form.append("media", payload.media);
+    if (payload.forceSubmit !== undefined) {
+      form.append("forceSubmit", payload.forceSubmit ? "true" : "false");
+    }
+    const response = await axiosInstance.post("/api/posts/with-media", form, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+      },
+    });
+    return response.data;
+  },
+
+  createSocialPost: async (payload: { content: string; communityId?: number }, idempotencyKey?: string) => {
+    const response = await axiosInstance.post("/api/social-posts/text", {
+      content: payload.content,
+      allowComments: true,
+      communityId: payload.communityId,
+    }, {
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+    });
+    return response.data;
+  },
+
+  createSocialPostWithMedia: async (payload: { content: string; files: File[]; communityId?: number }, idempotencyKey?: string) => {
+    const form = new FormData();
+    form.append(
+      "post",
+      new Blob([JSON.stringify({ content: payload.content, allowComments: true, communityId: payload.communityId })], {
+        type: "application/json",
+      })
+    );
+    payload.files.forEach((f) => form.append("media", f));
+    const response = await axiosInstance.post("/api/social-posts/with-media", form, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+      },
+    });
+    return response.data;
+  },
+
+  createPollPost: async (payload: any, idempotencyKey?: string) => {
+    const response = await axiosInstance.post("/api/polls/create", payload, {
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+    });
+    return response.data;
+  },
+
+  createPollPostWithMedia: async (payload: { poll: any; media: File[] }, idempotencyKey?: string) => {
+    const form = new FormData();
+    form.append(
+      "poll",
+      new Blob([JSON.stringify(payload.poll)], { type: "application/json" })
+    );
+    payload.media.forEach((f) => form.append("media", f));
+    const response = await axiosInstance.post("/api/polls/create-with-media", form, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {}),
+      },
+    });
+    return response.data;
+  },
 };

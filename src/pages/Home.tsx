@@ -18,7 +18,7 @@ const FEED_SIZE = 10;
 function useFeed(sourceTab: string, sortTab: string) {
   const queryClient = useQueryClient();
   const { data: user } = useCurrentUser();
-  const queryKey = ["feed", sourceTab, sortTab, user?.pincode];
+  const queryKey = ["feed", sourceTab, sortTab, sourceTab === "location" ? user?.pincode : undefined];
 
   const {
     data,

@@ -15,12 +15,14 @@ import {
   SmilePlus,
   Sparkles,
   Flag,
+  Clock,
 } from "lucide-react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { apiUrl } from "../../utils/apiUrl";
 import { getAuthToken } from "../../utils/auth";
 import ConfirmModal from "./ConfirmModal";
 import ReportModal from "../modals/ReportModal";
+import { useCreateComment } from "../../hooks/usePostInteractions";
 import { checkProfanity } from "../../utils/profanity";
 import { showToast } from "../../utils/toast";
 import { parseError } from "../../utils/error-handler";
@@ -33,6 +35,17 @@ function authHeaders(): HeadersInit {
     : { "Content-Type": "application/json" };
 }
 
+const generateUUID = (): string => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+};
+
 async function apiFetch(url: string) {
   const res = await fetch(apiUrl(url), { headers: authHeaders() });
   if (!res.ok) throw new Error(`${res.status}`);
@@ -40,28 +53,7 @@ async function apiFetch(url: string) {
   return data?.data ?? data;
 }
 
-async function apiPost(url: string, body: unknown) {
-  const res = await fetch(apiUrl(url), {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(body),
-  });
-  
-  const text = await res.text();
-  let json: any;
-  try {
-    json = JSON.parse(text);
-  } catch {
-    json = null;
-  }
 
-  if (!res.ok) {
-    const errorMsg = json?.message || json?.error || text || `${res.status}`;
-    throw new Error(`${res.status} - ${errorMsg}`);
-  }
-  
-  return json?.data ?? json;
-}
 
 async function apiPut(url: string, body: unknown) {
   const res = await fetch(apiUrl(url), {
@@ -110,6 +102,7 @@ export type CommentDto = {
   parentCommentId?: number | null;
   replyCount?: number;
   replies?: CommentDto[];
+  isPendingSync?: boolean;
 };
 
 // Unused PaginatedResponse removed to fix lint error
@@ -466,6 +459,7 @@ function SingleComment({
   onReplyAdded,
   parentRepliesOpen,
 }: SingleCommentProps) {
+  const createCommentMutation = useCreateComment();
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [editing, setEditing] = useState(false);
   const [repliesOpen, setRepliesOpen] = useState(false);
@@ -539,17 +533,43 @@ function SingleComment({
   }
 
   async function handleReply(text: string) {
-    const endpoint =
-      postType === "posts"
-        ? `/api/comments/post/${postId}`
-        : `/api/comments/social-posts/${postId}`;
-    const res = await apiPost(endpoint, { text, parentCommentId: comment.id });
-    const created: CommentDto = res?.data ?? res;
-    
-    setReplies((prev) => [created, ...prev]);
+    const idempotencyKey = generateUUID();
+    const optimisticId = -Date.now();
+    const optimisticReply: CommentDto = {
+      id: optimisticId,
+      text,
+      createdAt: new Date().toISOString(),
+      author: {
+        username: currentUsername || "me",
+        actualUsername: currentUsername,
+      },
+      parentCommentId: comment.id,
+      isPendingSync: true,
+    };
+
+    setReplies((prev) => [optimisticReply, ...prev]);
     setRepliesOpen(true);
     setShowReplyBox(false);
-    onReplyAdded(comment.id, created);
+    onReplyAdded(comment.id, optimisticReply);
+
+    createCommentMutation.mutate({
+      postId,
+      postType,
+      payload: { text, parentCommentId: comment.id },
+      idempotencyKey,
+    }, {
+      onSuccess: (res) => {
+        const synced = res.data ?? res;
+        setReplies((prev) =>
+          prev.map((r) => (r.id === optimisticId ? { ...synced, isPendingSync: false } : r))
+        );
+      },
+      onError: () => {
+        if (!createCommentMutation.isPaused) {
+          setReplies((prev) => prev.filter((r) => r.id !== optimisticId));
+        }
+      }
+    });
   }
 
   async function handleEdit(text: string) {
@@ -675,7 +695,15 @@ function SingleComment({
 
               {/* Meta + Actions */}
               <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-[10px] font-semibold text-base-content/40 uppercase tracking-wider">
-                <span className="font-medium normal-case tracking-normal">{timeAgo(comment.createdAt)}</span>
+                <span className="font-medium normal-case tracking-normal flex items-center gap-1">
+                  {timeAgo(comment.createdAt)}
+                  {comment.isPendingSync && (
+                    <span className="inline-flex items-center gap-0.5 text-[8px] text-base-content/40 font-bold uppercase tracking-wider bg-base-300/40 px-1 py-0.5 rounded">
+                      <Clock size={8} className="animate-pulse" />
+                      Pending Sync
+                    </span>
+                  )}
+                </span>
                 
                 {comment.updatedAt && comment.updatedAt !== comment.createdAt && (
                   <span className="italic normal-case opacity-60">Edited</span>
@@ -848,6 +876,7 @@ export default function CommentSection({
   defaultOpen = false,
   onCommentCountChange,
 }: CommentSectionProps) {
+  const createCommentMutation = useCreateComment();
   const [comments, setComments] = useState<CommentDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(false);
@@ -926,15 +955,42 @@ export default function CommentSection({
   }, [defaultOpen]);
 
   async function handleNewComment(text: string) {
-    const endpoint =
-      postType === "posts"
-        ? `/api/comments/post/${postId}`
-        : `/api/comments/social-posts/${postId}`;
-    const res = await apiPost(endpoint, { text });
-    const created: CommentDto = res?.data ?? res;
-    setComments((prev) => [created, ...prev]);
+    const idempotencyKey = generateUUID();
+    const optimisticId = -Date.now();
+    const optimisticComment: CommentDto = {
+      id: optimisticId,
+      text,
+      createdAt: new Date().toISOString(),
+      author: {
+        username: currentUsername || "me",
+        actualUsername: currentUsername,
+      },
+      isPendingSync: true,
+    };
+
+    setComments((prev) => [optimisticComment, ...prev]);
     setCount((n) => n + 1);
     setFetchedOnce(true);
+
+    createCommentMutation.mutate({
+      postId,
+      postType,
+      payload: { text },
+      idempotencyKey,
+    }, {
+      onSuccess: (res) => {
+        const synced = res.data ?? res;
+        setComments((prev) =>
+          prev.map((c) => (c.id === optimisticId ? { ...synced, isPendingSync: false } : c))
+        );
+      },
+      onError: () => {
+        if (!createCommentMutation.isPaused) {
+          setComments((prev) => prev.filter((c) => c.id !== optimisticId));
+          setCount((n) => Math.max(0, n - 1));
+        }
+      }
+    });
   }
 
   const handleReplyAdded = useCallback((parentId?: number) => {

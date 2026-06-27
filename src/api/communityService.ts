@@ -83,5 +83,18 @@ export const communityService = {
   getPinnedMessages: async (id: number) => {
     const response = await axiosInstance.get(`/api/communities/${id}/chat/pinned`);
     return response.data;
+  },
+
+  createComment: async (
+    postId: number,
+    postType: "posts" | "social-posts",
+    payload: { text: string; parentCommentId?: number },
+    idempotencyKey?: string
+  ) => {
+    const endpoint = `/api/comments/${postType === "posts" ? "post" : "social-posts"}/${postId}`;
+    const response = await axiosInstance.post(endpoint, payload, {
+      headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
+    });
+    return response.data;
   }
 };
