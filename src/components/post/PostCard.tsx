@@ -25,6 +25,7 @@ import {
   Maximize2,
   MessageSquare,
   EyeOff,
+  AlertTriangle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CommentSection from "./CommentSection";
@@ -1787,6 +1788,20 @@ export default function PostCard({
   onShareToCommunity,
   onNotInterested,
 }: PostCardProps) {
+  const isTakedown = (post as any)?.isCopyrightRemoved || (post as any)?.status === "TAKEDOWN";
+
+  if (isTakedown) {
+    return (
+      <div className="rounded-[2rem] border-2 border-slate-200 dark:border-slate-800 p-6 flex flex-col items-center justify-center text-center gap-3 bg-slate-900/10 dark:bg-slate-900/40 backdrop-blur-md w-full">
+        <AlertTriangle className="w-8 h-8 text-slate-450" />
+        <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300">Content Unavailable</h3>
+        <p className="text-xs text-slate-450 max-w-sm leading-relaxed">
+          This content is unavailable in your region due to a legal complaint or copyright infringement claim.
+        </p>
+      </div>
+    );
+  }
+
   const queryClient = useQueryClient();
   const { data: currentUserProfile } = useCurrentUser();
   

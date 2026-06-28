@@ -135,6 +135,15 @@ const ADMIN_NAV_SECTIONS = [
           </svg>
         ),
       },
+      {
+        label: "Copyright Claims", tab: "copyright",
+        icon: (
+          <svg className="w-[18px] h-[18px] flex-shrink-0 opacity-80" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="1.8">
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M14.25 14.25a3 3 0 0 1-4.5 0v-4.5a3 3 0 0 1 4.5 0" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ),
+      },
     ],
   },
   {

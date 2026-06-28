@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChevronLeft, AlertCircle, Loader2 } from "lucide-react";
+import { ChevronLeft, AlertCircle, Loader2, AlertTriangle } from "lucide-react";
 import { postService } from "../api/postService";
 import PostCard from "../components/post/PostCard";
 import type { AnyPost } from "../components/post/PostCard";
@@ -41,8 +41,13 @@ const PostDetail: React.FC = () => {
         try {
           data = await postService.getPostById(postId, "social-posts");
         } catch (socialErr: any) {
+          const status = socialErr.response?.status;
+          const msg = socialErr.message;
+          if (status === 451 || msg === "451" || msg?.includes("451")) {
+            throw socialErr;
+          }
           // If social-posts fails with 404, try the regular posts endpoint
-          if (socialErr.response?.status === 404 || socialErr.message === "404") {
+          if (status === 404 || msg === "404") {
             data = await postService.getPostById(postId, "posts");
           } else {
             throw socialErr;
@@ -58,7 +63,13 @@ const PostDetail: React.FC = () => {
         setPost(toPostCardPost(actualPostData));
       } catch (err: any) {
         console.error("Error fetching post:", err);
-        setError(err.response?.data?.message || err.message || "Failed to load post.");
+        const status = err.response?.status;
+        const msg = err.message;
+        if (status === 451 || msg === "451" || msg?.includes("451")) {
+          setError("LEGAL_TAKEDOWN");
+        } else {
+          setError(err.response?.data?.message || err.message || "Failed to load post.");
+        }
       } finally {
         setLoading(false);
       }
@@ -72,6 +83,28 @@ const PostDetail: React.FC = () => {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
         <p className="text-sm opacity-50 font-medium">Loading post...</p>
+      </div>
+    );
+  }
+
+  if (error === "LEGAL_TAKEDOWN") {
+    return (
+      <div className="max-w-2xl mx-auto p-6">
+        <div className="bg-slate-900/40 border border-slate-800 rounded-3xl p-8 text-center flex flex-col items-center gap-4 backdrop-blur-md">
+          <div className="w-16 h-16 bg-slate-800/80 rounded-full flex items-center justify-center text-slate-400">
+            <AlertTriangle className="w-8 h-8 text-slate-450" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-200">Content Unavailable</h2>
+          <p className="text-slate-450 max-w-sm text-sm leading-relaxed">
+            This content is unavailable in your region due to a legal complaint or copyright infringement claim.
+          </p>
+          <button
+            onClick={() => navigate(-1)}
+            className="btn btn-ghost btn-sm text-slate-400 hover:bg-slate-800 border-slate-700 mt-2"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }

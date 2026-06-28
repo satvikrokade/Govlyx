@@ -263,7 +263,7 @@ const Register = () => {
                 className="checkbox checkbox-primary checkbox-sm mt-0.5 rounded-md cursor-pointer focus:ring-1 focus:ring-primary"
               />
               <label htmlFor="isAdult" className="text-xs opacity-80 cursor-pointer select-none leading-relaxed">
-                I confirm that I am 18 years of age or older and agree to the platform's terms.
+                I confirm that I am 18 years of age or older and agree to the Privacy Policy & Terms, including the Copyright Policy and 3-Strike account suspension rule.
               </label>
             </div>
 

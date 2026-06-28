@@ -172,15 +172,33 @@ export default function PrivacyPolicy() {
 
             <section className="space-y-3">
               <h2 className="text-sm sm:text-base md:text-lg lg:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                <Mail className="w-5 h-5 text-blue-550 dark:text-blue-400 shrink-0" /> 7. Grievance Support Desk
+                <AlertTriangle className="w-5 h-5 text-blue-550 dark:text-blue-400 shrink-0" /> 7. Copyright & 3-Strike Policy
               </h2>
               <p>
-                If you have questions or want to report illegal content, please contact us:
+                Govlyx respects intellectual property rights. Users must not upload, post, or share content that infringes copyrights:
+              </p>
+              <ul className="list-disc pl-6 space-y-1.5 text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs md:text-sm">
+                <li>
+                  <strong>Takedown Notices:</strong> Copyright owners can submit formal infringement claims through our dedicated <button onClick={() => navigate("/copyright-claim")} className="text-blue-600 dark:text-blue-400 hover:underline font-bold bg-transparent border-none p-0 cursor-pointer">Copyright Infringement Portal</button>.
+                </li>
+                <li>
+                  <strong>3-Strike Suspension:</strong> Accumulating 3 verified copyright strikes will result in the permanent suspension of your Govlyx account and removal of all contributions.
+                </li>
+              </ul>
+            </section>
+
+            <section className="space-y-3">
+              <h2 className="text-sm sm:text-base md:text-lg lg:text-xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Mail className="w-5 h-5 text-blue-550 dark:text-blue-400 shrink-0" /> 8. Grievance Support Desk
+              </h2>
+              <p>
+                If you have questions, copyright notices, or want to report illegal content, please contact us:
               </p>
               <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl text-[11px] sm:text-xs md:text-sm font-semibold space-y-2 mt-2">
                 <p><span className="opacity-60 text-slate-500 dark:text-slate-405">Email:</span> <a href="mailto:govlyxsupport@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">govlyxsupport@gmail.com</a></p>
-                <p><span className="opacity-60 text-slate-505 dark:text-slate-405">Response:</span> Acknowledged within 24 hours</p>
-                <p><span className="opacity-60 text-slate-505 dark:text-slate-405">Resolution:</span> Resolved within 15 days</p>
+                <p><span className="opacity-60 text-slate-500 dark:text-slate-405">DMCA Portal:</span> <button onClick={() => navigate("/copyright-claim")} className="text-blue-600 dark:text-blue-400 hover:underline font-bold bg-transparent border-none p-0 cursor-pointer">File Copyright Claim</button></p>
+                <p><span className="opacity-60 text-slate-500 dark:text-slate-405">Response:</span> Acknowledged within 24 hours</p>
+                <p><span className="opacity-60 text-slate-500 dark:text-slate-405">Resolution:</span> Resolved within 15 days</p>
               </div>
             </section>
 

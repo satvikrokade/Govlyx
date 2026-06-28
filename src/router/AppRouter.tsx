@@ -30,6 +30,8 @@ import UpcomingUpdates from "../pages/UpcomingUpdates";
 import PrivacyPolicy from "../pages/PrivacyPolicy";
 import ReviewPage from "../pages/ReviewPage";
 import SearchResultsPage from "../pages/SearchResultsPage";
+import CopyrightClaimForm from "../pages/CopyrightClaimForm";
+import CopyrightClaimStatus from "../pages/CopyrightClaimStatus";
 
 
 // ── Page transition wrapper ───────────────────────────────────────────────────
@@ -81,7 +83,9 @@ const useTokenExpiryWatcher = () => {
       location.pathname === "/login" ||
       location.pathname === "/register" ||
       location.pathname === "/verify-email" ||
-      location.pathname.startsWith("/invite/")
+      location.pathname.startsWith("/invite/") ||
+      location.pathname === "/copyright-claim" ||
+      location.pathname === "/copyright-claim/status"
     ) {
       return;
     }
@@ -163,6 +167,14 @@ const AppRouter = () => {
         <Route
           path="/docs"
           element={<Navigate to="/upcoming-updates" replace />}
+        />
+        <Route
+          path="/copyright-claim"
+          element={<PageWrapper><CopyrightClaimForm /></PageWrapper>}
+        />
+        <Route
+          path="/copyright-claim/status"
+          element={<PageWrapper><CopyrightClaimStatus /></PageWrapper>}
         />
 
         {/* ── Public auth routes ── */}

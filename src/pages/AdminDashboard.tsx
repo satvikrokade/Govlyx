@@ -17,7 +17,9 @@ import {
   ShieldAlert,
   User,
   Shield,
-  Building
+  Building,
+  ExternalLink,
+  Loader2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { departmentRegisterSchema, adminRegisterSchema } from "../utils/validation";
@@ -141,6 +143,14 @@ const AdminDashboard = () => {
   const [loadingHealth, setLoadingHealth] = useState<boolean>(false);
   const [apiLatency, setApiLatency] = useState<number | null>(null);
   const [executingAction, setExecutingAction] = useState<string | null>(null);
+
+  // Copyright Claims Tab State
+  const [claimsList, setClaimsList] = useState<any[]>([]);
+  const [loadingClaims, setLoadingClaims] = useState<boolean>(false);
+  const [claimsPage, setClaimsPage] = useState<number>(1);
+  const [claimsTotalPages, setClaimsTotalPages] = useState<number>(1);
+  const [selectedClaimForReview, setSelectedClaimForReview] = useState<any | null>(null);
+  const [acknowledgingClaim, setAcknowledgingClaim] = useState<boolean>(false);
 
 
 
@@ -596,6 +606,47 @@ const AdminDashboard = () => {
       fetchSystemHealth();
     }
   }, [activeTab]);
+
+  const fetchPendingClaims = async () => {
+    setLoadingClaims(true);
+    try {
+      // Backend expects 0-indexed page, frontend uses 1-indexed page
+      const res = await axiosInstance.get("/api/copyright-claims/admin/pending", {
+        params: { page: claimsPage - 1, limit: 10 }
+      });
+      const data = res.data?.data ?? res.data ?? {};
+      setClaimsList(data.content ?? data.data ?? []);
+      setClaimsTotalPages(data.totalPages ?? 1);
+    } catch (err) {
+      console.error("Failed to fetch pending copyright claims:", err);
+      showToast.error("Failed to fetch pending copyright claims");
+    } finally {
+      setLoadingClaims(false);
+    }
+  };
+
+  const handleAcknowledgeClaim = async (id: number) => {
+    setAcknowledgingClaim(true);
+    try {
+      await axiosInstance.put(`/api/copyright-claims/admin/${id}/acknowledge`);
+      showToast.success("Claim acknowledged successfully.");
+      setSelectedClaimForReview(null);
+      fetchPendingClaims();
+    } catch (err: any) {
+      console.error("Failed to acknowledge claim:", err);
+      showToast.error(
+        err.response?.data?.message || err.message || "Failed to acknowledge claim"
+      );
+    } finally {
+      setAcknowledgingClaim(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "copyright") {
+      fetchPendingClaims();
+    }
+  }, [activeTab, claimsPage]);
 
   // Content Moderation Data Fetchers
   const fetchReportedContent = async (targetType: string, targetId: number) => {
@@ -3449,6 +3500,108 @@ const AdminDashboard = () => {
               </motion.div>
             )}
 
+            {/* ──────────── VIEW: COPYRIGHT CLAIMS ──────────── */}
+            {activeTab === "copyright" && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.15 }}
+                className="space-y-6"
+              >
+                <div className="admin-section-header">
+                  <div>
+                    <div className="admin-section-title">Copyright Infringement Claims</div>
+                    <div className="admin-section-sub">Acknowledge external legal notices within 24-hour SLA</div>
+                  </div>
+                  <button className="admin-btn admin-btn-secondary admin-btn-sm" onClick={fetchPendingClaims} disabled={loadingClaims}>
+                    <RefreshCw size={13} className={loadingClaims ? "animate-spin mr-1" : "mr-1"} /> Refresh Claims
+                  </button>
+                </div>
+
+                <div className="admin-card">
+                  <div className="admin-card-body">
+                    {loadingClaims ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-3">
+                        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+                        <span className="text-xs opacity-50 font-mono">Loading pending claims...</span>
+                      </div>
+                    ) : claimsList.length === 0 ? (
+                      <div className="text-center py-12 text-slate-500 font-mono text-sm">
+                        No pending copyright claims found.
+                      </div>
+                    ) : (
+                      <>
+                        <div className="admin-table-wrapper">
+                          <table className="admin-table">
+                            <thead>
+                              <tr>
+                                <th>REFERENCE ID</th>
+                                <th>CLAIMANT / COMPANY</th>
+                                <th>CONTENT TYPE</th>
+                                <th>URLS</th>
+                                <th>SUBMITTED AT</th>
+                                <th>ACTION</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {claimsList.map((claim) => (
+                                <tr key={claim.id}>
+                                  <td className="font-mono font-bold text-blue-500">{claim.referenceId}</td>
+                                  <td>
+                                    <div>{claim.claimantName}</div>
+                                    <div className="text-xs opacity-50">{claim.claimantCompany || "Personal Claim"}</div>
+                                  </td>
+                                  <td>
+                                    <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-500 text-xs font-bold">
+                                      {claim.originalWorkType}
+                                    </span>
+                                  </td>
+                                  <td className="font-mono text-xs">{claim.infringingUrls?.length || 0} link(s)</td>
+                                  <td>{new Date(claim.createdAt).toLocaleDateString()}</td>
+                                  <td>
+                                    <button
+                                      className="admin-btn admin-btn-primary admin-btn-sm"
+                                      onClick={() => setSelectedClaimForReview(claim)}
+                                    >
+                                      Review
+                                    </button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Pagination */}
+                        {claimsTotalPages > 1 && (
+                          <div className="flex justify-between items-center mt-6">
+                            <button
+                              className="admin-btn admin-btn-secondary admin-btn-sm"
+                              onClick={() => setClaimsPage((p) => Math.max(1, p - 1))}
+                              disabled={claimsPage === 1}
+                            >
+                              Previous
+                            </button>
+                            <span className="text-xs font-mono opacity-60">
+                              Page {claimsPage} of {claimsTotalPages}
+                            </span>
+                            <button
+                              className="admin-btn admin-btn-secondary admin-btn-sm"
+                              onClick={() => setClaimsPage((p) => Math.min(claimsTotalPages, p + 1))}
+                              disabled={claimsPage === claimsTotalPages}
+                            >
+                              Next
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
             {/* ──────────── VIEW: SYSTEM HEALTH ──────────── */}
             {activeTab === "system" && (
               <motion.div
@@ -3840,6 +3993,166 @@ const AdminDashboard = () => {
           </>
         )}
       </div>
+
+      {/* ── COPYRIGHT CLAIM REVIEW MODAL ── */}
+      <AnimatePresence>
+        {selectedClaimForReview && (
+          <div className="fixed inset-0 z-[3000] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setSelectedClaimForReview(null)}
+            />
+
+            {/* Modal Box */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-base-200 border border-slate-700 w-full max-w-2xl rounded-3xl overflow-hidden shadow-2xl relative z-10 flex flex-col max-h-[85vh] text-left"
+            >
+              {/* Head */}
+              <div className="p-6 border-b border-slate-800 flex justify-between items-center shrink-0">
+                <div>
+                  <span className="text-xs opacity-50 uppercase font-mono">Pending Legal Notice</span>
+                  <h3 className="text-xl font-black text-slate-100 mt-0.5">
+                    Review Claim {selectedClaimForReview.referenceId}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setSelectedClaimForReview(null)}
+                  className="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 overflow-y-auto space-y-6 text-sm text-slate-300">
+                {/* Claimant Details */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--accent2)]">Claimant Contact Details</h4>
+                  <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-2xl grid grid-cols-2 gap-y-3 gap-x-4 text-xs sm:text-sm">
+                    <div>
+                      <span className="opacity-50 block">Name</span>
+                      <span className="font-bold text-slate-100">{selectedClaimForReview.claimantName}</span>
+                    </div>
+                    <div>
+                      <span className="opacity-50 block">Company</span>
+                      <span className="font-bold text-slate-100">{selectedClaimForReview.claimantCompany || "N/A"}</span>
+                    </div>
+                    <div>
+                      <span className="opacity-50 block">Email</span>
+                      <span className="font-semibold text-slate-100">{selectedClaimForReview.claimantEmail}</span>
+                    </div>
+                    <div>
+                      <span className="opacity-50 block">Phone</span>
+                      <span className="font-semibold text-slate-100">{selectedClaimForReview.claimantPhone || "N/A"}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="opacity-50 block">Postal Address</span>
+                      <span className="font-medium text-slate-200">{selectedClaimForReview.claimantAddress}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Infringing URLs */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--accent2)]">Alleged Infringing Content URLs</h4>
+                  <div className="space-y-1.5">
+                    {selectedClaimForReview.infringingUrls?.map((url: string, index: number) => (
+                      <a
+                        key={index}
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-900/30 border border-slate-800 hover:border-blue-500/50 text-xs text-blue-400 font-mono transition-colors"
+                      >
+                        <span className="truncate max-w-[90%]">{url}</span>
+                        <ExternalLink size={12} className="shrink-0 ml-2" />
+                      </a>
+                    ))}
+                  </div>
+                  <div className="form-control mt-2">
+                    <span className="text-xs opacity-50 block mb-1">Infringement Description</span>
+                    <p className="p-4 bg-slate-900/20 border border-slate-800 rounded-2xl leading-relaxed text-xs">
+                      {selectedClaimForReview.infringementDescription}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Original Copyrighted Work */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--accent2)]">Original Copyrighted Work</h4>
+                  <div className="bg-slate-900/30 border border-slate-800 p-4 rounded-2xl space-y-3">
+                    <div className="flex gap-2">
+                      <span className="px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 text-xs font-bold uppercase">
+                        {selectedClaimForReview.originalWorkType}
+                      </span>
+                      {selectedClaimForReview.originalWorkUrls?.length > 0 && (
+                        <span className="text-xs opacity-50 font-mono">
+                          Source: {selectedClaimForReview.originalWorkUrls.join(", ")}
+                        </span>
+                      )}
+                    </div>
+                    <div>
+                      <span className="text-xs opacity-50 block mb-1">Work Description</span>
+                      <p className="text-xs leading-relaxed">{selectedClaimForReview.originalWorkDescription}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Legal Declarations & Signature */}
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[var(--accent2)]">Legal Consent & Signature</h4>
+                  <div className="bg-slate-900/30 border border-slate-800 p-4 rounded-2xl text-xs space-y-2">
+                    <div className="flex items-start gap-2 text-slate-400">
+                      <span className="text-green-500 font-bold mr-1">✓</span>
+                      <span>Confirmed good faith belief of copyright infringement.</span>
+                    </div>
+                    <div className="flex items-start gap-2 text-slate-400">
+                      <span className="text-green-500 font-bold mr-1">✓</span>
+                      <span>Confirmed accuracy of report under penalty of perjury.</span>
+                    </div>
+                    <div className="border-t border-slate-800 pt-2 mt-2">
+                      <span className="opacity-50 block">Electronic Signature</span>
+                      <span className="font-mono text-sm font-bold text-slate-100 italic">
+                        {selectedClaimForReview.signature}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Foot Actions */}
+              <div className="p-6 border-t border-slate-800 flex justify-end gap-3 shrink-0">
+                <button
+                  className="admin-btn admin-btn-secondary"
+                  onClick={() => setSelectedClaimForReview(null)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="admin-btn admin-btn-primary"
+                  onClick={() => handleAcknowledgeClaim(selectedClaimForReview.id)}
+                  disabled={acknowledgingClaim}
+                >
+                  {acknowledgingClaim ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> Acknowledging...
+                    </>
+                  ) : (
+                    "Acknowledge Claim (24h SLA)"
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
