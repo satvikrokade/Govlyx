@@ -13,7 +13,7 @@ dist-ssr
 *.local
 .env
 .env.*
-!.env.example
+.env.example
 
 
 # Editor directories and files
@@ -36,3 +36,4 @@ build_error.txt
 scratch_test.js
 print_user_inputs.js
 .antigravity_home_old.tsx
+.agents
