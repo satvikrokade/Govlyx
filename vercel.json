@@ -18,18 +18,6 @@
       "destination": "https://api.mymemory.translated.net/:path*"
     },
     {
-      "source": "/api/:path*",
-      "destination": "https://jan-sahayak-ai-3fl3.onrender.com/api/:path*"
-    },
-    {
-      "source": "/uploads/:path*",
-      "destination": "https://jan-sahayak-ai-3fl3.onrender.com/uploads/:path*"
-    },
-    {
-      "source": "/ws/:path*",
-      "destination": "https://jan-sahayak-ai-3fl3.onrender.com/ws/:path*"
-    },
-    {
       "source": "/((?!assets|favicon.ico|manifest.json|workbox-.*).*)",
       "destination": "/index.html"
     }

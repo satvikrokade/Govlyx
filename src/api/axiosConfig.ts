@@ -5,7 +5,7 @@ import { clearAuthTokens, getAuthToken, isTokenExpired, persistAuthToken } from 
 
 const FALLBACK_URL = "";
 const rawUrl = import.meta.env.VITE_API_URL || FALLBACK_URL;
-export const API_BASE_URL = ((rawUrl.includes("jan-sahayak-ai-3fl3.onrender.com") || rawUrl.includes("jan-sahayak-ai-2.onrender.com") || rawUrl.includes("jan-sahayak-ai-84vh.onrender.com")) && !import.meta.env.DEV)
+export const API_BASE_URL = !import.meta.env.DEV
   ? ""
   : rawUrl.replace(/\/$/, "");
 

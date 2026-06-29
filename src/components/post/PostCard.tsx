@@ -134,7 +134,7 @@ const apiDelete = (url: string) => apiFetch(url, "DELETE");
 
 async function recordShare(postType: "posts" | "social-posts", id: number, skipApi?: boolean, method: string = "copy") {
   if (method === "copy") {
-    const url = `${window.location.origin}/post/${id}`;
+    const url = `${window.location.origin}/post/${id}?type=${postType}`;
     try {
       await navigator.clipboard.writeText(url);
     } catch {
@@ -1327,7 +1327,10 @@ function ShareModal({
   onShareAction: (method: string) => void;
   onShareToCommunity?: (postId: number, content: string) => void;
 }) {
-  const url = `${window.location.origin}/post/${post.id}`;
+  const isIssue = post.variant === "issue";
+  const isGovt = post.variant === "government";
+  const postType = (isIssue || isGovt) ? "posts" : "social-posts";
+  const url = `${window.location.origin}/post/${post.id}?type=${postType}`;
   const rawText = post.content || "";
   const shortened = rawText.length > 50 ? rawText.slice(0, 50) + "..." : rawText;
   const text = encodeURIComponent(`Check out this post on Govlyx:\n"${shortened}"\n\n`);
@@ -2964,7 +2967,7 @@ export default function PostCard({
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
-                      window.open(`https://wa.me/?text=${encodeURIComponent(`${milestone.label}: ${post.content}\n${window.location.origin}/post/${post.id}`)}`, "_blank", "noopener,noreferrer");
+                      window.open(`https://wa.me/?text=${encodeURIComponent(`${milestone.label}: ${post.content}\n${window.location.origin}/post/${post.id}?type=posts`)}`, "_blank", "noopener,noreferrer");
                     }}
                     className="text-[10px] font-bold text-green-700 hover:underline dark:text-green-300"
                   >

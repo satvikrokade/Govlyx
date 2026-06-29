@@ -123,7 +123,7 @@ export default function RefundPolicy() {
               </p>
               <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-5 rounded-2xl text-[11px] sm:text-xs md:text-sm font-semibold space-y-2 mt-2">
                 <p><span className="opacity-60 text-slate-500 dark:text-slate-405">Email:</span> <a href="mailto:govlyxsupport@gmail.com" className="text-blue-600 dark:text-blue-400 hover:underline">govlyxsupport@gmail.com</a></p>
-                <p><span className="opacity-60 text-slate-500 dark:text-slate-405">Address:</span> New Delhi, India</p>
+                <p><span className="opacity-60 text-slate-500 dark:text-slate-405">Address:</span> Pune, India</p>
               </div>
             </section>
 

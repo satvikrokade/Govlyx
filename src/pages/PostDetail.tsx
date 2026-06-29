@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ChevronLeft, AlertCircle, Loader2, AlertTriangle } from "lucide-react";
 import { postService } from "../api/postService";
 import PostCard from "../components/post/PostCard";
@@ -10,6 +10,7 @@ import { useCurrentUser } from "../hooks/useUser";
 const PostDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [post, setPost] = useState<AnyPost | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,23 +35,39 @@ const PostDetail: React.FC = () => {
         return;
       }
 
+      const typeParam = searchParams.get("type"); // "posts" or "social-posts"
+
       try {
-        // We attempt to fetch from social-posts first as most notifications 
-        // (likes, comments) are from the social feed.
         let data;
-        try {
-          data = await postService.getPostById(postId, "social-posts");
-        } catch (socialErr: any) {
-          const status = socialErr.response?.status;
-          const msg = socialErr.message;
-          if (status === 451 || msg === "451" || msg?.includes("451")) {
-            throw socialErr;
+        if (typeParam === "posts" || typeParam === "social-posts") {
+          try {
+            data = await postService.getPostById(postId, typeParam);
+          } catch (socialErr: any) {
+            const status = socialErr.response?.status;
+            const msg = socialErr.message;
+            if (status === 451 || msg === "451" || msg?.includes("451")) {
+              throw socialErr;
+            }
+            // Fallback to alternate endpoint if explicit type fails with 404
+            const alternateType = typeParam === "posts" ? "social-posts" : "posts";
+            data = await postService.getPostById(postId, alternateType);
           }
-          // If social-posts fails with 404, try the regular posts endpoint
-          if (status === 404 || msg === "404") {
-            data = await postService.getPostById(postId, "posts");
-          } else {
-            throw socialErr;
+        } else {
+          // Fallback to default behavior if no query param type is provided
+          try {
+            data = await postService.getPostById(postId, "social-posts");
+          } catch (socialErr: any) {
+            const status = socialErr.response?.status;
+            const msg = socialErr.message;
+            if (status === 451 || msg === "451" || msg?.includes("451")) {
+              throw socialErr;
+            }
+            // If social-posts fails with 404, try the regular posts endpoint
+            if (status === 404 || msg === "404") {
+              data = await postService.getPostById(postId, "posts");
+            } else {
+              throw socialErr;
+            }
           }
         }
 
