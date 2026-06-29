@@ -43,6 +43,7 @@ import { showToast } from "../../utils/toast";
 import { parseError } from "../../utils/error-handler";
 import { useTheme } from "../../hooks/useTheme";
 import { getAuthToken } from "../../utils/auth";
+import axiosInstance from "../../api/axiosConfig";
 import { translateText } from "../../context/LanguageContext";
 import KarmaBadge from "../ui/KarmaBadge";
 
@@ -1028,9 +1029,6 @@ function AuthorRow({
             alt="Avatar"
           />
         )}
-        <div
-          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-base-100 shadow-sm"
-        />
       </motion.div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
@@ -1848,6 +1846,19 @@ export default function PostCard({
   const [reopenOpen, setReopenOpen] = useState(false);
   const [shareMenuOpen, setShareMenuOpen] = useState(false);
   const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [moreMenuOpen]);
+
   const [resolving, setResolving] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -1872,6 +1883,7 @@ export default function PostCard({
   const [profileModalAvatar, setProfileModalAvatar] = useState<string | null>(null);
   const { copied, flash } = useCopied();
   const instanceId = useRef(Math.random().toString()).current;
+  const isAuthor = !!(currentUser && post.username === currentUser.username);
 
   const handleTranslateDynamic = async () => {
     const preferredLang = currentUserProfile?.preferredLanguage || "en";
@@ -2733,7 +2745,7 @@ export default function PostCard({
   };
 
   const headerMoreMenu = (
-    <div className="relative shrink-0">
+    <div ref={menuRef} className="relative shrink-0">
       <motion.button
         onClick={(e) => {
           e.stopPropagation();
@@ -2783,28 +2795,32 @@ export default function PostCard({
               {isTranslating ? <span className="loading loading-spinner w-3 h-3" /> : <Globe size={14} />}
               {isTranslating ? "Translating..." : translateLabel}
             </button>
-            <button
-              onClick={() => {
-                setMoreMenuOpen(false);
-                showToast.success("Marked as interested.");
-              }}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-base-content/75 hover:bg-base-200"
-              role="menuitem"
-            >
-              <CheckCircle2 size={14} />
-              Interested
-            </button>
-            <button
-              onClick={() => {
-                setMoreMenuOpen(false);
-                setConfirmNotInterestedOpen(true);
-              }}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-base-content/75 hover:bg-base-200"
-              role="menuitem"
-            >
-              <EyeOff size={14} />
-              Not Interested
-            </button>
+            {!isAuthor && (
+              <>
+                <button
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    showToast.success("Marked as interested.");
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-base-content/75 hover:bg-base-200"
+                  role="menuitem"
+                >
+                  <CheckCircle2 size={14} />
+                  Interested
+                </button>
+                <button
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    setConfirmNotInterestedOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-base-content/75 hover:bg-base-200"
+                  role="menuitem"
+                >
+                  <EyeOff size={14} />
+                  Not Interested
+                </button>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -2818,7 +2834,7 @@ export default function PostCard({
         animate={{ opacity: 1, scale: 1 }}
         whileHover={{ y: -6 }}
         transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
-        className={`rounded-[2rem] border-2 ${borderClass} shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col backdrop-blur-md relative group/card transition-all duration-500 notranslate`}
+        className={`rounded-[2rem] border-2 ${borderClass} shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] overflow-visible flex flex-col backdrop-blur-md relative group/card transition-all duration-500 notranslate`}
       >
         <div className="p-5 sm:p-6 flex flex-col gap-4 flex-1 relative">
 
@@ -3174,12 +3190,17 @@ export default function PostCard({
       <ConfirmModal
         isOpen={confirmNotInterestedOpen}
         onClose={() => setConfirmNotInterestedOpen(false)}
-        onConfirm={() => {
+        onConfirm={async () => {
           setConfirmNotInterestedOpen(false);
           if (onNotInterested) {
             onNotInterested(post.id);
           } else {
             setLocallyHidden(true);
+            try {
+              await axiosInstance.post("/api/v1/feed/signal/not-interested", { postId: post.id });
+            } catch (err) {
+              console.error("Failed to submit not interested signal from card:", err);
+            }
           }
         }}
         title="Not Interested"

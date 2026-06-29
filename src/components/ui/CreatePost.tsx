@@ -157,7 +157,7 @@ function MediaUploadZone({
     ? "bg-green-500/[0.02] dark:bg-green-500/[0.04]" 
     : "bg-white/[0.01] dark:bg-white/[0.02]";
   const accentText = accent === "green" 
-    ? "text-green-600 dark:text-green-400" 
+    ? "text-green-500 dark:text-green-400" 
     : "text-[#1D4ED8] dark:text-blue-400";
   const accentHover = accent === "green" 
     ? "hover:border-green-500/40 hover:bg-green-500/[0.05] dark:hover:border-green-500/50" 
@@ -796,7 +796,7 @@ function PostForm({
         </p>
         <div className="flex gap-2">
           <button
-            className={`btn btn-sm ${isReportingIssue ? "bg-green-600 hover:bg-green-700" : "bg-[#1D4ED8] hover:bg-[#1D4ED8]/90"} text-white`}
+            className={`btn btn-sm ${isReportingIssue ? "bg-green-500 hover:bg-green-600" : "bg-[#1D4ED8] hover:bg-[#1D4ED8]/90"} text-white`}
             onClick={() => {
               setSubmitted(false);
               setContent("");
@@ -835,13 +835,13 @@ function PostForm({
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-xl border transition-colors ${
               isReportingIssue 
-                ? "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400" 
+                ? "bg-green-500/10 border-green-500/20 text-green-500 dark:text-green-400" 
                 : "bg-base-300/40 border-base-content/5 text-base-content/40"
             }`}>
               <AlertTriangle size={16} />
             </div>
             <div>
-              <p className={`text-xs font-black uppercase tracking-wider transition-colors ${isReportingIssue ? "text-green-600 dark:text-green-400" : "text-base-content/75"}`}>
+              <p className={`text-xs font-black uppercase tracking-wider transition-colors ${isReportingIssue ? "text-green-500 dark:text-green-400" : "text-base-content/75"}`}>
                 Report to Government
               </p>
               <p className="text-base-content/40 text-[10px] leading-tight font-bold uppercase tracking-wider mt-0.5">Flag issue to authorities</p>
@@ -851,7 +851,7 @@ function PostForm({
             <div
               className={`relative w-9 h-5.5 rounded-full cursor-pointer transition-all duration-300 border flex items-center p-0.5 ${
                 isReportingIssue 
-                  ? "bg-green-500 border-green-600 shadow-inner" 
+                  ? "bg-green-500 border-green-500 shadow-inner" 
                   : "bg-base-300 border-base-content/10"
               }`}
               onClick={() => { setIsReportingIssue(!isReportingIssue); setError(null); }}
@@ -889,11 +889,11 @@ function PostForm({
               <div className="text-[10px] min-h-[14px] mt-0.5">
                 {fetchingPincode ? (
                   <span className="flex items-center gap-1 text-base-content/60">
-                    <Loader2 size={11} className="animate-spin text-green-600 dark:text-green-400" />
+                    <Loader2 size={11} className="animate-spin text-green-500 dark:text-green-400" />
                     <span>Fetching location details...</span>
                   </span>
                 ) : pincodeDetails ? (
-                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400 font-semibold">
+                  <span className="flex items-center gap-1 text-green-500 dark:text-green-400 font-semibold">
                     <MdLocationOn size={11} className="text-green-500 shrink-0" />
                     <span>{pincodeDetails}</span>
                   </span>
@@ -944,7 +944,7 @@ function PostForm({
             title="Bold"
             className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 font-black ${
               isReportingIssue 
-                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                ? "hover:text-green-500 hover:bg-green-500/10 dark:hover:text-green-400" 
                 : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
             }`}
           >
@@ -956,7 +956,7 @@ function PostForm({
             title="Italic"
             className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 italic font-black ${
               isReportingIssue 
-                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                ? "hover:text-green-500 hover:bg-green-500/10 dark:hover:text-green-400" 
                 : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
             }`}
           >
@@ -968,7 +968,7 @@ function PostForm({
             title="Monospace"
             className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 font-bold ${
               isReportingIssue 
-                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                ? "hover:text-green-500 hover:bg-green-500/10 dark:hover:text-green-400" 
                 : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
             }`}
           >
@@ -993,7 +993,7 @@ function PostForm({
             title="Add Hashtag"
             className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 ${
               isReportingIssue 
-                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                ? "hover:text-green-500 hover:bg-green-500/10 dark:hover:text-green-400" 
                 : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
             }`}
           >
@@ -1017,7 +1017,7 @@ function PostForm({
             title="Mention User"
             className={`btn btn-ghost btn-xs btn-square hover:scale-105 text-base-content/70 cursor-pointer transition-all duration-150 ${
               isReportingIssue 
-                ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" 
+                ? "hover:text-green-500 hover:bg-green-500/10 dark:hover:text-green-400" 
                 : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400"
             }`}
           >
@@ -1031,8 +1031,8 @@ function PostForm({
               title="Insert Emoji"
               className={`btn btn-ghost btn-xs btn-square text-base-content/70 hover:scale-105 cursor-pointer transition-all duration-150 ${
                 showEmojiPicker 
-                  ? (isReportingIssue ? "text-green-600 bg-green-500/10 dark:text-green-400 dark:bg-green-500/20" : "text-[#1D4ED8] bg-primary/10 dark:text-blue-400 dark:bg-primary/20") 
-                  : (isReportingIssue ? "hover:text-green-600 hover:bg-green-500/10 dark:hover:text-green-400" : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400")
+                  ? (isReportingIssue ? "text-green-500 bg-green-500/10 dark:text-green-400 dark:bg-green-500/20" : "text-[#1D4ED8] bg-primary/10 dark:text-blue-400 dark:bg-primary/20") 
+                  : (isReportingIssue ? "hover:text-green-500 hover:bg-green-500/10 dark:hover:text-green-400" : "hover:text-primary hover:bg-primary/5 dark:hover:text-blue-400")
               }`}
             >
               <RiEmotionHappyLine size={14} />
@@ -1104,7 +1104,7 @@ function PostForm({
                       className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer transition-colors ${
                         i === selectedIndex
                           ? (isReportingIssue
-                              ? "bg-green-500/10 text-green-600 dark:text-green-400 dark:bg-green-500/20"
+                              ? "bg-green-500/10 text-green-500 dark:text-green-400 dark:bg-green-500/20"
                               : "bg-[#1D4ED8]/10 text-[#1D4ED8]")
                           : "hover:bg-base-200"
                       }`}
@@ -1154,7 +1154,7 @@ function PostForm({
         <button onClick={onClose} className="btn btn-sm btn-ghost rounded-xl px-4" disabled={loading}>Cancel</button>
         <button
           disabled={loading}
-          className={`btn btn-sm text-white min-w-[90px] sm:min-w-[100px] rounded-xl transition-all duration-300 ${isReportingIssue ? "bg-green-600 hover:bg-green-700 shadow-green-500/20" : "bg-primary hover:bg-primary/90 shadow-primary/20"
+          className={`btn btn-sm text-white min-w-[90px] sm:min-w-[100px] rounded-xl transition-all duration-300 ${isReportingIssue ? "bg-green-500 hover:bg-green-600 shadow-green-500/20" : "bg-primary hover:bg-primary/90 shadow-primary/20"
             } ${loading ? "opacity-70" : "shadow-lg"}`}
           onClick={() => handlePost()}
         >
@@ -1215,7 +1215,7 @@ function PostForm({
               <button
                 disabled={upvoting}
                 onClick={handleUpvoteDuplicate}
-                className="btn btn-sm bg-green-600 hover:bg-green-700 text-white w-full rounded-xl transition-all font-bold"
+                className="btn btn-sm bg-green-500 hover:bg-green-600 text-white w-full rounded-xl transition-all font-bold"
               >
                 {upvoting ? (
                   <span className="flex items-center gap-1.5 justify-center">

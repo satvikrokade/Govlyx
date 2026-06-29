@@ -26,6 +26,7 @@ import { useCreateComment } from "../../hooks/usePostInteractions";
 import { checkProfanity } from "../../utils/profanity";
 import { showToast } from "../../utils/toast";
 import { parseError } from "../../utils/error-handler";
+import { decodeHTML } from "../../utils/postUtils";
 
 // ─── auth helpers ─────────────────────────────────────────────────────────────
 function authHeaders(): HeadersInit {
@@ -462,6 +463,7 @@ function SingleComment({
   const createCommentMutation = useCreateComment();
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [editing, setEditing] = useState(false);
+  const decodedText = decodeHTML(comment.text);
   const [repliesOpen, setRepliesOpen] = useState(false);
   const [replies, setReplies] = useState<CommentDto[]>(comment.replies ?? []);
   const [loadingReplies, setLoadingReplies] = useState(false);
@@ -661,7 +663,7 @@ function SingleComment({
             <div className="mt-0.5">
               <CommentInput
                 placeholder="Update your thought…"
-                initialValue={comment.text}
+                initialValue={decodedText}
                 onSubmit={handleEdit}
                 onCancel={() => setEditing(false)}
                 submitLabel="Update"
@@ -689,7 +691,7 @@ function SingleComment({
                   </div>
                 </div>
                 <p className="text-sm leading-relaxed whitespace-pre-wrap break-words text-base-content/85">
-                  {formatCommentText(comment.text)}
+                  {formatCommentText(decodedText)}
                 </p>
               </div>
 

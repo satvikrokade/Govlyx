@@ -1,5 +1,20 @@
 import type { AnyPost, GovernmentPost } from "../components/post/PostCard";
 
+export function decodeHTML(str: string): string {
+  if (!str) return "";
+  if (typeof document === "undefined") {
+    return str
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+  const txt = document.createElement("textarea");
+  txt.innerHTML = str;
+  return txt.value;
+}
+
 export function resolveMediaUrl(path?: string | null, type: "posts" | "social-posts" = "posts"): string {
   if (!path) return "";
 
@@ -98,8 +113,13 @@ export function toPostCardPost(dto: any): AnyPost {
   );
   const timeAgo = dto.timeAgo ?? formatTimeAgo(dto.createdAt);
 
+  const content = dto.content ? decodeHTML(dto.content) : "";
+  const translatedContent = dto.translatedContent ? decodeHTML(dto.translatedContent) : undefined;
+
   const normalized = {
     ...dto,
+    content,
+    translatedContent,
     id: dto.id ?? dto.socialPostId ?? (dto.poll ? dto.poll.socialPostId : undefined),
     username: authorUsername,
     userDisplayName: cleanEmail(dto.userDisplayName ?? authorUsername), // AuthorDto has no displayName
@@ -146,12 +166,12 @@ export function toPostCardPost(dto: any): AnyPost {
       ...normalized,
       variant: "poll",
       id: normalized.id ?? poll.socialPostId ?? poll.pollId ?? dto.pollId ?? dto.id,
-      content: normalized.content || questionText,
+      content: normalized.content || decodeHTML(questionText),
       pollId: poll.pollId ?? dto.pollId ?? dto.id,
-      question: questionText,
+      question: decodeHTML(questionText),
       options: (poll.options ?? dto.options ?? []).map((o: any) => ({
         id: o.optionId ?? o.id,
-        optionText: o.optionText ?? "",
+        optionText: decodeHTML(o.optionText ?? ""),
         voteCount: o.voteCount ?? 0,
         percentage: o.votePercentage ?? o.percentage ?? 0,
       })),

@@ -153,7 +153,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
         </button>
 
         {/* Header */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-8 px-10 sm:px-0">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-base-content tracking-tight">
             Unlock the Full Power of Govlyx
           </h2>

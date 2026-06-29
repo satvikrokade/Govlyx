@@ -1602,8 +1602,8 @@ function AdminPanel({
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => coverFileInputRef.current?.click()}
@@ -2025,8 +2025,8 @@ function CreateModal({
                         <div className="w-full h-full bg-gradient-to-r from-blue-700/10 to-blue-500/5" />
                       )}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
                           onClick={() => coverFileInputRef.current?.click()}
@@ -2825,78 +2825,7 @@ function DetailPanel({
 /* ════════════════════════════════════════════════════════════════════════════
    MAIN PAGE
 ════════════════════════════════════════════════════════════════════════════ */
-const DEFAULT_RECOMMENDED: CommunityData[] = [
-  {
-    id: 9991,
-    name: "Civic Pune Action Group",
-    slug: "civic-pune-action",
-    description: "Collaborative platform for citizen engagement, road repairs, and public amenity improvements in Pune.",
-    privacy: "PUBLIC",
-    avatarUrl: "https://images.unsplash.com/photo-1541872703-74c5e44368f9?auto=format&fit=crop&w=150&q=80",
-    coverImageUrl: null,
-    category: "CIVIC_ISSUES",
-    memberCount: 1420,
-    postCount: 89,
-    isMember: false,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 9992,
-    name: "Tech Hub India",
-    slug: "tech-hub-india",
-    description: "Connecting developers, designers, and startup enthusiasts across India to share ideas and collaborate.",
-    privacy: "PUBLIC",
-    avatarUrl: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=150&q=80",
-    coverImageUrl: null,
-    category: "TECHNOLOGY",
-    memberCount: 3250,
-    postCount: 154,
-    isMember: false,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 9993,
-    name: "Clean & Green Mumbai",
-    slug: "clean-green-mumbai",
-    description: "Join the movement to make Mumbai cleaner, greener, and more sustainable. Organizing local clean-up drives.",
-    privacy: "PUBLIC",
-    avatarUrl: "https://images.unsplash.com/photo-1532996122724-e3c354a0b15b?auto=format&fit=crop&w=150&q=80",
-    coverImageUrl: null,
-    category: "ENVIRONMENT",
-    memberCount: 890,
-    postCount: 42,
-    isMember: false,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 9994,
-    name: "Healthy Living & Wellness",
-    slug: "healthy-living",
-    description: "Daily tips, discussions, and local group activities focused on physical fitness, mental health, and nutrition.",
-    privacy: "PUBLIC",
-    avatarUrl: "https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=150&q=80",
-    coverImageUrl: null,
-    category: "HEALTH",
-    memberCount: 1730,
-    postCount: 96,
-    isMember: false,
-    createdAt: new Date().toISOString()
-  },
-  {
-    id: 9995,
-    name: "Local Governance Pune",
-    slug: "local-gov-pune",
-    description: "Official update and discussion forum for Pune local municipal issues, ward meetings, and public notices.",
-    privacy: "PUBLIC",
-    avatarUrl: "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=150&q=80",
-    coverImageUrl: null,
-    category: "LOCAL_GOVERNANCE",
-    memberCount: 2150,
-    postCount: 112,
-    isMember: false,
-    createdAt: new Date().toISOString()
-  }
-];
+
 
 function RecommendedCarousel({
   recommended,
@@ -3315,19 +3244,11 @@ const Community = () => {
           }));
           const joinedIds = new Set(myCommunities.map(x => x.id));
           const filtered = mapped.filter(x => !joinedIds.has(x.id));
-          
-          if (filtered.length < 3) {
-            const fallback = DEFAULT_RECOMMENDED.filter(x => !joinedIds.has(x.id));
-            setRecommended([...filtered, ...fallback]);
-          } else {
-            setRecommended(filtered);
-          }
+          setRecommended(filtered);
         }
       } catch {
         if (active) {
-          const joinedIds = new Set(myCommunities.map(x => x.id));
-          const fallback = DEFAULT_RECOMMENDED.filter(x => !joinedIds.has(x.id));
-          setRecommended(fallback);
+          setRecommended([]);
         }
       } finally {
         if (active) setRecommendedLoading(false);
@@ -3744,102 +3665,104 @@ const Community = () => {
               <LoadingAnimation overlay label="Loading communities" />
             </div>
           )}
-          {!isCommunityPageLoading && myCommunities.length === 0 && (
-            <div className="text-center py-14 opacity-60 space-y-3">
-              <p className="font-semibold">You haven't joined any communities yet</p>
-              <p className="text-sm max-w-xs mx-auto">Search above or create your own community.</p>
-            </div>
-          )}
-
-          {!isCommunityPageLoading && myCommunities.length > 0 && (
+          {!isCommunityPageLoading && (
             <div className="space-y-5">
-              {(view === "default" || view === "owned") && ownedList.length > 0 && (
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-widest opacity-40 flex items-center gap-1.5">
-                    <Settings size={14} /> Created by you · {ownedList.length}
-                  </p>
-                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
-                    {ownedList.map(c => {
-                      const ownedImgSrc = c.avatarUrl || `https://robohash.org/${encodeURIComponent(c.name)}`;
-                      return (
-                        <div key={c.id} className="group relative rounded-2xl border border-base-300 bg-base-100 overflow-hidden transition-all duration-200 min-w-0" style={{ transform: "translateZ(0)" }}>
-                          <div className="p-4 cursor-pointer" onClick={() => { openCommunity({ ...c, isMember: true }); }}>
-                            <div className="flex items-center gap-3.5">
-                              <div className="shrink-0 w-12 h-12 rounded-full overflow-hidden ring-2 ring-base-300 transition-all duration-200 shadow-sm">
-                                <img
-                                  src={ownedImgSrc}
-                                  alt={c.name}
-                                  className="w-full h-full object-cover transition-transform duration-300"
-                                  onError={e => { (e.target as HTMLImageElement).src = `https://robohash.org/${encodeURIComponent(c.name)}`; }}
-                                />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                                  <p className="font-bold text-sm truncate notranslate">{c.name}</p>
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/20">
-                                    <Settings size={8} /> Owner
-                                  </span>
-                                  {c.privacy !== "PUBLIC" && (
-                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-base-200 text-base-content/60 border border-base-300">
-                                      {c.privacy === "SECRET" ? <><EyeOff size={9} /> Secret</> : <><Lock size={9} /> Private</>}
-                                    </span>
-                                  )}
+              {view === "default" && recommended.length === 0 && myCommunities.length === 0 && (
+                <div className="text-center py-14 opacity-60 space-y-3">
+                  <p className="font-semibold">No communities found</p>
+                  <p className="text-sm max-w-xs mx-auto">Create a community to get started and invite others!</p>
+                  <button className="btn bg-[#1D4ED8] text-white font-semibold border-none hover:bg-[#1D4ED8]/90 btn-sm !opacity-100" onClick={() => setShowCreate(true)}>+ Create a community</button>
+                </div>
+              )}
+              {((view === "default" && ownedList.length > 0) || view === "owned") && (
+                ownedList.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-widest opacity-40 flex items-center gap-1.5">
+                      <Settings size={14} /> Created by you · {ownedList.length}
+                    </p>
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                      {ownedList.map(c => {
+                        const ownedImgSrc = c.avatarUrl || `https://robohash.org/${encodeURIComponent(c.name)}`;
+                        return (
+                          <div key={c.id} className="group relative rounded-2xl border border-base-300 bg-base-100 overflow-hidden transition-all duration-200 min-w-0" style={{ transform: "translateZ(0)" }}>
+                            <div className="p-4 cursor-pointer" onClick={() => { openCommunity({ ...c, isMember: true }); }}>
+                              <div className="flex items-center gap-3.5">
+                                <div className="shrink-0 w-12 h-12 rounded-full overflow-hidden ring-2 ring-base-300 transition-all duration-200 shadow-sm">
+                                  <img
+                                    src={ownedImgSrc}
+                                    alt={c.name}
+                                    className="w-full h-full object-cover transition-transform duration-300"
+                                    onError={e => { (e.target as HTMLImageElement).src = `https://robohash.org/${encodeURIComponent(c.name)}`; }}
+                                  />
                                 </div>
-                                {c.description && <p className="text-xs text-base-content/60 line-clamp-1">{c.description}</p>}
-                                <p className="text-[11px] font-medium text-base-content/45 mt-1 flex items-center gap-1">
-                                  <Users size={11} className="text-[#1D4ED8]/60" /> {c.memberCount.toLocaleString()} members
-                                </p>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                    <p className="font-bold text-sm truncate notranslate">{c.name}</p>
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/20">
+                                      <Settings size={8} /> Owner
+                                    </span>
+                                    {c.privacy !== "PUBLIC" && (
+                                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-base-200 text-base-content/60 border border-base-300">
+                                        {c.privacy === "SECRET" ? <><EyeOff size={9} /> Secret</> : <><Lock size={9} /> Private</>}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {c.description && <p className="text-xs text-base-content/60 line-clamp-1">{c.description}</p>}
+                                  <p className="text-[11px] font-medium text-base-content/45 mt-1 flex items-center gap-1">
+                                    <Users size={11} className="text-[#1D4ED8]/60" /> {c.memberCount.toLocaleString()} members
+                                  </p>
+                                </div>
                               </div>
                             </div>
+                            <div className="border-t border-base-200 grid grid-cols-2 divide-x divide-base-200">
+                              <button
+                                className="py-2.5 text-xs font-semibold text-base-content/60 hover:text-base-content hover:bg-base-200 transition-all duration-200 flex items-center justify-center gap-1.5"
+                                onClick={() => { openCommunity({ ...c, isMember: true }); }}
+                              >
+                                <Eye size={13} /> View
+                              </button>
+                              <button
+                                className="py-2.5 text-xs font-semibold text-amber-600 hover:text-amber-700 hover:bg-amber-500/10 transition-all duration-200 flex items-center justify-center gap-1.5"
+                                onClick={e => { e.stopPropagation(); setAdminTarget(c); }}
+                              >
+                                <Settings size={13} /> Manage
+                              </button>
+                            </div>
                           </div>
-                          <div className="border-t border-base-200 grid grid-cols-2 divide-x divide-base-200">
-                            <button
-                              className="py-2.5 text-xs font-semibold text-base-content/60 hover:text-base-content hover:bg-base-200 transition-all duration-200 flex items-center justify-center gap-1.5"
-                              onClick={() => { openCommunity({ ...c, isMember: true }); }}
-                            >
-                              <Eye size={13} /> View
-                            </button>
-                            <button
-                              className="py-2.5 text-xs font-semibold text-amber-600 hover:text-amber-700 hover:bg-amber-500/10 transition-all duration-200 flex items-center justify-center gap-1.5"
-                              onClick={e => { e.stopPropagation(); setAdminTarget(c); }}
-                            >
-                              <Settings size={13} /> Manage
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-
-              {view === "owned" && ownedList.length === 0 && (
-                <div className="text-center py-14 opacity-60 space-y-3">
-                  <div className="flex justify-center text-base-content/20"><Settings size={48} /></div>
-                  <p className="font-semibold">You haven't created any communities yet</p>
-                  <button className="btn bg-[#1D4ED8] text-white font-semibold border-none hover:bg-[#1D4ED8]/90 btn-sm !opacity-100" onClick={() => setShowCreate(true)}>+ Create your first community</button>
-                </div>
-              )}
-
-              {(view === "default" || view === "joined") && joinedOnly.length > 0 && (
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold uppercase tracking-widest opacity-40">✓ Joined · {joinedOnly.length}</p>
-                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                    {joinedOnly.map(c => (
-                      <CommunityCard key={c.id} id={c.id} slug={c.slug} name={c.name} description={c.description}
-                        members={c.memberCount} avatarUrl={c.avatarUrl} privacy={c.privacy}
-                        rankLabel={getCommunityRankLabel(c)} momentumScore={getCommunityMomentum(c)}
-                        onClick={() => { openCommunity(c); }} />
-                    ))}
+                ) : (
+                  <div className="text-center py-14 opacity-60 space-y-3">
+                    <div className="flex justify-center text-base-content/20"><Settings size={48} /></div>
+                    <p className="font-semibold">You haven't created any communities yet</p>
+                    <button className="btn bg-[#1D4ED8] text-white font-semibold border-none hover:bg-[#1D4ED8]/90 btn-sm !opacity-100" onClick={() => setShowCreate(true)}>+ Create your first community</button>
                   </div>
-                </div>
+                )
               )}
 
-              {view === "joined" && joinedOnly.length === 0 && (
-                <div className="text-center py-14 opacity-60 space-y-3">
-                  <p className="font-semibold">You haven't joined any communities yet</p>
-                  <p className="text-sm max-w-xs mx-auto">Search above to discover communities.</p>
-                </div>
+              {((view === "default" && joinedOnly.length > 0) || view === "joined") && (
+                joinedOnly.length > 0 ? (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold uppercase tracking-widest opacity-40">✓ Joined · {joinedOnly.length}</p>
+                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                      {joinedOnly.map(c => (
+                        <CommunityCard key={c.id} id={c.id} slug={c.slug} name={c.name} description={c.description}
+                          members={c.memberCount} avatarUrl={c.avatarUrl} privacy={c.privacy}
+                          rankLabel={getCommunityRankLabel(c)} momentumScore={getCommunityMomentum(c)}
+                          onClick={() => { openCommunity(c); }} />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  view === "joined" && (
+                    <div className="text-center py-14 opacity-60 space-y-3">
+                      <p className="font-semibold">You haven't joined any communities yet</p>
+                      <p className="text-sm max-w-xs mx-auto">Search above to discover communities.</p>
+                    </div>
+                  )
+                )
               )}
             </div>
           )}
