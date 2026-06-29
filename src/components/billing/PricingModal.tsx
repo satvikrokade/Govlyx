@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import { X, Check, Crown, Zap, Sparkles, Loader2 } from "lucide-react";
+import { X, Check, Crown, Zap, Loader2 } from "lucide-react";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useMyBilling } from "../../hooks/useBilling";
 import { billingApi } from "../../api/billing";
@@ -154,9 +154,6 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary mb-3">
-            <Sparkles size={12} className="animate-pulse" /> Govlyx Monetization Pass
-          </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-base-content tracking-tight">
             Unlock the Full Power of Govlyx
           </h2>

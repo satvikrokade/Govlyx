@@ -3116,7 +3116,7 @@ function RecommendedCarousel({
                   onClick={() => onSelect(c)}
                 >
                   {/* Card Container */}
-                  <div className="w-full bg-base-100 rounded-3xl border border-base-300 p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-300 h-[310px] cursor-pointer hover:border-base-content/20">
+                  <div className="w-full bg-base-100 rounded-3xl border border-base-300 p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-300 h-[380px] md:h-[310px] cursor-pointer hover:border-base-content/20">
                     <div className="flex flex-col h-full justify-between">
                       <div>
                         {/* Cover Image at Top */}
@@ -3147,7 +3147,7 @@ function RecommendedCarousel({
                         </h3>
 
                         {/* Description */}
-                        <p className="text-[11px] sm:text-xs text-base-content/60 line-clamp-2 leading-relaxed min-h-[2.5rem]">
+                        <p className="text-[11px] sm:text-xs text-base-content/60 line-clamp-2 leading-relaxed">
                           {c.description}
                         </p>
                       </div>

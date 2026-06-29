@@ -359,13 +359,7 @@ function getCommunityId(post: AnyPost): number | null {
   return null;
 }
 
-function getIssueMilestone(likes: number, resolved?: boolean) {
-  if (resolved) return { label: "Civic Victory", target: Math.max(likes, 100), progress: 100, cta: "Share Victory to Ward Group" };
-  if (likes >= 100) return { label: "District Priority", target: 100, progress: 100, cta: "Share to Local Politics Group" };
-  if (likes >= 50) return { label: "Ward Momentum", target: 100, progress: Math.min(100, likes), cta: "Share to RWA Group" };
-  if (likes >= 10) return { label: "Mohalla Traction", target: 50, progress: Math.min(100, (likes / 50) * 100), cta: "Share to Family Group" };
-  return { label: "Needs Mohalla Traction", target: 10, progress: Math.min(100, (likes / 10) * 100), cta: "Share to WhatsApp" };
-}
+
 
 // ─── Zoom Viewer (Fullscreen Lightbox with Zoom) ─────────────────────────────
 function ZoomViewer({
@@ -2955,34 +2949,7 @@ export default function PostCard({
             </motion.div>
           )}
 
-          {isIssue && (() => {
-            const milestone = getIssueMilestone(likeCount, isResolved);
-            return (
-              <div className="rounded-xl border border-blue-500/15 bg-blue-500/5 px-3 py-2">
-                <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 dark:text-blue-300">
-                    {milestone.label}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      window.open(`https://wa.me/?text=${encodeURIComponent(`${milestone.label}: ${post.content}\n${window.location.origin}/post/${post.id}?type=posts`)}`, "_blank", "noopener,noreferrer");
-                    }}
-                    className="text-[10px] font-bold text-green-700 hover:underline dark:text-green-300"
-                  >
-                    {milestone.cta}
-                  </button>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-base-300">
-                  <div className="h-full rounded-full bg-blue-600 transition-all duration-500" style={{ width: `${milestone.progress}%` }} />
-                </div>
-                <p className="mt-1 text-[10px] font-semibold text-base-content/50">
-                  {isResolved ? "Resolved and ready to celebrate" : `${likeCount}/${milestone.target} neighbors supporting`}
-                </p>
-              </div>
-            );
-          })()}
+
 
           {/* Mark Resolved banner */}
           {govCanResolve && !resolving && (
