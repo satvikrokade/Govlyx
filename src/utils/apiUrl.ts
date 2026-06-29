@@ -17,7 +17,7 @@
  *   fetch(apiUrl('/api/search?q=foo'), { headers: ... })
  */
 
-const FALLBACK_URL = "";
+const FALLBACK_URL = "https://api.govlyx.com";
 const rawUrl = import.meta.env.VITE_API_URL || FALLBACK_URL;
 const BASE = !import.meta.env.DEV
   ? ""
