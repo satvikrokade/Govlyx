@@ -3,7 +3,7 @@ import { parseError } from "../utils/error-handler";
 import { showToast } from "../utils/toast";
 import { clearAuthTokens, getAuthToken, isTokenExpired, persistAuthToken } from "../utils/auth";
 
-const FALLBACK_URL = "https://api.govlyx.com";
+const FALLBACK_URL = "";
 const rawUrl = import.meta.env.VITE_API_URL || FALLBACK_URL;
 export const API_BASE_URL = !import.meta.env.DEV
   ? ""
