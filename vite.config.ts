@@ -49,10 +49,12 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(/^\/external-api/, ''),
           configure: (proxy) => {
             proxy.on('error', (_err, _req, res) => {
-              if (!res.headersSent) {
-                res.writeHead(200, { 'Content-Type': 'application/json' });
+              if ('writeHead' in res && 'end' in res) {
+                if (!res.headersSent) {
+                  res.writeHead(200, { 'Content-Type': 'application/json' });
+                }
+                res.end(JSON.stringify(zenQuotesFallback));
               }
-              res.end(JSON.stringify(zenQuotesFallback));
             });
           },
           headers: {

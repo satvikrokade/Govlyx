@@ -9,6 +9,7 @@ import {
   Globe,
   Building2,
   AlertCircle,
+  Pencil,
   Trash2,
   ChevronLeft,
   ChevronRight,
@@ -361,6 +362,15 @@ function getCommunityId(post: AnyPost): number | null {
   if (post.variant === "poll") return (post as PollPost).communityId ?? null;
   if (post.variant === "social") return (post as SocialPost).communityId ?? null;
   return null;
+}
+
+function normalizePassTier(value: unknown): "GOVLYX_FREE" | "GOVLYX_PRO" | "GOVLYX_VIP" | undefined {
+  if (!value || typeof value !== "string") return undefined;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "GOVLYX_VIP" || normalized === "VIP") return "GOVLYX_VIP";
+  if (normalized === "GOVLYX_PRO" || normalized === "PRO") return "GOVLYX_PRO";
+  if (normalized === "GOVLYX_FREE" || normalized === "FREE") return "GOVLYX_FREE";
+  return undefined;
 }
 
 
@@ -1010,7 +1020,19 @@ function AuthorRow({
   ));
   const myTier = isMe ? billing?.currentTier : undefined;
 
-  const tier = myTier || (post as any).authorBillingTier || (post as any).userBillingTier || (post as any).billingTier || (post as any).authorTier || (post as any).userTier || (post as any).tier;
+  const tier = normalizePassTier(
+    myTier ||
+    (post as any).authorBillingTier ||
+    (post as any).userBillingTier ||
+    (post as any).billingTier ||
+    (post as any).currentTier ||
+    (post as any).subscriptionTier ||
+    (post as any).planTier ||
+    (post as any).passTier ||
+    (post as any).authorTier ||
+    (post as any).userTier ||
+    (post as any).tier
+  );
   const passBadge = (() => {
     if (tier === "GOVLYX_VIP") {
       return {
@@ -1866,6 +1888,7 @@ export default function PostCard({
   );
   const [shareCount, setShareCount] = useState(post?.shareCount ?? 0);
   const [commentCount, setCommentCount] = useState(post?.commentCount ?? 0);
+  const [contentOverride, setContentOverride] = useState(post?.content ?? "");
   const [hasSharedLocally, setHasSharedLocally] = useState(() => {
     if (!post) return false;
     const isIssue = post.variant === "issue";
@@ -1899,6 +1922,9 @@ export default function PostCard({
   const [resolving, setResolving] = useState(false);
   const [reopening, setReopening] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editContent, setEditContent] = useState(post?.content ?? "");
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmNotInterestedOpen, setConfirmNotInterestedOpen] = useState(false);
   const [isJoined, setIsJoined] = useState((post as any).isMember ?? false);
@@ -1922,6 +1948,11 @@ export default function PostCard({
   const instanceId = useRef(Math.random().toString()).current;
   const isAuthor = !!(currentUser && post.username === currentUser.username);
 
+  useEffect(() => {
+    setContentOverride(post?.content ?? "");
+    setEditContent(post?.content ?? "");
+  }, [post?.id, post?.content]);
+
   const handleTranslateDynamic = async () => {
     const preferredLang = currentUserProfile?.preferredLanguage || "en";
     const cacheKey = `${post.variant}_${post.id}_${preferredLang}`;
@@ -1939,8 +1970,8 @@ export default function PostCard({
 
     setIsTranslating(true);
     try {
-      const translatedText = await translateText(post.content || "", preferredLang);
-      if (translatedText && translatedText !== post.content) {
+      const translatedText = await translateText(contentOverride || "", preferredLang);
+      if (translatedText && translatedText !== contentOverride) {
         postTranslationCache.set(cacheKey, translatedText);
         setDynamicTranslation(translatedText);
         setShowOriginal(false);
@@ -2710,6 +2741,55 @@ export default function PostCard({
     }
   }
 
+  async function handleEditSave() {
+    const nextContent = editContent.trim();
+    const isSocial = post.variant === "social" || post.variant === "community";
+    const maxLength = isSocial ? 3000 : 2000;
+
+    if (!nextContent) {
+      showToast.error("Post content is required.");
+      return;
+    }
+    if (nextContent.length > maxLength) {
+      showToast.error(`Post content must be ${maxLength.toLocaleString()} characters or less.`);
+      return;
+    }
+    if (checkProfanity(nextContent)) {
+      showToast.error("Content contains prohibited language/profanity. Please check your words.");
+      return;
+    }
+
+    setIsEditing(true);
+    try {
+      const endpoint = isSocial
+        ? `/api/social-posts/${post.id}`
+        : `/api/posts/${post.id}/content/dto`;
+      const payload = isSocial
+        ? {
+            content: nextContent,
+            hashtags: (post as SocialPost | CommunityPost).hashtags,
+            allowComments: (post as any).allowComments,
+          }
+        : { content: nextContent };
+
+      const updated = (await apiPut(endpoint, payload)) as any;
+      const returnedContent = updated?.content ?? updated?.data?.content ?? nextContent;
+      post.content = returnedContent;
+      (post as BasePost).translatedContent = undefined;
+      (post as BasePost).isTranslated = false;
+      setContentOverride(returnedContent);
+      setDynamicTranslation(null);
+      setShowOriginal(false);
+      setEditOpen(false);
+      showToast.success("Post updated successfully.");
+    } catch (err: any) {
+      console.error("Edit post error:", err);
+      showToast.error(parseError(err));
+    } finally {
+      setIsEditing(false);
+    }
+  }
+
   async function handleJoinCommunity(cid: number) {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -2767,8 +2847,9 @@ export default function PostCard({
   const hasTranslation = hasBackendTranslation || !!dynamicTranslation;
   const displayText = hasTranslation && !showOriginal
     ? (dynamicTranslation || (post as BasePost).translatedContent!)
-    : post.content;
+    : contentOverride;
   const canShowDelete = !hideDelete && ((post as any).canDelete !== undefined ? !!(post as any).canDelete : !!(currentUser && post.username === currentUser.username));
+  const canShowEdit = post.variant !== "poll" && ((post as any).canEdit !== undefined ? !!(post as any).canEdit : isAuthor);
   const translateLabel = hasTranslation ? (showOriginal ? "See Translation" : "Show Original") : "Translate";
 
   const handleMenuTranslate = () => {
@@ -2809,6 +2890,21 @@ export default function PostCard({
             onClick={(e) => e.stopPropagation()}
             role="menu"
           >
+            {canShowEdit && (
+              <button
+                onClick={() => {
+                  setEditContent(contentOverride);
+                  setMoreMenuOpen(false);
+                  setEditOpen(true);
+                }}
+                disabled={isEditing}
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-bold text-base-content/75 hover:bg-base-200 disabled:opacity-40"
+                role="menuitem"
+              >
+                <Pencil size={14} />
+                Edit
+              </button>
+            )}
             {canShowDelete && (
               <button
                 onClick={() => {
@@ -3223,6 +3319,77 @@ export default function PostCard({
         message="Are you sure you want to delete this post? This action cannot be undone."
         isLoading={isDeleting}
       />
+
+      <AnimatePresence>
+        {editOpen && (
+          <motion.div
+            className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => !isEditing && setEditOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              transition={{ duration: 0.18 }}
+              className="w-full max-w-lg overflow-hidden rounded-2xl border border-base-300 bg-base-100 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between border-b border-base-300 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Pencil size={16} className="text-blue-700" />
+                  <h3 className="text-sm font-black uppercase tracking-wide">Edit Post</h3>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-circle btn-sm"
+                  onClick={() => setEditOpen(false)}
+                  disabled={isEditing}
+                  aria-label="Close edit post"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="space-y-2 p-4">
+                <textarea
+                  className="textarea textarea-bordered min-h-40 w-full resize-none rounded-xl text-sm leading-relaxed"
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  maxLength={post.variant === "social" || post.variant === "community" ? 3000 : 2000}
+                  disabled={isEditing}
+                  autoFocus
+                />
+                <div className="flex items-center justify-between gap-3 text-[11px] font-semibold text-base-content/50">
+                  <span>Text only</span>
+                  <span>
+                    {editContent.length.toLocaleString()} / {(post.variant === "social" || post.variant === "community" ? 3000 : 2000).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 border-t border-base-300 px-4 py-3">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm rounded-xl"
+                  onClick={() => setEditOpen(false)}
+                  disabled={isEditing}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm rounded-xl border-none bg-blue-700 px-5 font-bold text-white hover:bg-blue-800"
+                  onClick={handleEditSave}
+                  disabled={isEditing || !editContent.trim() || editContent.trim() === contentOverride.trim()}
+                >
+                  {isEditing ? <><span className="loading loading-spinner loading-xs" /> Saving...</> : "Save"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ConfirmModal
         isOpen={confirmNotInterestedOpen}

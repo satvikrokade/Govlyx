@@ -90,6 +90,29 @@
   border-color: #1e40af !important;
 }
 
+.govlyx-red-toggle {
+  --input-color: color-mix(in oklab, var(--color-base-content) 45%, transparent);
+}
+
+.govlyx-red-toggle:checked {
+  --input-color: #ffffff;
+  color: #ffffff;
+  background-color: #ef4444 !important;
+  border-color: #fb7185 !important;
+  box-shadow:
+    0 0 0 1px rgba(248, 113, 113, 0.38),
+    0 0 18px rgba(239, 68, 68, 0.46),
+    0 1px rgba(255, 255, 255, 0.22) inset !important;
+}
+
+.govlyx-red-toggle:checked::before {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.96) inset !important;
+}
+
 .liquid-button {
   position: relative;
   isolation: isolate;

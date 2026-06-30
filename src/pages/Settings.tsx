@@ -562,7 +562,7 @@ const Settings = () => {
               <p className="text-xs opacity-60 leading-relaxed max-w-xl">
                 {billing?.currentTier === "GOVLYX_PRO" 
                   ? "Unlimited matchmaking, chat media, matchmaking filters, and 3 private community creation quota." 
-                  : "3 matches per day limit. Text-only stranger chat."}
+                  : "10 matches per day limit with 5 media shares daily within those matches."}
               </p>
             )}
             {billing?.currentTier !== "GOVLYX_FREE" && typeof billing?.privateCommunityQuota === "number" && (

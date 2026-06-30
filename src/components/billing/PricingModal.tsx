@@ -55,6 +55,13 @@ const GOVLYX_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 51
   </g>
 </svg>`;
 
+const LAUNCH_OFFER = {
+  label: "Launch Special - 50% OFF",
+  subtext: "Limited time offer for early adopters.",
+  pro: { original: 49, discounted: 24 },
+  vip: { original: 149, discounted: 74 },
+} as const;
+
 interface PricingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -69,6 +76,8 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
   if (!isOpen) return null;
 
   const currentTier = billing?.currentTier || "GOVLYX_FREE";
+  const getLaunchPrice = (tier: "GOVLYX_PRO" | "GOVLYX_VIP") =>
+    tier === "GOVLYX_VIP" ? LAUNCH_OFFER.vip.discounted : LAUNCH_OFFER.pro.discounted;
 
   const handleUpgrade = async (tier: "GOVLYX_PRO" | "GOVLYX_VIP") => {
     setLoadingTier(tier);
@@ -91,11 +100,13 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
       // 4. Configure Razorpay checkout options
       const options = {
         key: config.keyId,
-        amount: tier === "GOVLYX_VIP" ? 14900 : 4900, // paise (₹149 / ₹49)
+        amount: getLaunchPrice(tier) * 100,
         currency: "INR",
         name: "Govlyx",
         image: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(GOVLYX_LOGO_SVG)))}`,
-        description: tier === "GOVLYX_VIP" ? "Govlyx VIP Monthly Pass" : "Govlyx Pro Monthly Pass",
+        description: tier === "GOVLYX_VIP"
+          ? `Govlyx VIP Monthly Pass - Launch Special Rs ${LAUNCH_OFFER.vip.discounted}/mo`
+          : `Govlyx Pro Monthly Pass - Launch Special Rs ${LAUNCH_OFFER.pro.discounted}/mo`,
         order_id: orderData.orderId,
         handler: async (response: any) => {
           const toastId = toast.loading("Verifying payment...");
@@ -160,6 +171,11 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
           <p className="text-sm opacity-70 mt-1 max-w-md mx-auto">
             Choose a pass tier to power up your matchmaking, chat experience, and community features.
           </p>
+          <div className="mt-4 inline-flex flex-col sm:flex-row items-center gap-1.5 rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-2 text-emerald-700 dark:text-emerald-300">
+            <span className="text-[11px] font-black uppercase tracking-widest">{LAUNCH_OFFER.label}</span>
+            <span className="hidden sm:inline text-emerald-500/70">-</span>
+            <span className="text-[11px] font-bold">{LAUNCH_OFFER.subtext}</span>
+          </div>
         </div>
 
         {/* Plan Cards Grid */}
@@ -185,11 +201,11 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
               <ul className="space-y-3 mt-6 text-xs text-base-content/80">
                 <li className="flex items-start gap-2">
                   <Check size={14} className="text-green-500 shrink-0 mt-0.5" />
-                  <span>3 matches per 24 hours</span>
+                  <span>10 matches per 24 hours</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check size={14} className="text-green-500 shrink-0 mt-0.5" />
-                  <span>Text-only stranger chat</span>
+                  <span>5 media shares daily within those 10 matches</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check size={14} className="text-green-500 shrink-0 mt-0.5" />
@@ -213,6 +229,9 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
           {/* PRO TIER CARD */}
           <div className={`flex flex-col justify-between p-6 rounded-2xl bg-base-100 border ${currentTier === "GOVLYX_PRO" ? "border-blue-500 shadow-md" : "border-base-300"} transition-all hover:shadow-lg relative`}>
+            <div className="absolute -top-3 left-6 rounded-full bg-emerald-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20">
+              {LAUNCH_OFFER.label}
+            </div>
             <div>
               <div className="flex items-center justify-between mb-4">
                 <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-400">
@@ -223,8 +242,14 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 )}
               </div>
               <div className="mb-4">
-                <span className="text-3xl font-black text-base-content">₹49</span>
-                <span className="text-xs opacity-60">/month</span>
+                <div className="flex items-end gap-2">
+                  <span className="text-sm font-black text-base-content/35 line-through">₹{LAUNCH_OFFER.pro.original}</span>
+                  <span className="text-3xl font-black text-base-content">₹{LAUNCH_OFFER.pro.discounted}</span>
+                  <span className="text-xs opacity-60 mb-1">/month</span>
+                </div>
+                <p className="mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  {LAUNCH_OFFER.subtext}
+                </p>
               </div>
               <p className="text-xs opacity-70 mb-6">Enhance your communication and create exclusive groups.</p>
               
@@ -269,25 +294,35 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
           </div>
 
           {/* VIP TIER CARD */}
-          <div className={`flex flex-col justify-between p-6 rounded-2xl bg-base-100 border-2 ${currentTier === "GOVLYX_VIP" ? "border-amber-500 shadow-md" : "border-amber-500/40"} transition-all hover:shadow-lg relative overflow-hidden`}>
-            
-            {/* VIP Glow badge */}
-            <div className="absolute top-0 right-0 bg-amber-500 text-amber-950 text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl shadow-sm">
-              Popular
-            </div>
-
+          <div className={`flex flex-col justify-between p-6 rounded-2xl bg-base-100 border-2 ${currentTier === "GOVLYX_VIP" ? "border-amber-500 shadow-md" : "border-amber-500/40"} transition-all hover:shadow-lg relative`}>
             <div>
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
+                  50% OFF
+                </span>
+                <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-amber-950 shadow-sm">
+                  Popular
+                </span>
+                {currentTier === "GOVLYX_VIP" && (
+                  <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-300">
+                    Active Plan
+                  </span>
+                )}
+              </div>
               <div className="flex items-center justify-between mb-4">
                 <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wider text-amber-500">
                   <Crown size={12} /> VIP Pass
                 </span>
-                {currentTier === "GOVLYX_VIP" && (
-                  <span className="badge badge-sm badge-warning font-semibold">Active Plan</span>
-                )}
               </div>
               <div className="mb-4">
-                <span className="text-3xl font-black text-base-content">₹149</span>
-                <span className="text-xs opacity-60">/month</span>
+                <div className="flex items-end gap-2">
+                  <span className="text-sm font-black text-base-content/35 line-through">₹{LAUNCH_OFFER.vip.original}</span>
+                  <span className="text-3xl font-black text-base-content">₹{LAUNCH_OFFER.vip.discounted}</span>
+                  <span className="text-xs opacity-60 mb-1">/month</span>
+                </div>
+                <p className="mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                  {LAUNCH_OFFER.subtext}
+                </p>
               </div>
               <p className="text-xs opacity-70 mb-6">Complete VIP experience, disappearing messages, priority matching.</p>
               

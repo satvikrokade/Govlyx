@@ -84,6 +84,15 @@ function cleanEmail(val: string): string {
   return val;
 }
 
+function normalizePassTier(value: any): "GOVLYX_FREE" | "GOVLYX_PRO" | "GOVLYX_VIP" | undefined {
+  if (!value || typeof value !== "string") return undefined;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "GOVLYX_VIP" || normalized === "VIP") return "GOVLYX_VIP";
+  if (normalized === "GOVLYX_PRO" || normalized === "PRO") return "GOVLYX_PRO";
+  if (normalized === "GOVLYX_FREE" || normalized === "FREE") return "GOVLYX_FREE";
+  return undefined;
+}
+
 export function toPostCardPost(dto: any): AnyPost {
   if (!dto) return {} as AnyPost;
 
@@ -115,6 +124,30 @@ export function toPostCardPost(dto: any): AnyPost {
 
   const content = dto.content ? decodeHTML(dto.content) : "";
   const translatedContent = dto.translatedContent ? decodeHTML(dto.translatedContent) : undefined;
+  const authorBillingTier = normalizePassTier(
+    dto.authorBillingTier ??
+    dto.userBillingTier ??
+    dto.billingTier ??
+    dto.currentTier ??
+    dto.subscriptionTier ??
+    dto.planTier ??
+    dto.passTier ??
+    dto.authorTier ??
+    dto.userTier ??
+    dto.tier ??
+    dto.author?.currentTier ??
+    dto.author?.billingTier ??
+    dto.author?.subscriptionTier ??
+    dto.author?.planTier ??
+    dto.author?.passTier ??
+    dto.author?.tier ??
+    dto.user?.currentTier ??
+    dto.user?.billingTier ??
+    dto.user?.subscriptionTier ??
+    dto.user?.planTier ??
+    dto.user?.passTier ??
+    dto.user?.tier
+  );
 
   const normalized = {
     ...dto,
@@ -129,6 +162,7 @@ export function toPostCardPost(dto: any): AnyPost {
     hiddenReason: dto.hiddenReason || dto.flagReason || "Violates community guidelines",
     isLikedByCurrentUser: dto.isLikedByMe ?? dto.likedByMe ?? dto.isLikedByCurrentUser ?? false,
     isSavedByCurrentUser: dto.isSavedByMe ?? dto.savedByMe ?? dto.isSavedByCurrentUser ?? dto.isSaved ?? false,
+    authorBillingTier,
   };
 
   // If it's explicitly a government post or is marked as a government broadcast

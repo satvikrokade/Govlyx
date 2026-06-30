@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { FiSearch } from "react-icons/fi";
-import { HiOutlineArrowRight } from "react-icons/hi";
 import { useNavigate, useParams, useLocation, useSearchParams } from "react-router-dom";
 import {
   Building2, Construction, GraduationCap, Stethoscope, Leaf,
@@ -11,7 +9,8 @@ import {
   Save, Archive, MessageSquare, Calendar,
   Tag, Rocket, PartyPopper, Plus, ChevronLeft, ChevronRight,
   XCircle, Home, Link, Eye, Image as ImageIcon, RefreshCw,
-  Activity, Radio, FileText, Upload, Sparkles, Flame, Check, Clock
+  Activity, Radio, FileText, Upload, Sparkles, Flame, Check, Clock, MoreVertical,
+  Search, ArrowRight, Send, Copy, Share2, Instagram, ArrowDown
 } from "lucide-react";
 
 import CommunityCard from "../components/community/CommunityCard";
@@ -275,6 +274,27 @@ const PRIV_DESC = {
   SECRET: "Invite only — not discoverable",
 };
 
+function resolvePostApprovalFlag(raw: any, fallback = false): boolean {
+  return Boolean(
+    raw?.requirePostApproval ??
+    raw?.requiresPostApproval ??
+    raw?.postApprovalRequired ??
+    raw?.approvePosts ??
+    raw?.approvalRequired ??
+    fallback
+  );
+}
+
+function withPostApprovalAliases<T extends { requirePostApproval: boolean }>(payload: T) {
+  return {
+    ...payload,
+    requiresPostApproval: payload.requirePostApproval,
+    postApprovalRequired: payload.requirePostApproval,
+    approvePosts: payload.requirePostApproval,
+    approvalRequired: payload.requirePostApproval,
+  };
+}
+
 function getCommunityMomentum(c: CommunityData): number {
   return c.momentumScore ?? c.healthScore ?? Math.min(100, Math.round((c.memberCount * 0.04) + (c.postCount * 1.8)));
 }
@@ -374,6 +394,27 @@ function InviteTab({
   const [cursor, setCursor] = useState<number | null>(null);
   const [revoking, setRevoking] = useState<number | null>(null);
 
+  const publicInviteFallback = useCallback((): InviteResponse => ({
+    id: Date.now(),
+    token: "",
+    inviteLink: `${window.location.origin}/communities?community=${encodeURIComponent(String(communityId))}`,
+    inviteeUsername: null,
+    inviteeProfileImage: null,
+    inviterUsername: null,
+    message: null,
+    status: "PENDING",
+    singleUse: false,
+    useCount: 0,
+    createdAt: new Date().toISOString(),
+    expiresAt: "",
+    actionedAt: null,
+  }), [communityId]);
+
+  const isPublicInviteRejection = (payload: any) => {
+    const text = String(payload?.error || payload?.message || "").toLowerCase();
+    return privacy === "PUBLIC" && text.includes("public") && text.includes("invite");
+  };
+
   useEffect(() => {
     if (debRef.current) clearTimeout(debRef.current);
     const q = searchQ.trim();
@@ -407,6 +448,11 @@ function InviteTab({
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (isPublicInviteRejection(d)) {
+          setSendResult(publicInviteFallback());
+          setSelectedUser(null); setSearchQ(""); setMessage(""); setSuggestions([]);
+          return;
+        }
         setSendError(d?.error || d?.message || `Error ${res.status}`);
         return;
       }
@@ -428,6 +474,10 @@ function InviteTab({
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (isPublicInviteRejection(d)) {
+          setGenResult(publicInviteFallback());
+          return;
+        }
         alert(d?.error || d?.message || "Could not generate link.");
         return;
       }
@@ -527,10 +577,10 @@ function InviteTab({
                       {sendResult.inviteLink}
                     </code>
                     <button
-                      className={`btn btn-xs shrink-0 ${copiedSend ? "btn-success" : "btn-outline"}`}
+                      className={`btn btn-xs shrink-0 gap-1.5 ${copiedSend ? "btn-success" : "btn-outline"}`}
                       onClick={() => copyToClipboard(sendResult.inviteLink, setCopiedSend)}
                     >
-                      {copiedSend ? "✓ Copied" : "Copy"}
+                      {copiedSend ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
                     </button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
@@ -540,9 +590,7 @@ function InviteTab({
                       rel="noopener noreferrer"
                       className="btn btn-success btn-xs gap-2 text-[10px] px-2"
                     >
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" />
-                      </svg>
+                      <Share2 size={14} />
                       WhatsApp
                     </a>
                     <a
@@ -551,18 +599,14 @@ function InviteTab({
                       rel="noopener noreferrer"
                       className="btn bg-[#0088cc] hover:bg-[#0077b5] text-white btn-xs gap-2 text-[10px] px-2 border-none"
                     >
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701-.33 4.955c.488 0 .703-.223.976-.488l2.344-2.279 4.875 3.597c.898.496 1.543.241 1.767-.832l3.195-15.04c.328-1.314-.501-1.91-1.353-1.528z" />
-                      </svg>
+                      <Send size={14} />
                       Telegram
                     </a>
                     <button
                       onClick={() => copyToClipboard(sendResult.inviteLink, setCopiedSend)}
                       className="btn bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] hover:opacity-90 text-white btn-xs gap-2 text-[10px] px-2 border-none"
                     >
-                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.584.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.2-4.353-2.612-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-                      </svg>
+                      <Instagram size={14} />
                       Instagram
                     </button>
                   </div>
@@ -575,8 +619,9 @@ function InviteTab({
           )}
 
           {sendError && (
-            <div className="bg-error/10 border border-error/30 text-error text-sm rounded-xl px-4 py-2">
-              ⚠️ {sendError}
+            <div className="flex items-center gap-2 bg-error/10 border border-error/30 text-error text-sm rounded-xl px-4 py-2">
+              <AlertTriangle size={15} className="shrink-0" />
+              {sendError}
             </div>
           )}
 
@@ -601,7 +646,7 @@ function InviteTab({
                 ) : (
                   <div className="relative">
                     <div className="relative">
-                      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" size={14} />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" size={14} />
                       <input
                         type="text"
                         placeholder="Search username…"
@@ -664,7 +709,7 @@ function InviteTab({
                 disabled={!selectedUser || sending}
                 onClick={handleSendInvite}
               >
-                {sending ? <><Spin xs /> Sending…</> : "📨 Send Invite"}
+                {sending ? <><Spin xs /> Sending...</> : <><Send size={16} /> Send Invite</>}
               </button>
 
               <div className="divider text-xs opacity-40 my-1">OR</div>
@@ -690,7 +735,7 @@ function InviteTab({
                         className={`btn btn-xs shrink-0 ${copiedGen ? "btn-success" : "bg-blue-700 text-white font-semibold border-none hover:bg-blue-800"}`}
                         onClick={() => copyToClipboard(genResult!.inviteLink, setCopiedGen)}
                       >
-                        {copiedGen ? "✓ Copied" : "Copy"}
+                        {copiedGen ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
                       </button>
                     </div>
                     {genResult.expiresAt && (
@@ -705,9 +750,7 @@ function InviteTab({
                         rel="noopener noreferrer"
                         className="btn btn-success btn-sm gap-2 text-[10px] px-2"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347" />
-                        </svg>
+                        <Share2 size={16} />
                         WhatsApp
                       </a>
                       <a
@@ -716,18 +759,14 @@ function InviteTab({
                         rel="noopener noreferrer"
                         className="btn bg-[#0088cc] hover:bg-[#0077b5] text-white btn-sm gap-2 text-[10px] px-2 border-none"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M20.665 3.717l-17.73 6.837c-1.21.486-1.203 1.161-.222 1.462l4.552 1.42 10.532-6.645c.498-.303.953-.14.579.192l-8.533 7.701-.33 4.955c.488 0 .703-.223.976-.488l2.344-2.279 4.875 3.597c.898.496 1.543.241 1.767-.832l3.195-15.04c.328-1.314-.501-1.91-1.353-1.528z" />
-                        </svg>
+                        <Send size={16} />
                         Telegram
                       </a>
                       <button
                         onClick={() => copyToClipboard(genResult.inviteLink, setCopiedGen)}
                         className="btn bg-gradient-to-tr from-[#f09433] via-[#dc2743] to-[#bc1888] hover:opacity-90 text-white btn-sm gap-2 text-[10px] px-2 border-none"
                       >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.584.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.2-4.353-2.612-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
-                        </svg>
+                        <Instagram size={16} />
                         Instagram
                       </button>
                     </div>
@@ -738,7 +777,7 @@ function InviteTab({
                     disabled={genLoading}
                     onClick={handleGenerateLink}
                   >
-                    {genLoading ? <><Spin xs /> Generating…</> : "🔗 Generate Invite Link"}
+                    {genLoading ? <><Spin xs /> Generating...</> : <><Link size={16} /> Generate Invite Link</>}
                   </button>
                 )}
               </div>
@@ -769,10 +808,10 @@ function InviteTab({
           ))}
           {hasMore && !listLoading && (
             <button
-              className="w-full py-2 text-sm text-blue-700 hover:opacity-70"
+              className="w-full py-2 text-sm text-blue-700 hover:opacity-70 inline-flex items-center justify-center gap-1"
               onClick={() => loadInvites(cursor, false)}
             >
-              Load more ↓
+              Load more <ArrowDown size={14} />
             </button>
           )}
         </div>
@@ -801,11 +840,11 @@ function InviteRow({
   return (
     <div className="rounded-xl border border-base-300 bg-base-200 p-3 space-y-2">
       <div className="flex items-center gap-3">
-        {avatar(invite.inviteeUsername ?? "🔗", invite.inviteeProfileImage)}
+        {avatar(invite.inviteeUsername ?? "Link", invite.inviteeProfileImage)}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <p className="text-sm font-semibold">
-              {invite.inviteeUsername ? `@${invite.inviteeUsername}` : "🔗 Link invite"}
+              {invite.inviteeUsername ? `@${invite.inviteeUsername}` : "Link invite"}
             </p>
             <span className={`badge badge-xs ${statusColor[invite.status]}`}>
               {invite.status.toLowerCase()}
@@ -1278,7 +1317,7 @@ function AdminPanel({
     avatarUrl: c.avatarUrl || "",
     coverImageUrl: c.coverImageUrl || "",
     allowMemberPosts: c.allowMemberPosts ?? true,
-    requirePostApproval: c.requirePostApproval ?? false,
+    requirePostApproval: resolvePostApprovalFlag(c),
     feedEligible: c.feedEligible ?? false,
   });
   const [settingsBusy, setSettingsBusy] = useState(false);
@@ -1384,13 +1423,14 @@ function AdminPanel({
   async function saveSettings() {
     setSettingsBusy(true); setSettingsMsg(null);
     try {
+      const settingsPayload = withPostApprovalAliases(settingsForm);
       const res = await fetch(apiUrl(`/api/communities/${c.id}`), {
-        method: "PUT", headers: hdrs(), body: JSON.stringify(settingsForm),
+        method: "PUT", headers: hdrs(), body: JSON.stringify(settingsPayload),
       });
       if (!res.ok) { const d = await res.json().catch(() => ({})); setSettingsMsg("❌ " + (d?.message || "Save failed.")); return; }
       const d = await res.json();
       const raw = d?.data ?? d;
-      const updated: CommunityData = { ...c, ...raw, isOwner: true, isMember: true };
+      const updated: CommunityData = { ...c, ...raw, requirePostApproval: resolvePostApprovalFlag(raw, settingsForm.requirePostApproval), isOwner: true, isMember: true };
       setC(updated); onCommunityUpdated(updated);
       setSettingsMsg("✅ Saved successfully.");
     } catch { setSettingsMsg("❌ Server unreachable."); }
@@ -1531,17 +1571,17 @@ function AdminPanel({
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <button className="btn btn-success btn-xs gap-1" disabled={actingReq === req.id} onClick={() => reviewRequest(req.id, true)}>
-                      {actingReq === req.id ? <Spin xs /> : "✓ Accept"}
+                      {actingReq === req.id ? <Spin xs /> : <><Check size={12} /> Accept</>}
                     </button>
                     <button className="btn btn-ghost btn-xs btn-outline gap-1" disabled={actingReq === req.id} onClick={() => reviewRequest(req.id, false)}>
-                      ✕ Reject
+                      <X size={12} /> Reject
                     </button>
                   </div>
                 </div>
               ))}
               {reqHasMore && !reqLoading && (
-                <button className="w-full py-2 text-sm text-blue-700" onClick={() => loadRequests(reqCursor, false)}>
-                  Load more ↓
+                <button className="w-full py-2 text-sm text-blue-700 inline-flex items-center justify-center gap-1" onClick={() => loadRequests(reqCursor, false)}>
+                  Load more <ArrowDown size={14} />
                 </button>
               )}
             </div>
@@ -1576,10 +1616,10 @@ function AdminPanel({
                   )}
                   <div className="flex gap-2 justify-end pt-2 border-t border-base-content/5 mt-2">
                     <button className="btn btn-ghost btn-xs btn-outline gap-1" disabled={actingPost === post.id} onClick={() => reviewPost(post.id, false)}>
-                      ✕ Reject
+                      <X size={12} /> Reject
                     </button>
                     <button className="btn btn-success btn-xs gap-1" disabled={actingPost === post.id} onClick={() => reviewPost(post.id, true)}>
-                      {actingPost === post.id ? <Spin xs /> : "✓ Approve"}
+                      {actingPost === post.id ? <Spin xs /> : <><Check size={12} /> Approve</>}
                     </button>
                   </div>
                 </div>
@@ -1590,7 +1630,7 @@ function AdminPanel({
           {tab === "members" && (
             <div className="p-4 space-y-3">
               <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" size={14} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" size={14} />
                 <input type="text" placeholder="Filter members…" className="input input-bordered input-sm w-full pl-8"
                   value={memSearch} onChange={e => setMemSearch(e.target.value)} />
               </div>
@@ -1613,7 +1653,7 @@ function AdminPanel({
                     </div>
                     <div className="dropdown dropdown-end">
                       <button tabIndex={0} className="btn btn-ghost btn-xs btn-circle" disabled={actingMem === m.userId}>
-                        {actingMem === m.userId ? <Spin xs /> : "⋯"}
+                        {actingMem === m.userId ? <Spin xs /> : <MoreVertical size={14} />}
                       </button>
                       <ul tabIndex={0} className="dropdown-content menu menu-sm bg-base-100 rounded-xl border border-base-300 shadow-lg z-50 w-44 p-1">
                         {m.role !== "ADMIN" && <li><button onClick={() => memberAction(m.userId, "makeAdmin")}><Crown size={14} /> Make Admin</button></li>}
@@ -1633,8 +1673,8 @@ function AdminPanel({
                 </div>
               ))}
               {memHasMore && !memLoading && (
-                <button className="w-full py-2 text-sm text-blue-700" onClick={() => loadMembers(memCursor, false)}>
-                  Load more ↓
+                <button className="w-full py-2 text-sm text-blue-700 inline-flex items-center justify-center gap-1" onClick={() => loadMembers(memCursor, false)}>
+                  Load more <ArrowDown size={14} />
                 </button>
               )}
             </div>
@@ -1775,7 +1815,7 @@ function AdminPanel({
                   {(["PUBLIC", "PRIVATE", "SECRET"] as const).map(p => (
                     <button key={p} type="button"
                       onClick={() => setSettingsForm(f => ({ ...f, privacy: p }))}
-                      className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${settingsForm.privacy === p ? "border-red-500 bg-red-500/10" : "border-base-300 hover:border-base-400"}`}>
+                      className={`w-full flex items-center gap-3 rounded-xl border p-3 text-left transition-all ${settingsForm.privacy === p ? "border-red-500 bg-red-500/15 shadow-[0_0_0_1px_rgba(239,68,68,0.4),0_0_22px_rgba(239,68,68,0.38)]" : "border-base-300 hover:border-base-400"}`}>
                       <span className={`text-xl ${settingsForm.privacy === p ? "text-red-500" : ""}`}>{PRIV_ICON[p]}</span>
                       <div className="flex-1">
                         <p className={`text-sm font-semibold ${settingsForm.privacy === p ? "text-red-500 dark:text-red-400" : "text-base-content"}`}>
@@ -1792,7 +1832,7 @@ function AdminPanel({
                 <label className="block text-sm font-semibold">Permissions</label>
                 {[
                   { key: "allowMemberPosts", label: "Members can post", desc: "Any member can create posts" },
-                  { key: "requirePostApproval", label: "Require post approval", desc: "Posts need moderator approval" },
+                  { key: "requirePostApproval", label: "Approve posts", desc: "Moderator must review posts before they go live" },
                   { key: "feedEligible", label: "Show posts in main feed", desc: "High-engagement posts surface in the main feed" },
                 ].map(({ key, label, desc }) => (
                   <label key={key} className="flex items-center justify-between gap-3 rounded-xl border border-base-300 p-3 cursor-pointer hover:border-base-400">
@@ -1800,7 +1840,7 @@ function AdminPanel({
                       <p className="text-sm font-medium">{label}</p>
                       <p className="text-xs opacity-80">{desc}</p>
                     </div>
-                    <input type="checkbox" className="toggle toggle-error toggle-sm [--tglbg:white] checked:[--tglbg:white]"
+                    <input type="checkbox" className="toggle toggle-sm govlyx-red-toggle"
                       checked={settingsForm[key as keyof typeof settingsForm] as boolean}
                       onChange={e => setSettingsForm(f => ({ ...f, [key]: e.target.checked }))} />
                   </label>
@@ -1986,15 +2026,20 @@ function CreateModal({
   async function submit() {
     setBusy(true); setErr(null);
     try {
+      const createPayload = withPostApprovalAliases({
+        name: form.name.trim(),
+        description: form.description.trim(),
+        category: form.category,
+        tags: form.tags.trim(),
+        privacy: form.privacy,
+        avatarUrl: null,
+        locationRestricted: form.locationRestricted,
+        allowMemberPosts: form.allowMemberPosts,
+        requirePostApproval: form.requirePostApproval,
+      });
       const res = await fetch(apiUrl("/api/communities"), {
         method: "POST", headers: hdrs(),
-        body: JSON.stringify({
-          name: form.name.trim(), description: form.description.trim(),
-          category: form.category, tags: form.tags.trim(), privacy: form.privacy,
-          avatarUrl: null,
-          locationRestricted: form.locationRestricted,
-          allowMemberPosts: form.allowMemberPosts, requirePostApproval: form.requirePostApproval,
-        }),
+        body: JSON.stringify(createPayload),
       });
       if (res.status === 401 || res.status === 403) { setErr("Please log in."); return; }
       if (!res.ok) { const d = await res.json().catch(() => ({})); setErr(d?.message || `Error ${res.status}`); return; }
@@ -2006,7 +2051,7 @@ function CreateModal({
         await fetch(apiUrl(`/api/communities/${raw.id}`), {
           method: "PUT",
           headers: hdrs(),
-          body: JSON.stringify({
+          body: JSON.stringify(withPostApprovalAliases({
             name: form.name.trim(),
             description: form.description.trim(),
             category: form.category,
@@ -2014,9 +2059,13 @@ function CreateModal({
             allowMemberPosts: form.allowMemberPosts,
             requirePostApproval: form.requirePostApproval,
             feedEligible: true
-          })
+          }))
         });
         raw.requirePostApproval = form.requirePostApproval;
+        raw.requiresPostApproval = form.requirePostApproval;
+        raw.postApprovalRequired = form.requirePostApproval;
+        raw.approvePosts = form.requirePostApproval;
+        raw.approvalRequired = form.requirePostApproval;
         raw.allowMemberPosts = form.allowMemberPosts;
       } catch (putErr) {
         console.error("Failed to sync community settings via PUT fallback:", putErr);
@@ -2235,7 +2284,7 @@ function CreateModal({
                             }
                             setForm(f => ({ ...f, privacy: p }));
                           }}
-                          className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-all cursor-pointer ${form.privacy === p ? "border-red-500 bg-red-500/10 shadow-sm scale-[1.01]" : "border-base-content/5 hover:border-base-content/10"}`}
+                          className={`w-full flex items-center gap-3 rounded-xl border p-2.5 text-left transition-all cursor-pointer ${form.privacy === p ? "border-red-500 bg-red-500/15 shadow-[0_0_0_1px_rgba(239,68,68,0.45),0_0_24px_rgba(239,68,68,0.45)] scale-[1.01]" : "border-base-content/5 hover:border-base-content/10"}`}
                         >
                           <span className={`text-xl opacity-80 ${form.privacy === p ? "text-red-500" : ""}`}>
                             {PRIV_ICON[p]}
@@ -2281,7 +2330,7 @@ function CreateModal({
                         <p className="text-[11px] font-black uppercase tracking-tight text-base-content/90 truncate">{label}</p>
                         <p className="text-[9px] font-medium opacity-65 uppercase tracking-tighter leading-none text-base-content">{desc}</p>
                       </div>
-                      <input type="checkbox" className="toggle toggle-error toggle-sm scale-90"
+                      <input type="checkbox" className="toggle toggle-sm govlyx-red-toggle scale-90"
                         checked={form[key as keyof CreateForm] as boolean}
                         onChange={e => setForm(f => ({ ...f, [key]: e.target.checked }))} />
                     </label>
@@ -2308,7 +2357,7 @@ function CreateModal({
                 disabled={!canNext}
                 onClick={() => setStep(2)}
               >
-                Next <HiOutlineArrowRight size={14} />
+                Next <ArrowRight size={14} />
               </button>
             ) : (
               <button
@@ -2480,6 +2529,7 @@ function DetailPanel({
             ...prev,
             ...detail,
             id: communityId,
+            requirePostApproval: resolvePostApprovalFlag(detail, prev.requirePostApproval ?? false),
             isMember: fetchedMember || finalIsOwner,
             isOwner: finalIsOwner,
             hasPendingRequest: (fetchedMember || finalIsOwner) ? false : (backendPending || prev.hasPendingRequest === true || localPending)
@@ -2842,7 +2892,7 @@ function DetailPanel({
                     })}
 
                     {hasMore && !loading && (
-                      <button className="w-full py-2 text-sm text-blue-700 hover:opacity-70" onClick={() => loadPosts(cursor, cursorScore, false)}>Load more ↓</button>
+                      <button className="w-full py-2 text-sm text-blue-700 hover:opacity-70 inline-flex items-center justify-center gap-1" onClick={() => loadPosts(cursor, cursorScore, false)}>Load more <ArrowDown size={14} /></button>
                     )}
                   </>
                 )}
@@ -3453,6 +3503,7 @@ const Community = () => {
           if (isMem) removePendingLocal(c.id);
           return {
             ...c,
+            requirePostApproval: resolvePostApprovalFlag(c),
             isMember: isMem,
             isOwner: c.isOwner ?? c.owner ?? false,
             hasPendingRequest: isMem ? false : (backendPending || localPending)
@@ -3464,7 +3515,7 @@ const Community = () => {
         const o = await ownedRes.value.json().catch(() => ({}));
         owned = (o?.data ?? o?.content ?? []).map((c: any) => {
           removePendingLocal(c.id);
-          return { ...c, isMember: true, isOwner: true, hasPendingRequest: false };
+          return { ...c, requirePostApproval: resolvePostApprovalFlag(c), isMember: true, isOwner: true, hasPendingRequest: false };
         });
       }
       const seen = new Set<number>(); const merged: CommunityData[] = [];
@@ -3586,7 +3637,7 @@ const Community = () => {
           locationName: r.locationName ?? null, memberCount: r.communityMemberCount ?? r.memberCount ?? 0,
           postCount: r.postCount ?? 0, isMember: isMem,
           isOwner: r.communityIsOwner ?? r.isOwner ?? r.owner ?? false, createdAt: r.createdAt ?? new Date().toISOString(),
-          allowMemberPosts: r.allowMemberPosts, requirePostApproval: r.requirePostApproval, feedEligible: r.feedEligible,
+          allowMemberPosts: r.allowMemberPosts, requirePostApproval: resolvePostApprovalFlag(r), feedEligible: r.feedEligible,
           hasPendingRequest: isMem ? false : (backendPending || localPending)
         };
       });
@@ -3676,9 +3727,7 @@ const Community = () => {
           <p className="text-sm opacity-70">Discover and join communities based on your interests.</p>
         </div>
         <button className="btn bg-[#1D4ED8] text-white font-semibold border-none hover:bg-[#1D4ED8]/90 btn-sm gap-2 shrink-0" onClick={() => setShowCreate(true)}>
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
+          <Plus size={16} />
           Create
         </button>
       </div>
@@ -3686,7 +3735,7 @@ const Community = () => {
       <div className="relative">
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <FiSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" size={16} />
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" size={16} />
             <input ref={inputRef} type="text" placeholder="Search communities..."
               className="input input-bordered w-full pl-10 pr-8" value={query}
               onChange={e => { setQuery(e.target.value); setShowSuggestions(true); }}
@@ -3723,9 +3772,7 @@ const Community = () => {
             onClick={() => setView(v => v === "joined" ? "default" : "joined")}
             className={`btn btn-sm rounded-full gap-1.5 transition-all ${view === "joined" ? "bg-[#1D4ED8] text-white font-semibold border-none hover:bg-[#1D4ED8]/90" : "btn-ghost border border-base-300 hover:border-[#1D4ED8]/50"}`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-5-3.87M9 20H4v-2a4 4 0 015-3.87m6-4a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            <Users size={14} />
             My Communities
             {joinedOnly.length > 0 && (
               <span className={`badge badge-xs ${view === "joined" ? "bg-white/30 text-white" : "badge-ghost"}`}>{joinedOnly.length}</span>
@@ -3735,10 +3782,7 @@ const Community = () => {
             onClick={() => setView(v => v === "owned" ? "default" : "owned")}
             className={`btn btn-sm rounded-full gap-1.5 transition-all ${view === "owned" ? "btn-warning" : "btn-ghost border border-base-300 hover:border-warning/50"}`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            <Settings size={14} />
             My Groups
             {ownedList.length > 0 && (
               <span className={`badge badge-xs ${view === "owned" ? "badge-warning-content bg-white/30" : "badge-ghost"}`}>{ownedList.length}</span>
@@ -3800,9 +3844,9 @@ const Community = () => {
             </div>
           )}
           {searchHasMore && !searchLoading && (
-            <button className="w-full py-2 text-sm text-[#1D4ED8] hover:opacity-70 transition-opacity"
+            <button className="w-full py-2 text-sm text-[#1D4ED8] hover:opacity-70 transition-opacity inline-flex items-center justify-center gap-1"
               disabled={searchLoadingMore} onClick={() => doSearch(committed, searchCursor, false)}>
-              {searchLoadingMore ? <Spin xs /> : "Load more ↓"}
+              {searchLoadingMore ? <Spin xs /> : <>Load more <ArrowDown size={14} /></>}
             </button>
           )}
         </>
@@ -3951,3 +3995,6 @@ const Community = () => {
 };
 
 export default Community;
+
+
+
