@@ -741,7 +741,7 @@ const Profile = () => {
         <div className="flex items-center gap-4">
           <div className="relative group/avatar shrink-0">
             <div className="avatar">
-              <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-red-500 dark:border-red-400 shadow-lg bg-base-300 relative">
+              <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-blue-700 dark:border-blue-500 shadow-[0_0_12px_rgba(29,78,216,0.85)] dark:shadow-[0_0_12px_rgba(59,130,246,0.85)] bg-base-300 relative">
                  <img 
                   src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(username)}`} 
                   alt="Profile Avatar" 
@@ -757,7 +757,7 @@ const Profile = () => {
             {!uploadingImg && (
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="absolute bottom-0 right-0 p-1.5 rounded-full bg-red-500 hover:bg-red-600 dark:bg-red-400 dark:hover:bg-red-500 text-white shadow-md border border-base-100 hover:scale-110 transition cursor-pointer"
+                className="absolute bottom-0 right-0 p-1.5 rounded-full bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white shadow-[0_0_8px_rgba(29,78,216,0.6)] dark:shadow-[0_0_8px_rgba(59,130,246,0.6)] border border-base-100 hover:scale-110 transition cursor-pointer"
                 title="Change profile photo"
               >
                 <Camera size={11} />

@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const zenQuotesFallback = [
+  { q: 'Democracy is not a spectator sport. Put on your jersey and get in the game!', a: 'Civic Wisdom' },
+];
+
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -39,7 +43,22 @@ export default defineConfig(({ mode }) => {
         '/external-api': {
           target: 'https://zenquotes.io',
           changeOrigin: true,
+          secure: false,
+          timeout: 5000,
+          proxyTimeout: 5000,
           rewrite: (path) => path.replace(/^\/external-api/, ''),
+          configure: (proxy) => {
+            proxy.on('error', (_err, _req, res) => {
+              if (!res.headersSent) {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+              }
+              res.end(JSON.stringify(zenQuotesFallback));
+            });
+          },
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://zenquotes.io/'
+          }
         },
         '/translate-api': {
           target: 'https://translate.googleapis.com',

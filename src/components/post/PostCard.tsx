@@ -26,6 +26,8 @@ import {
   MessageSquare,
   EyeOff,
   AlertTriangle,
+  Crown,
+  Zap,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import CommentSection from "./CommentSection";
@@ -36,6 +38,7 @@ import ConfirmModal from "./ConfirmModal";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCurrentUser } from "../../hooks/useUser";
+import { useMyBilling } from "../../hooks/useBilling";
 import ReportModal from "../modals/ReportModal";
 import UserProfileModal from "../modals/UserProfileModal";
 import { checkProfanity } from "../../utils/profanity";
@@ -994,9 +997,37 @@ function AuthorRow({
   onProfileClick?: (username: string) => void;
 }) {
   const navigate = useNavigate();
+  const { data: currentUser } = useCurrentUser();
+  const { data: billing } = useMyBilling();
+
   const karmaScore = post.karmaScore ?? post.authorKarmaScore;
   const sewaScore = post.communitySewaScore ?? 0;
   const communityFlair = post.communityFlair || (sewaScore >= 1000 ? "Pramukh" : sewaScore >= 500 ? "Margdarshak" : sewaScore >= 150 ? "Rakshak" : "");
+
+  const isMe = !!(currentUser && post.username && currentUser.username && (
+    post.username.toLowerCase() === currentUser.username.toLowerCase() ||
+    post.username.toLowerCase() === (currentUser.actualUsername || "").toLowerCase()
+  ));
+  const myTier = isMe ? billing?.currentTier : undefined;
+
+  const tier = myTier || (post as any).authorBillingTier || (post as any).userBillingTier || (post as any).billingTier || (post as any).authorTier || (post as any).userTier || (post as any).tier;
+  const passBadge = (() => {
+    if (tier === "GOVLYX_VIP") {
+      return {
+        iconBadge: <Crown className="w-2.5 h-2.5 shrink-0 text-amber-500 fill-amber-500/10" />,
+        text: "VIP",
+        bgLight: "bg-amber-500/10 text-amber-500 border-amber-500/20 dark:text-amber-400 dark:border-amber-400/30 dark:bg-amber-400/10",
+      };
+    }
+    if (tier === "GOVLYX_PRO") {
+      return {
+        iconBadge: <Zap className="w-2.5 h-2.5 shrink-0 text-blue-500 fill-blue-500/10" />,
+        text: "PRO",
+        bgLight: "bg-blue-500/10 text-blue-500 border-blue-500/20 dark:text-blue-400 dark:border-blue-400/30 dark:bg-blue-400/10",
+      };
+    }
+    return null;
+  })();
 
   return (
     <motion.div
@@ -1033,7 +1064,7 @@ function AuthorRow({
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 min-w-0">
           <span 
-            className="text-xs font-black text-base-content uppercase tracking-tight notranslate truncate cursor-pointer hover:underline"
+            className="min-w-0 max-w-full text-xs font-black text-base-content uppercase tracking-tight notranslate truncate cursor-pointer hover:underline"
             onClick={() => {
               if (post.username && onProfileClick) {
                 onProfileClick(post.username);
@@ -1044,6 +1075,12 @@ function AuthorRow({
           >
             {post.userDisplayName || post.username}
           </span>
+          {passBadge && (
+            <span className={`inline-flex h-5 items-center gap-0.5 rounded-full border px-1.5 text-[9px] font-black uppercase tracking-wider ${passBadge.bgLight} shrink-0`}>
+              {passBadge.iconBadge}
+              <span>{passBadge.text}</span>
+            </span>
+          )}
           {badge && (
             <motion.span
               initial={{ scale: 0 }}

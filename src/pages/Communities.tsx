@@ -1028,7 +1028,7 @@ export function AcceptInvitePage() {
 /* ════════════════════════════════════════════════════════════════════════════
    ADMIN PANEL
 ════════════════════════════════════════════════════════════════════════════ */
-type AdminTab = "requests" | "members" | "settings" | "insights" | "invites";
+type AdminTab = "requests" | "members" | "settings" | "insights" | "invites" | "post-approvals";
 
 function AdminPanel({
   community,
@@ -1051,6 +1051,85 @@ function AdminPanel({
   const [reqCursor, setReqCursor] = useState<number | null>(null);
   const [reqHasMore, setReqHasMore] = useState(false);
   const [actingReq, setActingReq] = useState<number | null>(null);
+
+  const [pendingPosts, setPendingPosts] = useState<any[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [actingPost, setActingPost] = useState<number | null>(null);
+
+  const loadPendingPosts = useCallback(async () => {
+    setPendingLoading(true);
+    try {
+      let res = await fetch(apiUrl(`/api/communities/${c.id}/posts/pending`), { headers: hdrs() });
+      if (!res.ok) {
+        res = await fetch(apiUrl(`/api/communities/${c.id}/posts?status=PENDING`), { headers: hdrs() });
+      }
+      if (!res.ok) {
+        res = await fetch(apiUrl(`/api/communities/${c.id}/posts?pending=true`), { headers: hdrs() });
+      }
+      if (!res.ok) {
+        throw new Error("Failed to fetch pending posts");
+      }
+      const d = await res.json();
+      const list = d?.data?.content ?? d?.data?.data ?? d?.data ?? d?.content ?? d ?? [];
+      setPendingPosts(Array.isArray(list) ? list : []);
+    } catch (err) {
+      console.error("Error loading pending posts:", err);
+      setPendingPosts([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  }, [c.id]);
+
+  async function reviewPost(postId: number, approve: boolean) {
+    setActingPost(postId);
+    try {
+      let res;
+      if (approve) {
+        res = await fetch(apiUrl(`/api/communities/${c.id}/posts/${postId}/approve`), {
+          method: "POST",
+          headers: hdrs(),
+          body: JSON.stringify({})
+        });
+        if (!res.ok) {
+          res = await fetch(apiUrl(`/api/posts/${postId}/approve`), {
+            method: "POST",
+            headers: hdrs(),
+            body: JSON.stringify({})
+          });
+        }
+      } else {
+        res = await fetch(apiUrl(`/api/communities/${c.id}/posts/${postId}/reject`), {
+          method: "POST",
+          headers: hdrs(),
+          body: JSON.stringify({})
+        });
+        if (!res.ok) {
+          res = await fetch(apiUrl(`/api/posts/${postId}/reject`), {
+            method: "POST",
+            headers: hdrs(),
+            body: JSON.stringify({})
+          });
+        }
+        if (!res.ok) {
+          res = await fetch(apiUrl(`/api/social-posts/${postId}`), {
+            method: "DELETE",
+            headers: hdrs()
+          });
+        }
+      }
+
+      if (!res.ok) {
+        alert(approve ? "Failed to approve post." : "Failed to reject post.");
+      } else {
+        setPendingPosts(prev => prev.filter(p => p.id !== postId));
+        alert(approve ? "Post approved!" : "Post rejected.");
+      }
+    } catch (err) {
+      alert("An error occurred while reviewing the post.");
+    } finally {
+      setActingPost(null);
+    }
+  }
 
   const loadRequests = useCallback(async (cur: number | null, replace: boolean) => {
     setReqLoading(true);
@@ -1354,10 +1433,15 @@ function AdminPanel({
   }
 
   useEffect(() => {
+    loadPendingPosts();
+  }, [loadPendingPosts]);
+
+  useEffect(() => {
     if (tab === "requests") loadRequests(null, true);
+    if (tab === "post-approvals") loadPendingPosts();
     if (tab === "members") loadMembers(null, true);
     if (tab === "insights") loadInsights();
-  }, [tab, loadRequests, loadMembers, loadInsights]);
+  }, [tab, loadRequests, loadMembers, loadInsights, loadPendingPosts]);
 
   const filteredMembers = memSearch.trim()
     ? members.filter(m => m.username.toLowerCase().includes(memSearch.toLowerCase()))
@@ -1365,6 +1449,7 @@ function AdminPanel({
 
   const TABS: { key: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: "requests", label: "Requests", icon: <Inbox size={14} />, badge: requests.length > 0 ? requests.length : undefined },
+    { key: "post-approvals", label: "Approvals", icon: <ClipboardCheck size={14} />, badge: pendingPosts.length > 0 ? pendingPosts.length : undefined },
     { key: "members", label: "Members", icon: <Users size={14} /> },
     { key: "invites", label: "Invites", icon: <Link size={14} /> },
     { key: "settings", label: "Settings", icon: <Settings size={14} /> },
@@ -1459,6 +1544,46 @@ function AdminPanel({
                   Load more ↓
                 </button>
               )}
+            </div>
+          )}
+
+          {tab === "post-approvals" && (
+            <div className="p-4 space-y-3">
+              {pendingLoading && pendingPosts.length === 0 && <div className="flex justify-center py-10"><Spin /></div>}
+              {!pendingLoading && pendingPosts.length === 0 && (
+                <div className="text-center py-14 opacity-50 space-y-2">
+                  <div className="flex justify-center text-success mb-2"><CheckCircle2 size={40} /></div>
+                  <p className="font-medium">No pending posts</p>
+                  <p className="text-xs">All posts are live!</p>
+                </div>
+              )}
+              {pendingPosts.map(post => (
+                <div key={post.id} className="rounded-xl border border-base-300 bg-base-200 p-3.5 space-y-2 flex flex-col">
+                  <div className="flex items-center gap-3">
+                    {avatar(post.username, post.userProfileImage)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold">@{post.username}</p>
+                      <p className="text-[10px] opacity-40 mt-0.5">{post.timeAgo ?? "pending review"}</p>
+                    </div>
+                  </div>
+                  {post.content && (
+                    <p className="text-xs text-base-content/80 whitespace-pre-wrap">{post.content}</p>
+                  )}
+                  {post.mediaUrls && post.mediaUrls.length > 0 && (
+                    <div className="rounded-lg overflow-hidden border border-base-300 max-h-32 bg-black/5 flex items-center justify-center">
+                      <img src={post.mediaUrls[0]} alt="Post media" className="object-contain max-h-32 w-full" />
+                    </div>
+                  )}
+                  <div className="flex gap-2 justify-end pt-2 border-t border-base-content/5 mt-2">
+                    <button className="btn btn-ghost btn-xs btn-outline gap-1" disabled={actingPost === post.id} onClick={() => reviewPost(post.id, false)}>
+                      ✕ Reject
+                    </button>
+                    <button className="btn btn-success btn-xs gap-1" disabled={actingPost === post.id} onClick={() => reviewPost(post.id, true)}>
+                      {actingPost === post.id ? <Spin xs /> : "✓ Approve"}
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
@@ -1875,6 +2000,27 @@ function CreateModal({
       if (!res.ok) { const d = await res.json().catch(() => ({})); setErr(d?.message || `Error ${res.status}`); return; }
       const d = await res.json(); 
       let raw = d?.data ?? d;
+
+      // Ensure creation settings (like requirePostApproval) are correctly persisted via a follow-up PUT request
+      try {
+        await fetch(apiUrl(`/api/communities/${raw.id}`), {
+          method: "PUT",
+          headers: hdrs(),
+          body: JSON.stringify({
+            name: form.name.trim(),
+            description: form.description.trim(),
+            category: form.category,
+            privacy: form.privacy,
+            allowMemberPosts: form.allowMemberPosts,
+            requirePostApproval: form.requirePostApproval,
+            feedEligible: true
+          })
+        });
+        raw.requirePostApproval = form.requirePostApproval;
+        raw.allowMemberPosts = form.allowMemberPosts;
+      } catch (putErr) {
+        console.error("Failed to sync community settings via PUT fallback:", putErr);
+      }
 
       // Upload avatar image if a blob was selected
       if (selectedBlob) {
@@ -3040,6 +3186,7 @@ function RecommendedCarousel({
               return (
                 <div
                   key={`${c.id}-${index}`}
+                  className="flex flex-col"
                   style={{
                     width: `${100 / visibleCards}%`,
                     flexShrink: 0,
@@ -3048,11 +3195,11 @@ function RecommendedCarousel({
                   onClick={() => onSelect(c)}
                 >
                   {/* Card Container */}
-                  <div className="w-full bg-base-100 rounded-3xl border border-base-300 dark:border-white/10 p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-300 h-[380px] md:h-[310px] cursor-pointer hover:border-base-content/20 dark:hover:border-white/25">
+                  <div className="w-full bg-base-100 rounded-3xl border border-base-300 dark:border-white/10 p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-300 min-h-[360px] sm:min-h-[380px] h-full cursor-pointer hover:border-base-content/20 dark:hover:border-white/25">
                     <div className="flex flex-col h-full justify-between">
                       <div>
                         {/* Cover Image at Top */}
-                        <div className="w-full aspect-[16/10] rounded-2xl overflow-hidden mb-3 bg-base-200">
+                        <div className="w-full aspect-[16/10] max-h-[140px] sm:max-h-[170px] rounded-2xl overflow-hidden mb-3 bg-base-200">
                           <img
                             src={getCardImage(c)}
                             alt={c.name}
