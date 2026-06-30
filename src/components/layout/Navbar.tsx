@@ -65,7 +65,17 @@ const Navbar = () => {
         <div className="mx-auto flex h-14 max-w-[1780px] items-center gap-3 px-4">
 
           {/* MOBILE MENU */}
-          <label htmlFor="mobile-drawer" className="btn btn-ghost btn-sm lg:hidden">
+          <label
+            htmlFor="mobile-drawer"
+            className="btn btn-ghost btn-sm lg:hidden cursor-pointer touch-manipulation"
+            onClick={(e) => {
+              e.preventDefault();
+              const checkbox = document.getElementById("mobile-drawer") as HTMLInputElement | null;
+              if (checkbox) {
+                checkbox.checked = !checkbox.checked;
+              }
+            }}
+          >
             <Menu size={20} />
           </label>
 

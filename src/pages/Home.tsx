@@ -33,11 +33,24 @@ function useFeed(sourceTab: string, sortTab: string) {
   } = useInfiniteQuery({
     queryKey,
     queryFn: async ({ pageParam = null }: { pageParam?: number | null }) => {
+      // /local and /official expect `beforeId` + `limit`; others expect `lastPostId` + `size`
+      const usesCursorAndLimit = sourceTab === "location" || sourceTab === "official";
+
       const params: any = {
         sort: sortTab.toUpperCase(),
-        size: FEED_SIZE,
-        ...(pageParam !== null && { lastPostId: pageParam })
       };
+
+      if (usesCursorAndLimit) {
+        params.limit = FEED_SIZE;
+        if (pageParam !== null) {
+          params.beforeId = pageParam;
+        }
+      } else {
+        params.size = FEED_SIZE;
+        if (pageParam !== null) {
+          params.lastPostId = pageParam;
+        }
+      }
 
       let endpoint = "/api/v1/feed/for-you";
       if (sourceTab === "location") {

@@ -2694,31 +2694,6 @@ function DetailPanel({
 
         <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-base-300">
           <button className="btn btn-ghost btn-sm gap-1" onClick={closeViaUI}><ChevronLeft size={18} /> Back</button>
-          {!c.isOwner
-            ? <button
-              className={`btn btn-sm flex items-center gap-1.5 ${c.isMember ? "border border-red-500 text-red-500 hover:bg-red-500 hover:text-white hover:border-red-500 bg-transparent font-medium" : c.hasPendingRequest ? "btn-warning btn-outline" : isSecret ? "btn-disabled" : "bg-blue-700 text-white font-semibold border-none hover:bg-blue-800"}`}
-              onClick={toggleMembership} disabled={acting || isSecret}>
-              {acting ? (
-                <Spin xs />
-              ) : c.isMember ? (
-                "Leave"
-              ) : c.hasPendingRequest ? (
-                <>
-                  <Clock size={14} />
-                  <span>Pending · Cancel</span>
-                </>
-              ) : isSecret ? (
-                "Invite Only"
-              ) : c.privacy === "PRIVATE" ? (
-                "Request to Join"
-              ) : (
-                "Join Community"
-              )}
-            </button>
-            : <div className="flex items-center gap-2">
-              <span className="badge badge-warning gap-1.5 font-bold py-3"><Crown size={14} /> Owner</span>
-            </div>
-          }
         </div>
 
         <div className="flex-1 overflow-y-auto">
@@ -3711,19 +3686,19 @@ const Community = () => {
         </button>
       </div>
 
-      <div className="relative">
+      <div className="relative pl-1 max-w-lg">
         <div className="flex gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-40 pointer-events-none" size={15} />
             <input ref={inputRef} type="text" placeholder="Search communities..."
-              className="input input-bordered w-full pl-10 pr-8" value={query}
+              className="input input-bordered input-sm w-full pl-9 pr-8 text-sm h-9" value={query}
               onChange={e => { setQuery(e.target.value); setShowSuggestions(true); }}
               onFocus={() => setShowSuggestions(true)}
               onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); commitSearch(query); } if (e.key === "Escape") setShowSuggestions(false); }} />
             {query && (
-              <button className="absolute right-3 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-80"
-                onClick={() => { setQuery(""); setCommitted(""); setSearchResults([]); setSuggestions([]); inputRef.current?.focus(); }}><X size={16} /></button>
+              <button className="absolute right-2.5 top-1/2 -translate-y-1/2 opacity-40 hover:opacity-80"
+                onClick={() => { setQuery(""); setCommitted(""); setSearchResults([]); setSuggestions([]); inputRef.current?.focus(); }}><X size={14} /></button>
             )}
             {showSuggestions && query.trim().length >= 2 && suggestions.length > 0 && (
               <div className="absolute left-0 right-0 top-full mt-1 z-50 bg-base-100 border border-base-300 rounded-2xl shadow-xl overflow-hidden">
@@ -3741,7 +3716,9 @@ const Community = () => {
               </div>
             )}
           </div>
-          <button className="btn bg-[#1D4ED8] text-white font-semibold border-none hover:bg-[#1D4ED8]/90 px-4" disabled={!query.trim()} onClick={() => commitSearch(query)}>Search</button>
+          <button className="btn btn-sm bg-[#1D4ED8] text-white border-none hover:bg-[#1D4ED8]/90 h-9 w-9 p-0 flex items-center justify-center shrink-0" disabled={!query.trim()} onClick={() => commitSearch(query)} aria-label="Search">
+            <Search size={16} />
+          </button>
         </div>
       </div>
 

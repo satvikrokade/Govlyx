@@ -56,9 +56,9 @@ export async function translateTextWithFallback(
   const protectedText = text.replace(/Govlyx/gi, "GOVLYXTOKEN");
   const restoreBrand = (str: string) => str.replace(/GOVLYXTOKEN/gi, "Govlyx");
 
-  // Tier 1: Google Translate
+  // Tier 1: Google Translate (Direct CORS-enabled browser call to bypass Vercel server proxy)
   try {
-    const url = `/translate-api/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(protectedText)}`;
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(protectedText)}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Google Translate failed with status ${res.status}`);
     const json = await res.json();
@@ -70,9 +70,9 @@ export async function translateTextWithFallback(
     console.warn("Google Translate failed, trying Lingva fallback...", err);
   }
 
-  // Tier 2: Lingva API
+  // Tier 2: Lingva API (Direct CORS-enabled browser call to bypass Vercel server proxy)
   try {
-    const url = `/lingva-api/api/v1/auto/${targetLang}/${encodeURIComponent(protectedText)}`;
+    const url = `https://lingva.ml/api/v1/auto/${targetLang}/${encodeURIComponent(protectedText)}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`Lingva failed with status ${res.status}`);
     const json = await res.json();
@@ -84,9 +84,9 @@ export async function translateTextWithFallback(
     console.warn("Lingva fallback failed, trying MyMemory...", err);
   }
 
-  // Tier 3: MyMemory API
+  // Tier 3: MyMemory API (Direct CORS-enabled browser call to bypass Vercel server proxy)
   try {
-    const url = `/mymemory-api/get?q=${encodeURIComponent(protectedText)}&langpair=auto|${targetLang}`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(protectedText)}&langpair=auto|${targetLang}`;
     const res = await fetch(url);
     if (!res.ok) throw new Error(`MyMemory failed with status ${res.status}`);
     const json = await res.json();
@@ -506,8 +506,8 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const { data: userProfile } = useCurrentUser();
-  const hasSyncedRef = useRef(false);
   const lastUserIdRef = useRef<any>(null);
+  const lastProfileLangRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!userProfile) return;
@@ -515,17 +515,17 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     // Reset sync flag if user changes (login/logout/switch)
     const currentUserId = (userProfile as any).id;
     if (lastUserIdRef.current !== currentUserId) {
-      hasSyncedRef.current = false;
       lastUserIdRef.current = currentUserId;
+      lastProfileLangRef.current = null;
     }
 
-    if (!hasSyncedRef.current && userProfile.interfaceLanguage) {
-      const userLang = userProfile.interfaceLanguage as LangCode;
-      if (userLang !== language) {
-        setLanguageState(userLang);
-        localStorage.setItem(STORAGE_KEY, userLang);
+    const backendLang = (userProfile.interfaceLanguage || userProfile.preferredLanguage) as LangCode | undefined;
+    if (backendLang && backendLang !== lastProfileLangRef.current) {
+      lastProfileLangRef.current = backendLang;
+      if (backendLang !== language) {
+        setLanguageState(backendLang);
+        localStorage.setItem(STORAGE_KEY, backendLang);
       }
-      hasSyncedRef.current = true;
     }
   }, [userProfile, language]);
 

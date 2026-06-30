@@ -351,3 +351,13 @@ input[type="password"]::-ms-reveal,
 input[type="password"]::-ms-clear {
   display: none;
 }
+
+/* Snappy Mobile Drawer Transitions */
+.drawer-side > .drawer-overlay {
+  transition-duration: 200ms !important;
+}
+
+.drawer-side > *:not(.drawer-overlay) {
+  transition-duration: 200ms !important;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1) !important;
+}

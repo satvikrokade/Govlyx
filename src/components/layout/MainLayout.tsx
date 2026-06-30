@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import Navbar from "./Navbar";
@@ -15,6 +16,14 @@ const MainLayout = () => {
     isAdminUser() ||
     location.pathname.startsWith("/department/dashboard") ||
     isDepartmentUser();
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    const checkbox = document.getElementById("mobile-drawer") as HTMLInputElement | null;
+    if (checkbox) {
+      checkbox.checked = false;
+    }
+  }, [location.pathname]);
 
   return (
     <div className="drawer lg:drawer-open">
@@ -93,14 +102,27 @@ const MainLayout = () => {
       <div className="drawer-side lg:hidden z-50">
         <label
           htmlFor="mobile-drawer"
-          className="drawer-overlay mt-[calc(3.75rem+env(safe-area-inset-top,0px))] h-[calc(100dvh-(3.75rem+env(safe-area-inset-top,0px)))]"
+          className="drawer-overlay mt-[calc(3.75rem+env(safe-area-inset-top,0px))] h-[calc(100dvh-(3.75rem+env(safe-area-inset-top,0px)))] cursor-pointer touch-manipulation"
+          onClick={(e) => {
+            e.preventDefault();
+            const checkbox = document.getElementById("mobile-drawer") as HTMLInputElement | null;
+            if (checkbox) checkbox.checked = false;
+          }}
         />
 
         <div className="mt-[calc(3.75rem+env(safe-area-inset-top,0px))] h-[calc(100dvh-(3.75rem+env(safe-area-inset-top,0px)))] w-72 bg-base-200 p-4 flex flex-col">
           {/* Drawer Header */}
           <div className="mb-4 flex items-center justify-between">
             <span className="text-sm font-semibold opacity-70">Menu</span>
-            <label htmlFor="mobile-drawer" className="btn btn-ghost btn-sm">
+            <label
+              htmlFor="mobile-drawer"
+              className="btn btn-ghost btn-sm cursor-pointer touch-manipulation"
+              onClick={(e) => {
+                e.preventDefault();
+                const checkbox = document.getElementById("mobile-drawer") as HTMLInputElement | null;
+                if (checkbox) checkbox.checked = false;
+              }}
+            >
               ✕
             </label>
           </div>
