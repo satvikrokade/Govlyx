@@ -87,7 +87,9 @@ const useTokenExpiryWatcher = () => {
       location.pathname.startsWith("/invite/") ||
       location.pathname === "/copyright-claim" ||
       location.pathname === "/copyright-claim/status" ||
-      location.pathname === "/refund-policy"
+      location.pathname === "/refund-policy" ||
+      location.pathname.startsWith("/communities") ||
+      location.pathname.startsWith("/post/")
     ) {
       return;
     }
@@ -215,12 +217,17 @@ const AppRouter = () => {
           }
         />
 
+        {/* ── Public MainLayout routes ── */}
+        <Route element={<MainLayout />}>
+          <Route path="/communities/:id?" element={<PageWrapper><Communities /></PageWrapper>} />
+          <Route path="/post/:id" element={<PageWrapper><PostDetail /></PageWrapper>} />
+        </Route>
+
         {/* ── Protected routes ── */}
         <Route
           element={loggedIn ? <MainLayout /> : <Navigate to="/login" replace />}
         >
           <Route path="/dashboard" element={<PageWrapper><DashboardRedirect /></PageWrapper>} />
-          <Route path="/communities/:id?" element={<PageWrapper><Communities /></PageWrapper>} />
           <Route path="/department-feed" element={<PageWrapper><DepartmentFeed /></PageWrapper>} />
           <Route path="/department/dashboard"
             element={
@@ -232,7 +239,6 @@ const AppRouter = () => {
           <Route path="/quick-chat" element={<PageWrapper><QuickChatPage /></PageWrapper>} />
           <Route path="/profile" element={<PageWrapper><Profile /></PageWrapper>} />
           <Route path="/notifications" element={<PageWrapper><NotificationsPage /></PageWrapper>} />
-          <Route path="/post/:id" element={<PageWrapper><PostDetail /></PageWrapper>} />
           <Route path="/search" element={<PageWrapper><SearchResultsPage /></PageWrapper>} />
           <Route path="/settings" element={<PageWrapper><Settings /></PageWrapper>} />
           <Route path="/admin/dashboard" 

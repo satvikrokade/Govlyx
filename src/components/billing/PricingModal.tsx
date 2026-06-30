@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { X, Check, Crown, Zap, Loader2 } from "lucide-react";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useMyBilling } from "../../hooks/useBilling";
-import { billingApi } from "../../api/billing";
+import { billingApi, type BillingCycle } from "../../api/billing";
 import { loadRazorpayScript } from "../../utils/razorpay";
 import { showToast } from "../../utils/toast";
 import { toast } from "react-hot-toast";
@@ -72,12 +72,17 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
   const { data: billing } = useMyBilling();
   const queryClient = useQueryClient();
   const [loadingTier, setLoadingTier] = useState<"GOVLYX_PRO" | "GOVLYX_VIP" | null>(null);
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("MONTHLY");
 
   if (!isOpen) return null;
 
   const currentTier = billing?.currentTier || "GOVLYX_FREE";
-  const getLaunchPrice = (tier: "GOVLYX_PRO" | "GOVLYX_VIP") =>
-    tier === "GOVLYX_VIP" ? LAUNCH_OFFER.vip.discounted : LAUNCH_OFFER.pro.discounted;
+  const getLaunchPrice = (tier: "GOVLYX_PRO" | "GOVLYX_VIP", cycle: BillingCycle) => {
+    if (cycle === "YEARLY") {
+      return tier === "GOVLYX_VIP" ? 745 : 245;
+    }
+    return tier === "GOVLYX_VIP" ? LAUNCH_OFFER.vip.discounted : LAUNCH_OFFER.pro.discounted;
+  };
 
   const handleUpgrade = async (tier: "GOVLYX_PRO" | "GOVLYX_VIP") => {
     setLoadingTier(tier);
@@ -95,18 +100,22 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
       }
 
       // 3. Create backend order
-      const orderData = await billingApi.createOrder(tier);
+      const orderData = await billingApi.createOrder(tier, billingCycle);
 
       // 4. Configure Razorpay checkout options
       const options = {
         key: config.keyId,
-        amount: getLaunchPrice(tier) * 100,
+        amount: getLaunchPrice(tier, billingCycle) * 100,
         currency: "INR",
         name: "Govlyx",
         image: `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(GOVLYX_LOGO_SVG)))}`,
         description: tier === "GOVLYX_VIP"
-          ? `Govlyx VIP Monthly Pass - Launch Special Rs ${LAUNCH_OFFER.vip.discounted}/mo`
-          : `Govlyx Pro Monthly Pass - Launch Special Rs ${LAUNCH_OFFER.pro.discounted}/mo`,
+          ? (billingCycle === "YEARLY"
+            ? `Govlyx VIP Yearly Pass - Launch Special Rs 745/yr`
+            : `Govlyx VIP Monthly Pass - Launch Special Rs ${LAUNCH_OFFER.vip.discounted}/mo`)
+          : (billingCycle === "YEARLY"
+            ? `Govlyx Pro Yearly Pass - Launch Special Rs 245/yr`
+            : `Govlyx Pro Monthly Pass - Launch Special Rs ${LAUNCH_OFFER.pro.discounted}/mo`),
         order_id: orderData.orderId,
         handler: async (response: any) => {
           const toastId = toast.loading("Verifying payment...");
@@ -164,7 +173,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
         </button>
 
         {/* Header */}
-        <div className="text-center mb-8 px-10 sm:px-0">
+        <div className="text-center mb-6 px-10 sm:px-0">
           <h2 className="text-2xl sm:text-3xl font-extrabold text-base-content tracking-tight">
             Unlock the Full Power of Govlyx
           </h2>
@@ -175,6 +184,37 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
             <span className="text-[11px] font-black uppercase tracking-widest">{LAUNCH_OFFER.label}</span>
             <span className="hidden sm:inline text-emerald-500/70">-</span>
             <span className="text-[11px] font-bold">{LAUNCH_OFFER.subtext}</span>
+          </div>
+        </div>
+
+        {/* Monthly / Yearly Toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="relative flex items-center bg-base-300 p-1.5 rounded-full border border-base-content/10">
+            <button
+              type="button"
+              onClick={() => setBillingCycle("MONTHLY")}
+              className={`px-6 py-2 rounded-full text-xs font-extrabold transition-all duration-200 cursor-pointer ${
+                billingCycle === "MONTHLY"
+                  ? "bg-primary text-primary-content shadow-md scale-105"
+                  : "text-base-content/70 hover:text-base-content"
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              type="button"
+              onClick={() => setBillingCycle("YEARLY")}
+              className={`px-6 py-2 rounded-full text-xs font-extrabold transition-all duration-200 cursor-pointer flex items-center gap-1.5 ${
+                billingCycle === "YEARLY"
+                  ? "bg-primary text-primary-content shadow-md scale-105"
+                  : "text-base-content/70 hover:text-base-content"
+              }`}
+            >
+              Annually
+              <span className="badge badge-[10px] bg-emerald-500 text-white font-black border-none px-1.5 py-0.5 leading-none shrink-0 scale-90">
+                Save 50%
+              </span>
+            </button>
           </div>
         </div>
 
@@ -230,7 +270,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
           {/* PRO TIER CARD */}
           <div className={`flex flex-col justify-between p-6 rounded-2xl bg-base-100 border ${currentTier === "GOVLYX_PRO" ? "border-blue-500 shadow-md" : "border-base-300"} transition-all hover:shadow-lg relative`}>
             <div className="absolute -top-3 left-6 rounded-full bg-emerald-500 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-lg shadow-emerald-500/20">
-              {LAUNCH_OFFER.label}
+              Launch Special - 50% OFF
             </div>
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -241,16 +281,31 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
                   <span className="badge badge-sm badge-primary">Active Plan</span>
                 )}
               </div>
-              <div className="mb-4">
-                <div className="flex items-end gap-2">
-                  <span className="text-sm font-black text-base-content/35 line-through">₹{LAUNCH_OFFER.pro.original}</span>
-                  <span className="text-3xl font-black text-base-content">₹{LAUNCH_OFFER.pro.discounted}</span>
-                  <span className="text-xs opacity-60 mb-1">/month</span>
+              
+              {billingCycle === "YEARLY" ? (
+                <div className="mb-4">
+                  <div className="flex items-end gap-2">
+                    <span className="text-sm font-black text-base-content/35 line-through">₹49</span>
+                    <span className="text-3xl font-black text-base-content">₹20</span>
+                    <span className="text-xs opacity-60 mb-1">/month</span>
+                  </div>
+                  <p className="mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    Billed as one payment of ₹245/year. (Regularly ₹490)
+                  </p>
                 </div>
-                <p className="mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                  {LAUNCH_OFFER.subtext}
-                </p>
-              </div>
+              ) : (
+                <div className="mb-4">
+                  <div className="flex items-end gap-2">
+                    <span className="text-sm font-black text-base-content/35 line-through">₹{LAUNCH_OFFER.pro.original}</span>
+                    <span className="text-3xl font-black text-base-content">₹{LAUNCH_OFFER.pro.discounted}</span>
+                    <span className="text-xs opacity-60 mb-1">/month</span>
+                  </div>
+                  <p className="mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    {LAUNCH_OFFER.subtext}
+                  </p>
+                </div>
+              )}
+
               <p className="text-xs opacity-70 mb-6">Enhance your communication and create exclusive groups.</p>
               
               <div className="divider my-0 opacity-40" />
@@ -278,7 +333,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
               <button
                 onClick={() => handleUpgrade("GOVLYX_PRO")}
                 disabled={currentTier === "GOVLYX_PRO" || currentTier === "GOVLYX_VIP" || loadingTier !== null}
-                className="btn btn-sm btn-primary w-full text-white rounded-xl shadow-md disabled:bg-base-300 disabled:text-base-content/40 border-none bg-blue-700 hover:bg-blue-800"
+                className="btn btn-sm btn-primary w-full text-white rounded-xl shadow-md disabled:bg-base-300 disabled:text-base-content/40 border-none bg-blue-700 hover:bg-blue-800 animate-none cursor-pointer"
               >
                 {loadingTier === "GOVLYX_PRO" ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -298,7 +353,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
             <div>
               <div className="mb-4 flex flex-wrap items-center gap-2">
                 <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-sm">
-                  50% OFF
+                  Launch Special - 50% OFF
                 </span>
                 <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-amber-950 shadow-sm">
                   Popular
@@ -314,16 +369,31 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
                   <Crown size={12} /> VIP Pass
                 </span>
               </div>
-              <div className="mb-4">
-                <div className="flex items-end gap-2">
-                  <span className="text-sm font-black text-base-content/35 line-through">₹{LAUNCH_OFFER.vip.original}</span>
-                  <span className="text-3xl font-black text-base-content">₹{LAUNCH_OFFER.vip.discounted}</span>
-                  <span className="text-xs opacity-60 mb-1">/month</span>
+              
+              {billingCycle === "YEARLY" ? (
+                <div className="mb-4">
+                  <div className="flex items-end gap-2">
+                    <span className="text-sm font-black text-base-content/35 line-through">₹149</span>
+                    <span className="text-3xl font-black text-base-content">₹62</span>
+                    <span className="text-xs opacity-60 mb-1">/month</span>
+                  </div>
+                  <p className="mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    Billed as one payment of ₹745/year. (Regularly ₹1490)
+                  </p>
                 </div>
-                <p className="mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                  {LAUNCH_OFFER.subtext}
-                </p>
-              </div>
+              ) : (
+                <div className="mb-4">
+                  <div className="flex items-end gap-2">
+                    <span className="text-sm font-black text-base-content/35 line-through">₹{LAUNCH_OFFER.vip.original}</span>
+                    <span className="text-3xl font-black text-base-content">₹{LAUNCH_OFFER.vip.discounted}</span>
+                    <span className="text-xs opacity-60 mb-1">/month</span>
+                  </div>
+                  <p className="mt-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    {LAUNCH_OFFER.subtext}
+                  </p>
+                </div>
+              )}
+
               <p className="text-xs opacity-70 mb-6">Complete VIP experience, disappearing messages, priority matching.</p>
               
               <div className="divider my-0 opacity-40" />
@@ -355,7 +425,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
               <button
                 onClick={() => handleUpgrade("GOVLYX_VIP")}
                 disabled={currentTier === "GOVLYX_VIP" || loadingTier !== null}
-                className="btn btn-sm w-full text-amber-950 font-bold bg-amber-500 hover:bg-amber-600 border-none rounded-xl shadow-md disabled:bg-base-300 disabled:text-base-content/40"
+                className="btn btn-sm w-full text-amber-950 font-bold bg-amber-500 hover:bg-amber-600 border-none rounded-xl shadow-md disabled:bg-base-300 disabled:text-base-content/40 cursor-pointer"
               >
                 {loadingTier === "GOVLYX_VIP" ? (
                   <Loader2 size={14} className="animate-spin" />
@@ -372,7 +442,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
 
         {/* Footer info */}
         <div className="text-center mt-8 text-[11px] opacity-50 space-y-1">
-          <p>Payments are securely processed via Razorpay. Subscriptions are billed monthly.</p>
+          <p>Payments are securely processed via Razorpay. Subscriptions are billed {billingCycle === "YEARLY" ? "annually" : "monthly"}.</p>
           <p>By upgrading, you agree to our Terms of Service and Refund Policy.</p>
         </div>
       </div>

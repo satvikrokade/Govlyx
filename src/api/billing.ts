@@ -1,5 +1,7 @@
 import axiosInstance from "./axiosConfig";
 
+export type BillingCycle = "MONTHLY" | "YEARLY";
+
 export interface BillingConfig {
   keyId: string;
 }
@@ -35,9 +37,13 @@ export const billingApi = {
     return response.data;
   },
 
-  createOrder: async (targetTier: "GOVLYX_PRO" | "GOVLYX_VIP"): Promise<CreateOrderResponse> => {
+  createOrder: async (
+    targetTier: "GOVLYX_PRO" | "GOVLYX_VIP",
+    billingCycle: BillingCycle
+  ): Promise<CreateOrderResponse> => {
     const response = await axiosInstance.post<CreateOrderResponse>("/api/billing/create-order", {
       targetTier,
+      billingCycle,
     });
     return response.data;
   },

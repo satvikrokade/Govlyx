@@ -2662,6 +2662,10 @@ function DetailPanel({
   }
 
   async function toggleMembership() {
+    if (!getAuthToken()) {
+      navigate("/login");
+      return;
+    }
     setActing(true);
     try {
       if (c.isMember) {
@@ -3460,6 +3464,10 @@ const Community = () => {
 
   const handleCarouselJoin = async (e: React.MouseEvent, c: CommunityData) => {
     e.stopPropagation();
+    if (!getAuthToken()) {
+      navigate("/login");
+      return;
+    }
     setJoiningId(c.id);
     try {
       const res = await fetch(apiUrl(`/api/communities/${c.id}/join`), { method: "POST", headers: hdrs(), body: JSON.stringify({}) });

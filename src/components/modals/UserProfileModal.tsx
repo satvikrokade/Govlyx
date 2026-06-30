@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ShieldCheck, Crown, Zap, Clock } from "lucide-react";
 import axiosInstance from "../../api/axiosConfig";
-import { resolveMediaUrl } from "../../utils/postUtils";
+import { resolveMediaUrl, normalizePassTier } from "../../utils/postUtils";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useMyBilling } from "../../hooks/useBilling";
 
@@ -213,11 +213,23 @@ export default function UserProfileModal({
                   {/* Pass Card */}
                   <div className="flex flex-col items-center justify-center p-3 rounded-2xl bg-base-200 border border-base-content/5 gap-1 shadow-sm">
                     {(() => {
-                      const tier =
+                      const rawTier =
                         profile.currentTier ||
                         profile.billingTier ||
                         profile.tier ||
-                        "GOVLYX_FREE";
+                        profile.subscriptionTier ||
+                        profile.planTier ||
+                        profile.passTier ||
+                        profile.authorBillingTier ||
+                        profile.userBillingTier ||
+                        profile.authorTier ||
+                        profile.userTier ||
+                        profile.author?.currentTier ||
+                        profile.author?.billingTier ||
+                        profile.user?.currentTier ||
+                        profile.user?.billingTier;
+
+                      const tier = normalizePassTier(rawTier) || "GOVLYX_FREE";
 
                       if (tier === "GOVLYX_VIP") {
                         return (

@@ -20,7 +20,7 @@ import { useUnreadNotificationsCount } from "../../hooks/useNotification";
 import { useMyBilling } from "../../hooks/useBilling";
 import { useQuery } from "@tanstack/react-query";
 import { resolveMediaUrl } from "../../utils/postUtils";
-import { getUserRole } from "../../utils/auth";
+import { getUserRole, getAuthToken } from "../../utils/auth";
 import axiosInstance from "../../api/axiosConfig";
 import { getActiveTaggedPosts } from "../../api/departmentService";
 
@@ -165,6 +165,7 @@ const ADMIN_NAV_SECTIONS = [
 // Component
 // ---------------------------------------------------------------------------
 const SidebarLeft = () => {
+  const loggedIn = !!getAuthToken();
   const { data: user, isLoading: loading } = useCurrentUser();
   const { data: unreadCount } = useUnreadNotificationsCount();
   const { data: billing } = useMyBilling();
@@ -243,7 +244,9 @@ const SidebarLeft = () => {
         { label: "Profile", icon: User, to: "/profile" },
         { label: "Settings", icon: Settings, to: "/settings" }
       ]
-    : BASE_NAV_ITEMS;
+    : loggedIn
+    ? BASE_NAV_ITEMS
+    : BASE_NAV_ITEMS.filter(item => item.label === "Home" || item.label === "Communities");
 
   // Removing unused avatarLetter
   const displayName = loading ? "Loading..." : (username ?? "Anonymous User");
@@ -289,34 +292,43 @@ const SidebarLeft = () => {
   return (
     <aside className="flex min-h-full flex-col gap-4 pb-8">
 
-      {/* Profile Card */}
-      <div className="rounded-xl bg-base-200 p-4 shadow-sm border border-base-content/5">
-        <div className="flex items-center gap-3">
-          <div className="avatar placeholder relative">
-            <div className={`w-10 h-10 rounded-full overflow-hidden bg-base-200 border-2 transition-all ${passBadge ? passBadge.borderColor : "border-[#1D4ED8] dark:border-white"}`}>
-              <img src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(displayName)}`} alt="Avatar" className="w-full h-full object-cover" />
-            </div>
-            {passBadge && (
-              <div className={`absolute -top-1 -left-1 w-4.5 h-4.5 rounded-full ${passBadge.badgeBg} border border-white dark:border-base-200 flex items-center justify-center shadow-md`}>
-                {passBadge.icon}
+      {/* Profile Card or Login CTA */}
+      {loggedIn ? (
+        <div className="rounded-xl bg-base-200 p-4 shadow-sm border border-base-content/5">
+          <div className="flex items-center gap-3">
+            <div className="avatar placeholder relative">
+              <div className={`w-10 h-10 rounded-full overflow-hidden bg-base-200 border-2 transition-all ${passBadge ? passBadge.borderColor : "border-[#1D4ED8] dark:border-white"}`}>
+                <img src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(displayName)}`} alt="Avatar" className="w-full h-full object-cover" />
               </div>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 min-w-0">
-              <p className="font-semibold text-sm truncate notranslate" title={displayName}>{displayName}</p>
               {passBadge && (
-                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${passBadge.bgLight} shrink-0`}>
+                <div className={`absolute -top-1 -left-1 w-4.5 h-4.5 rounded-full ${passBadge.badgeBg} border border-white dark:border-base-200 flex items-center justify-center shadow-md`}>
                   {passBadge.icon}
-                  <span>{passBadge.text}</span>
-                </span>
+                </div>
               )}
             </div>
-            {isAdmin && <p className="text-[10px] font-mono uppercase tracking-wider text-green-500 opacity-80">Admin</p>}
-            {isDept && <p className="text-[10px] font-mono uppercase tracking-wider text-blue-500 opacity-80">Dept</p>}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <p className="font-semibold text-sm truncate notranslate" title={displayName}>{displayName}</p>
+                {passBadge && (
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${passBadge.bgLight} shrink-0`}>
+                    {passBadge.icon}
+                    <span>{passBadge.text}</span>
+                  </span>
+                )}
+              </div>
+              {isAdmin && <p className="text-[10px] font-mono uppercase tracking-wider text-green-500 opacity-80">Admin</p>}
+              {isDept && <p className="text-[10px] font-mono uppercase tracking-wider text-blue-500 opacity-80">Dept</p>}
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="rounded-xl bg-base-200 p-4 shadow-sm border border-base-content/5 flex flex-col gap-2 items-center justify-center text-center">
+          <p className="text-xs opacity-60 font-semibold">Join the community</p>
+          <Link to="/login" className="btn btn-sm bg-[#1D4ED8] text-white w-full">
+            Login / Register
+          </Link>
+        </div>
+      )}
 
       {/* ── ADMIN: Full nav sections always visible ── */}
       {isAdmin ? (

@@ -21,10 +21,11 @@ import { useModal } from "../../context/ModalContext";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useUnreadNotificationsCount } from "../../hooks/useNotification";
 import { resolveMediaUrl } from "../../utils/postUtils";
-import { isAdminUser } from "../../utils/auth";
+import { isAdminUser, getAuthToken } from "../../utils/auth";
 import GovlyxLogo from "../ui/GovlyxLogo";
 
 const Navbar = () => {
+  const loggedIn = !!getAuthToken();
   const [openCreate, setOpenCreate] = useState(false);
   const { openModal, closeModal } = useModal();
   const { theme, toggleTheme } = useTheme();
@@ -69,7 +70,7 @@ const Navbar = () => {
           </label>
 
           {/* LOGO */}
-          <NavLink to="/dashboard" className="flex items-center gap-2">
+          <NavLink to={loggedIn ? "/dashboard" : "/"} className="flex items-center gap-2">
             <GovlyxLogo size={36} showText textClassName="hidden sm:block text-2xl font-bold" />
           </NavLink>
 
@@ -114,7 +115,7 @@ const Navbar = () => {
             )}
 
             {/* CREATE - Desktop */}
-            {!isAdminUser() && (
+            {!isAdminUser() && loggedIn && (
               <button
                 onClick={() => { setOpenCreate(true); openModal(); }}
                 className="btn btn-sm bg-blue-700 hidden sm:flex gap-1 text-white"
@@ -125,7 +126,7 @@ const Navbar = () => {
             )}
 
             {/* MOBILE CREATE ICON */}
-            {!isAdminUser() && (
+            {!isAdminUser() && loggedIn && (
               <button
                 onClick={() => { setOpenCreate(true); openModal(); }}
                 className="btn btn-ghost btn-sm sm:hidden hover:bg-blue-700/10"
@@ -136,16 +137,18 @@ const Navbar = () => {
             )}
 
             {/* CHAT - HIDE ON MOBILE */}
-            {!isAdminUser() && (
+            {!isAdminUser() && loggedIn && (
               <NavLink to="/quick-chat" className="btn btn-ghost btn-sm hover:bg-blue-700/10 hidden sm:inline-flex">
                 <MessageCircle size={18} />
               </NavLink>
             )}
 
-            <NotificationDropdown 
-              unreadCount={unreadNotifications} 
-              onRefresh={refetchUnreadCount} 
-            />
+            {loggedIn && (
+              <NotificationDropdown 
+                unreadCount={unreadNotifications} 
+                onRefresh={refetchUnreadCount} 
+              />
+            )}
 
             {/* THEME TOGGLE */}
             <button
@@ -156,7 +159,7 @@ const Navbar = () => {
               {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
             </button>
 
-            <NavLink to="/profile" className="avatar placeholder">
+            <NavLink to={loggedIn ? "/profile" : "/login"} className="avatar placeholder">
               <div className="w-8 rounded-full overflow-hidden bg-base-200 border-2 border-[#1D4ED8] dark:border-white">
                 <img src={resolveMediaUrl(user?.profileImage, "social-posts") || `https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(username)}`} alt="Avatar" className="w-full h-full object-cover" />
               </div>

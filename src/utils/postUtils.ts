@@ -84,7 +84,7 @@ function cleanEmail(val: string): string {
   return val;
 }
 
-function normalizePassTier(value: any): "GOVLYX_FREE" | "GOVLYX_PRO" | "GOVLYX_VIP" | undefined {
+export function normalizePassTier(value: any): "GOVLYX_FREE" | "GOVLYX_PRO" | "GOVLYX_VIP" | undefined {
   if (!value || typeof value !== "string") return undefined;
   const normalized = value.trim().toUpperCase();
   if (normalized === "GOVLYX_VIP" || normalized === "VIP") return "GOVLYX_VIP";

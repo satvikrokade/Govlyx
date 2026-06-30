@@ -37,7 +37,7 @@ import type { PostType } from "./CommentSection";
 import { resolveMediaUrl, toPostCardPost } from "../../utils/postUtils";
 import ConfirmModal from "./ConfirmModal";
 import { useNavigate } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useCurrentUser } from "../../hooks/useUser";
 import { useMyBilling } from "../../hooks/useBilling";
 import ReportModal from "../modals/ReportModal";
@@ -987,6 +987,60 @@ function CommunityStrip({
   );
 }
 
+function useUserBillingTier(username: string) {
+  return useQuery({
+    queryKey: ["userBillingTier", username],
+    queryFn: async () => {
+      if (!username) return null;
+      console.log("[useUserBillingTier] Fetching tier for:", username);
+      try {
+        const response = await axiosInstance.get(`/api/users/search`, {
+          params: { query: username, limit: 10 },
+        });
+        const data =
+          response.data?.data?.data ??
+          response.data?.data?.content ??
+          response.data?.data ??
+          response.data?.content ??
+          [];
+        console.log("[useUserBillingTier] Search response data for:", username, data);
+        if (Array.isArray(data)) {
+          const match = data.find((u: any) => {
+            const cleanEmail = (val: string) => (val.includes("@") ? val.split("@")[0] : val);
+            const candidate1 = cleanEmail(u.actualUsername || u.username || "").toLowerCase();
+            const candidate2 = cleanEmail(u.username || "").toLowerCase();
+            const candidate3 = cleanEmail(u.displayName || "").toLowerCase();
+            const target = username.toLowerCase();
+            return candidate1 === target || candidate2 === target || candidate3 === target;
+          });
+          console.log("[useUserBillingTier] Matched user for:", username, match);
+          if (match) {
+            const rawTier =
+              match.currentTier ||
+              match.billingTier ||
+              match.tier ||
+              match.subscriptionTier ||
+              match.planTier ||
+              match.passTier ||
+              match.authorBillingTier ||
+              match.userBillingTier ||
+              match.authorTier ||
+              match.userTier;
+            const normalized = normalizePassTier(rawTier) || "GOVLYX_FREE";
+            console.log("[useUserBillingTier] Normalized tier for:", username, normalized);
+            return normalized;
+          }
+        }
+      } catch (err) {
+        console.error("[useUserBillingTier] Fetch error for:", username, err);
+      }
+      return "GOVLYX_FREE";
+    },
+    enabled: !!username,
+    staleTime: 1000 * 60 * 10, // 10 minutes cache
+  });
+}
+
 function AuthorRow({
   post,
   badge,
@@ -1014,31 +1068,48 @@ function AuthorRow({
   const sewaScore = post.communitySewaScore ?? 0;
   const communityFlair = post.communityFlair || (sewaScore >= 1000 ? "Pramukh" : sewaScore >= 500 ? "Margdarshak" : sewaScore >= 150 ? "Rakshak" : "");
 
+  const cleanEmailHelper = (val: string) => (val.includes("@") ? val.split("@")[0] : val);
   const isMe = !!(currentUser && post.username && currentUser.username && (
     post.username.toLowerCase() === currentUser.username.toLowerCase() ||
+    post.username.toLowerCase() === cleanEmailHelper(currentUser.username).toLowerCase() ||
     post.username.toLowerCase() === (currentUser.actualUsername || "").toLowerCase()
   ));
+  const { data: fetchedTier } = useUserBillingTier(post.username || "");
   const myTier = isMe ? billing?.currentTier : undefined;
 
-  const tier = normalizePassTier(
-    myTier ||
-    (post as any).authorBillingTier ||
-    (post as any).userBillingTier ||
-    (post as any).billingTier ||
-    (post as any).currentTier ||
-    (post as any).subscriptionTier ||
-    (post as any).planTier ||
-    (post as any).passTier ||
-    (post as any).authorTier ||
-    (post as any).userTier ||
-    (post as any).tier
-  );
+  let tier: "GOVLYX_FREE" | "GOVLYX_PRO" | "GOVLYX_VIP" = "GOVLYX_FREE";
+
+  if (isMe && myTier) {
+    tier = myTier;
+  } else {
+    const fallbackTier = normalizePassTier(
+      (post as any).authorBillingTier ||
+      (post as any).userBillingTier ||
+      (post as any).billingTier ||
+      (post as any).currentTier ||
+      (post as any).subscriptionTier ||
+      (post as any).planTier ||
+      (post as any).passTier ||
+      (post as any).authorTier ||
+      (post as any).userTier ||
+      (post as any).tier
+    );
+
+    if (fetchedTier === "GOVLYX_VIP" || fetchedTier === "GOVLYX_PRO") {
+      tier = fetchedTier;
+    } else if (fallbackTier === "GOVLYX_VIP" || fallbackTier === "GOVLYX_PRO") {
+      tier = fallbackTier;
+    }
+  }
   const passBadge = (() => {
     if (tier === "GOVLYX_VIP") {
       return {
         iconBadge: <Crown className="w-2.5 h-2.5 shrink-0 text-amber-500 fill-amber-500/10" />,
         text: "VIP",
         bgLight: "bg-amber-500/10 text-amber-500 border-amber-500/20 dark:text-amber-400 dark:border-amber-400/30 dark:bg-amber-400/10",
+        borderColor: "border-amber-500 dark:border-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.6)]",
+        badgeBg: "bg-amber-500 text-amber-950",
+        icon: <Crown className="w-2.5 h-2.5 text-amber-950 fill-amber-950/10" />,
       };
     }
     if (tier === "GOVLYX_PRO") {
@@ -1046,6 +1117,9 @@ function AuthorRow({
         iconBadge: <Zap className="w-2.5 h-2.5 shrink-0 text-blue-500 fill-blue-500/10" />,
         text: "PRO",
         bgLight: "bg-blue-500/10 text-blue-500 border-blue-500/20 dark:text-blue-400 dark:border-blue-400/30 dark:bg-blue-400/10",
+        borderColor: "border-blue-500 dark:border-blue-400 shadow-[0_0_8px_rgba(59,130,246,0.6)]",
+        badgeBg: "bg-blue-500 text-white",
+        icon: <Zap className="w-2.5 h-2.5 text-white" />,
       };
     }
     return null;
@@ -1058,7 +1132,7 @@ function AuthorRow({
       className="flex items-center gap-3 w-full min-w-0"
     >
       <motion.div
-        className="relative shrink-0 cursor-pointer"
+        className="relative shrink-0 cursor-pointer avatar"
         onClick={() => {
           if (post.username && onProfileClick) {
             onProfileClick(post.username);
@@ -1067,20 +1141,31 @@ function AuthorRow({
           }
         }}
       >
-        {post.userProfileImage ? (
-          <img
-            src={post.userProfileImage}
-            className="w-10 h-10 rounded-full object-cover ring-2 ring-primary/10 ring-offset-2 ring-offset-base-100"
-            alt=""
-          />
-        ) : (
-          <img
-            src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(
-              post.username || "?"
-            )}`}
-            className="w-10 h-10 rounded-full object-cover bg-base-200 ring-2 ring-primary/10 ring-offset-2 ring-offset-base-100"
-            alt="Avatar"
-          />
+        <div className={`w-10 h-10 rounded-full overflow-hidden transition-all ${
+          passBadge 
+            ? `border-2 ${passBadge.borderColor}` 
+            : "ring-2 ring-primary/10 ring-offset-2 ring-offset-base-100"
+        }`}>
+          {post.userProfileImage ? (
+            <img
+              src={post.userProfileImage}
+              className="w-full h-full object-cover"
+              alt=""
+            />
+          ) : (
+            <img
+              src={`https://api.dicebear.com/9.x/lorelei/svg?seed=${encodeURIComponent(
+                post.username || "?"
+              )}`}
+              className="w-full h-full object-cover bg-base-200"
+              alt="Avatar"
+            />
+          )}
+        </div>
+        {passBadge && (
+          <div className={`absolute -top-1 -left-1 w-4.5 h-4.5 rounded-full ${passBadge.badgeBg} border border-white dark:border-base-200 flex items-center justify-center shadow-md z-10`}>
+            {passBadge.icon}
+          </div>
         )}
       </motion.div>
       <div className="flex-1 min-w-0">
@@ -1856,8 +1941,11 @@ export default function PostCard({
     );
   }
 
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: currentUserProfile } = useCurrentUser();
+  const { data: billing } = useMyBilling();
+  const { data: fetchedTier } = useUserBillingTier(post?.username || "");
   
   const cachedState = post ? globalInteractionCache.get(getGlobalCacheKey(post)) : undefined;
 
@@ -2428,6 +2516,10 @@ export default function PostCard({
   }
 
   async function handleLike() {
+    if (!currentUserProfile) {
+      navigate("/login");
+      return;
+    }
     if (isResolved) return;
     
     const nextLiked = !currentLikedValueRef.current;
@@ -2492,6 +2584,10 @@ export default function PostCard({
   }
 
   async function handleDislike() {
+    if (!currentUserProfile) {
+      navigate("/login");
+      return;
+    }
     if (!isIssue || isResolved) return;
     
     const nextDisliked = !currentDislikedValueRef.current;
@@ -2609,6 +2705,10 @@ export default function PostCard({
   }
 
   async function handleSave() {
+    if (!currentUserProfile) {
+      navigate("/login");
+      return;
+    }
     const nextSaved = !currentSavedValueRef.current;
     
     // 1. Synchronously update Ref
@@ -2807,6 +2907,10 @@ export default function PostCard({
   }
 
   async function handlePollVote(pollId: number, optionIds: number[]) {
+    if (!currentUserProfile) {
+      navigate("/login");
+      return;
+    }
     setIsProcessing(true);
     try {
       // 1. Notify parent if needed
@@ -2837,11 +2941,68 @@ export default function PostCard({
     }
   }
 
-  const borderClass = isGovt
+  const cleanEmailHelperMain = (val: string) => (val.includes("@") ? val.split("@")[0] : val);
+  const isMe = !!(currentUserProfile && post.username && currentUserProfile.username && (
+    post.username.toLowerCase() === currentUserProfile.username.toLowerCase() ||
+    post.username.toLowerCase() === cleanEmailHelperMain(currentUserProfile.username).toLowerCase() ||
+    post.username.toLowerCase() === (currentUserProfile.actualUsername || "").toLowerCase()
+  ));
+  const myTier = isMe ? billing?.currentTier : undefined;
+
+  let tier: "GOVLYX_FREE" | "GOVLYX_PRO" | "GOVLYX_VIP" = "GOVLYX_FREE";
+
+  if (isMe && myTier) {
+    tier = myTier;
+  } else {
+    const fallbackTier = normalizePassTier(
+      (post as any).authorBillingTier ||
+      (post as any).userBillingTier ||
+      (post as any).billingTier ||
+      (post as any).currentTier ||
+      (post as any).subscriptionTier ||
+      (post as any).planTier ||
+      (post as any).passTier ||
+      (post as any).authorTier ||
+      (post as any).userTier ||
+      (post as any).tier
+    );
+
+    if (fetchedTier === "GOVLYX_VIP" || fetchedTier === "GOVLYX_PRO") {
+      tier = fetchedTier;
+    } else if (fallbackTier === "GOVLYX_VIP" || fallbackTier === "GOVLYX_PRO") {
+      tier = fallbackTier;
+    }
+  }
+
+  let borderClass = isGovt
     ? "border-[#1D4ED8]/25 bg-base-100"
     : isResolved
       ? "border-emerald-500/20 bg-base-100"
       : "border-base-300 bg-base-100";
+
+  if (!isGovt && !isResolved) {
+    if (tier === "GOVLYX_VIP") {
+      borderClass = "border-amber-500/35 bg-base-100 shadow-[0_8px_30px_rgba(245,158,11,0.05)] hover:shadow-[0_20px_50px_rgba(245,158,11,0.12)] hover:border-amber-500/50";
+    } else if (tier === "GOVLYX_PRO") {
+      borderClass = "border-blue-500/25 bg-base-100 shadow-[0_8px_30px_rgba(59,130,246,0.05)] hover:shadow-[0_20px_50px_rgba(59,130,246,0.12)] hover:border-blue-500/40";
+    }
+  }
+
+  const handleCommentClick = () => {
+    if (!currentUserProfile) {
+      navigate("/login");
+      return;
+    }
+    setCommentsOpen(!commentsOpen);
+  };
+
+  const handleShareClick = () => {
+    if (!currentUserProfile) {
+      navigate("/login");
+      return;
+    }
+    setShareMenuOpen(true);
+  };
 
   const hasBackendTranslation = !!(post as BasePost).isTranslated && !!(post as BasePost).translatedContent;
   const hasTranslation = hasBackendTranslation || !!dynamicTranslation;
@@ -3217,11 +3378,11 @@ export default function PostCard({
                   <PostActionGif name="like" active={liked} />
                   <span>{likeCount || "0"}</span>
                 </ActionPill>
-                <ActionPill onClick={() => setCommentsOpen(!commentsOpen)} active={commentsOpen} activeClass={POST_ACTION_ACTIVE_CLASS} hoverGlow={POST_ACTION_HOVER_GLOW}>
+                <ActionPill onClick={handleCommentClick} active={commentsOpen} activeClass={POST_ACTION_ACTIVE_CLASS} hoverGlow={POST_ACTION_HOVER_GLOW}>
                   <PostActionGif name="comment" active={commentsOpen} />
                   <span>{commentCount ?? 0}</span>
                 </ActionPill>
-                <ActionPill onClick={() => setShareMenuOpen(true)} active={copied} activeClass={POST_ACTION_ACTIVE_CLASS} hoverGlow={POST_ACTION_HOVER_GLOW}>
+                <ActionPill onClick={handleShareClick} active={copied} activeClass={POST_ACTION_ACTIVE_CLASS} hoverGlow={POST_ACTION_HOVER_GLOW}>
                   <PostActionGif name="share" active={copied} />
                   <span>{copied ? "Copied!" : (shareCount || "0")}</span>
                 </ActionPill>
@@ -3250,11 +3411,11 @@ export default function PostCard({
                   <PostActionGif name="like" active={liked} vertical />
                   <span>{likeCount || "0"}</span>
                 </ActionPill>
-                <ActionPill onClick={() => setCommentsOpen(!commentsOpen)} active={commentsOpen} vertical activeClass={POST_ACTION_ACTIVE_CLASS} hoverGlow={POST_ACTION_HOVER_GLOW}>
+                <ActionPill onClick={handleCommentClick} active={commentsOpen} vertical activeClass={POST_ACTION_ACTIVE_CLASS} hoverGlow={POST_ACTION_HOVER_GLOW}>
                   <PostActionGif name="comment" active={commentsOpen} vertical />
                   <span>{commentCount ?? 0}</span>
                 </ActionPill>
-                <ActionPill onClick={() => setShareMenuOpen(true)} active={copied} vertical activeClass={POST_ACTION_ACTIVE_CLASS} hoverGlow={POST_ACTION_HOVER_GLOW}>
+                <ActionPill onClick={handleShareClick} active={copied} vertical activeClass={POST_ACTION_ACTIVE_CLASS} hoverGlow={POST_ACTION_HOVER_GLOW}>
                   <PostActionGif name="share" active={copied} vertical />
                   <span className="text-[9px] leading-tight mt-0.5">{copied ? "Copied" : (shareCount || "0")}</span>
                 </ActionPill>
