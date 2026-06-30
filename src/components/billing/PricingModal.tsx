@@ -77,6 +77,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
   if (!isOpen) return null;
 
   const currentTier = billing?.currentTier || "GOVLYX_FREE";
+  const activeBillingCycle = billing?.billingCycle || "MONTHLY";
   const getLaunchPrice = (tier: "GOVLYX_PRO" | "GOVLYX_VIP", cycle: BillingCycle) => {
     if (cycle === "YEARLY") {
       return tier === "GOVLYX_VIP" ? 745 : 245;
@@ -161,8 +162,8 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl rounded-2xl bg-base-200 border border-base-300 p-6 sm:p-8 shadow-2xl flex flex-col max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 z-[9999] flex items-start sm:items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+      <div className="relative w-full max-w-4xl rounded-2xl bg-base-200 border border-base-300 p-4 sm:p-8 shadow-2xl flex flex-col max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto animate-in fade-in zoom-in duration-200 my-4 sm:my-0">
         
         {/* Close Button */}
         <button
@@ -277,7 +278,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 <span className="inline-flex items-center gap-1 text-xs font-black uppercase tracking-wider text-blue-700 dark:text-blue-400">
                   <Zap size={12} /> Pro Pass
                 </span>
-                {currentTier === "GOVLYX_PRO" && (
+                {currentTier === "GOVLYX_PRO" && activeBillingCycle === billingCycle && (
                   <span className="badge badge-sm badge-primary">Active Plan</span>
                 )}
               </div>
@@ -332,12 +333,12 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
             <div className="mt-8">
               <button
                 onClick={() => handleUpgrade("GOVLYX_PRO")}
-                disabled={currentTier === "GOVLYX_PRO" || currentTier === "GOVLYX_VIP" || loadingTier !== null}
+                disabled={(currentTier === "GOVLYX_PRO" && activeBillingCycle === billingCycle) || currentTier === "GOVLYX_VIP" || loadingTier !== null}
                 className="btn btn-sm btn-primary w-full text-white rounded-xl shadow-md disabled:bg-base-300 disabled:text-base-content/40 border-none bg-blue-700 hover:bg-blue-800 animate-none cursor-pointer"
               >
                 {loadingTier === "GOVLYX_PRO" ? (
                   <Loader2 size={14} className="animate-spin" />
-                ) : currentTier === "GOVLYX_PRO" ? (
+                ) : currentTier === "GOVLYX_PRO" && activeBillingCycle === billingCycle ? (
                   "Active"
                 ) : currentTier === "GOVLYX_VIP" ? (
                   "Downgrade Gated"
@@ -358,7 +359,7 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
                 <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-amber-950 shadow-sm">
                   Popular
                 </span>
-                {currentTier === "GOVLYX_VIP" && (
+                {currentTier === "GOVLYX_VIP" && activeBillingCycle === billingCycle && (
                   <span className="rounded-full border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-300">
                     Active Plan
                   </span>
@@ -424,12 +425,12 @@ export default function PricingModal({ isOpen, onClose }: PricingModalProps) {
             <div className="mt-8">
               <button
                 onClick={() => handleUpgrade("GOVLYX_VIP")}
-                disabled={currentTier === "GOVLYX_VIP" || loadingTier !== null}
+                disabled={(currentTier === "GOVLYX_VIP" && activeBillingCycle === billingCycle) || loadingTier !== null}
                 className="btn btn-sm w-full text-amber-950 font-bold bg-amber-500 hover:bg-amber-600 border-none rounded-xl shadow-md disabled:bg-base-300 disabled:text-base-content/40 cursor-pointer"
               >
                 {loadingTier === "GOVLYX_VIP" ? (
                   <Loader2 size={14} className="animate-spin" />
-                ) : currentTier === "GOVLYX_VIP" ? (
+                ) : currentTier === "GOVLYX_VIP" && activeBillingCycle === billingCycle ? (
                   "Active"
                 ) : (
                   "Upgrade to VIP"

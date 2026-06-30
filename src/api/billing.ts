@@ -10,6 +10,7 @@ export interface BillingStatus {
   currentTier: "GOVLYX_FREE" | "GOVLYX_PRO" | "GOVLYX_VIP";
   validUntil?: string;
   privateCommunityQuota?: number;
+  billingCycle?: BillingCycle;
 }
 
 export interface CreateOrderResponse {

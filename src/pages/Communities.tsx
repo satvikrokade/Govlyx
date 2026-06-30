@@ -394,26 +394,6 @@ function InviteTab({
   const [cursor, setCursor] = useState<number | null>(null);
   const [revoking, setRevoking] = useState<number | null>(null);
 
-  const publicInviteFallback = useCallback((): InviteResponse => ({
-    id: Date.now(),
-    token: "",
-    inviteLink: `${window.location.origin}/communities?community=${encodeURIComponent(String(communityId))}`,
-    inviteeUsername: null,
-    inviteeProfileImage: null,
-    inviterUsername: null,
-    message: null,
-    status: "PENDING",
-    singleUse: false,
-    useCount: 0,
-    createdAt: new Date().toISOString(),
-    expiresAt: "",
-    actionedAt: null,
-  }), [communityId]);
-
-  const isPublicInviteRejection = (payload: any) => {
-    const text = String(payload?.error || payload?.message || "").toLowerCase();
-    return privacy === "PUBLIC" && text.includes("public") && text.includes("invite");
-  };
 
   useEffect(() => {
     if (debRef.current) clearTimeout(debRef.current);
@@ -448,11 +428,6 @@ function InviteTab({
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (isPublicInviteRejection(d)) {
-          setSendResult(publicInviteFallback());
-          setSelectedUser(null); setSearchQ(""); setMessage(""); setSuggestions([]);
-          return;
-        }
         setSendError(d?.error || d?.message || `Error ${res.status}`);
         return;
       }
@@ -474,10 +449,6 @@ function InviteTab({
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
-        if (isPublicInviteRejection(d)) {
-          setGenResult(publicInviteFallback());
-          return;
-        }
         alert(d?.error || d?.message || "Could not generate link.");
         return;
       }
@@ -3924,7 +3895,7 @@ const Community = () => {
                                 <Eye size={13} /> View
                               </button>
                               <button
-                                className="py-2.5 text-xs font-semibold text-amber-600 hover:text-amber-700 hover:bg-amber-500/10 transition-all duration-200 flex items-center justify-center gap-1.5"
+                                className="py-2.5 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-500/10 [text-shadow:0_0_8px_rgba(239,68,68,0.3)] transition-all duration-200 flex items-center justify-center gap-1.5"
                                 onClick={e => { e.stopPropagation(); setAdminTarget(c); }}
                               >
                                 <Settings size={13} /> Manage

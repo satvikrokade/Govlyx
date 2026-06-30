@@ -923,7 +923,7 @@ function CommunityStrip({
     <motion.div
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-gradient-to-r from-sky-500/5 to-transparent border border-sky-500/10 mb-2"
+      className="flex items-center justify-between gap-3 p-2.5 rounded-xl bg-gradient-to-r from-red-500/5 to-transparent border border-red-500/20 mb-2"
     >
       <div
         onClick={async () => {
@@ -951,16 +951,16 @@ function CommunityStrip({
         {communityAvatar ? (
           <motion.img
             src={communityAvatar}
-            className="w-9 h-9 rounded-lg object-cover shrink-0 ring-2 ring-blue-500/20"
+            className="w-9 h-9 rounded-lg object-cover shrink-0 ring-2 ring-red-500/20"
             alt=""
           />
         ) : (
-          <div className="w-9 h-9 rounded-lg bg-blue-500/20 flex items-center justify-center shrink-0">
-            <Users size={16} className="text-sky-500" />
+          <div className="w-9 h-9 rounded-lg bg-red-500/20 flex items-center justify-center shrink-0">
+            <Users size={16} className="text-red-500" />
           </div>
         )}
         <div className="min-w-0">
-          <p className="text-[10px] font-black text-sky-500 truncate uppercase tracking-tighter">{communityName}</p>
+          <p className="text-[10px] font-black text-red-500 truncate uppercase tracking-tighter">{communityName}</p>
           {memberCount && (
             <p className="text-[9px] font-medium text-base-content/50 mt-0.5">{memberCount} members</p>
           )}
@@ -3302,7 +3302,7 @@ export default function PostCard({
               {renderFormattedContent(displayText)}
             </motion.p>
             {(!post.contentHidden || isContentRevealed) && (displayText?.length ?? 0) > 160 && (
-              <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-black uppercase tracking-widest text-primary hover:underline">
+              <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-black uppercase tracking-widest text-red-600 dark:text-red-500 hover:underline [text-shadow:0_0_8px_rgba(239,68,68,0.4)] transition-all">
                 {expanded ? "Less ↑" : "More ↓"}
               </button>
             )}
