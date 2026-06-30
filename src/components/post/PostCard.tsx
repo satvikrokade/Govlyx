@@ -1048,7 +1048,7 @@ function AuthorRow({
             <motion.span
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
-              className="text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200 shrink-0"
+              className="text-[8px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-500/20 shrink-0"
             >
               {badge}
             </motion.span>
@@ -1057,7 +1057,7 @@ function AuthorRow({
             <KarmaBadge score={karmaScore} compact />
           )}
           {communityFlair && (
-            <span className="shrink-0 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter text-amber-700">
+            <span className="shrink-0 rounded-full border border-amber-500/25 dark:border-amber-400/30 bg-amber-500/10 dark:bg-amber-400/10 px-2 py-0.5 text-[8px] font-black uppercase tracking-tighter text-amber-700 dark:text-amber-400">
               {communityFlair}
             </span>
           )}

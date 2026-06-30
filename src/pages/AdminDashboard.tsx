@@ -25,6 +25,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { departmentRegisterSchema, adminRegisterSchema } from "../utils/validation";
 import { showToast } from "../utils/toast";
 import axiosInstance from "../api/axiosConfig";
+import { decodeHTML } from "../utils/postUtils";
 
 
 import DOMPurify from "dompurify";
@@ -3060,11 +3061,11 @@ const AdminDashboard = () => {
                                 <td>
                                   <div className="flex items-center gap-2">
                                     <div className="admin-u-avatar admin-ua-purple">
-                                      {comm.name.charAt(0).toUpperCase()}
+                                      {decodeHTML(comm.name).charAt(0).toUpperCase()}
                                     </div>
                                     <div>
-                                      <div className="admin-td-name">{comm.name}</div>
-                                      <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[180px]" title={comm.description}>{comm.description}</div>
+                                      <div className="admin-td-name">{decodeHTML(comm.name)}</div>
+                                      <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[180px]" title={decodeHTML(comm.description)}>{decodeHTML(comm.description)}</div>
                                     </div>
                                   </div>
                                 </td>

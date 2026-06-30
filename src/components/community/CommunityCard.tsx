@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Users, Lock, EyeOff, ArrowRight, Trophy, TrendingUp } from "lucide-react";
+import { decodeHTML } from "../../utils/postUtils";
 
 export type CommunityCardProps = {
   id: number;
@@ -29,7 +30,7 @@ const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privac
 
   return (
     <div
-      className={`group relative rounded-2xl border bg-base-100 overflow-hidden cursor-pointer transition-all duration-200 min-w-0 ${rankLabel ? "border-amber-500/35 shadow-sm shadow-amber-500/10" : "border-base-300"}`}
+      className={`group relative rounded-2xl border bg-base-100 overflow-hidden cursor-pointer transition-all duration-200 min-w-0 ${rankLabel ? "border-amber-500/35 shadow-sm shadow-amber-500/10" : "border-base-300 dark:border-white/10 hover:border-base-content/20 dark:hover:border-white/25"}`}
       style={{ transform: "translateZ(0)" }}
       onClick={handlePress}
     >
@@ -54,7 +55,7 @@ const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privac
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 mb-0.5">
             <h3 className="font-bold text-sm leading-tight truncate notranslate">
-              {name}
+              {decodeHTML(name)}
             </h3>
             {privacy && privacy !== "PUBLIC" && (
               <span className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-base-200 text-base-content/60 border border-base-300">
@@ -82,12 +83,12 @@ const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privac
           {(rankLabel || typeof momentumScore === "number") && (
             <div className="mb-2 flex flex-wrap items-center gap-1.5">
               {rankLabel && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 dark:border-amber-400/30 bg-amber-500/10 dark:bg-amber-400/10 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-400">
                   <Trophy size={10} /> {rankLabel}
                 </span>
               )}
               {typeof momentumScore === "number" && (
-                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 dark:border-emerald-400/30 bg-emerald-500/10 dark:bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                   <TrendingUp size={10} /> {Math.round(momentumScore)} momentum
                 </span>
               )}
@@ -95,7 +96,7 @@ const CommunityCard = ({ id, slug, name, description, members, avatarUrl, privac
           )}
 
           {description ? (
-            <p className="text-xs text-base-content/60 line-clamp-2 leading-relaxed">{description}</p>
+            <p className="text-xs text-base-content/60 line-clamp-2 leading-relaxed">{decodeHTML(description)}</p>
           ) : (
             <p className="text-xs text-base-content/35 italic">No description provided.</p>
           )}

@@ -31,7 +31,7 @@ import LimitReachedModal from "../components/modals/LimitReachedModal";
 import { getAuthToken } from "../utils/auth";
 import { useMyBilling } from "../hooks/useBilling";
 import PricingModal from "../components/billing/PricingModal";
-import { toPostCardPost } from "../utils/postUtils";
+import { toPostCardPost, decodeHTML } from "../utils/postUtils";
 import { jwtDecode } from "jwt-decode";
 import { cacheSuggestion } from "../utils/searchCache";
 import { apiUrl } from "../utils/apiUrl";
@@ -292,9 +292,10 @@ function getCommunityRankLabel(c: CommunityData): string {
 }
 
 function highlight(text: string, query: string): React.ReactNode {
-  if (!query.trim() || !text) return text;
+  const decoded = decodeHTML(text);
+  if (!query.trim() || !decoded) return decoded;
   const esc = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const parts = text.split(new RegExp(`(${esc})`, "gi"));
+  const parts = decoded.split(new RegExp(`(${esc})`, "gi"));
   return parts.map((p, i) =>
     p.toLowerCase() === query.toLowerCase()
       ? <mark key={i} className="bg-red-500/20 text-red-500 rounded px-0.5">{p}</mark>
@@ -346,10 +347,9 @@ function InviteTab({
   communityName,
 }: {
   communityId: number;
-  privacy: "PRIVATE" | "SECRET";
+  privacy: "PUBLIC" | "PRIVATE" | "SECRET";
   communityName: string;
 }) {
-  const isSecret = privacy === "SECRET";
   type Mode = "send" | "list";
   const [mode, setMode] = useState<Mode>("send");
 
@@ -475,17 +475,26 @@ function InviteTab({
 
   return (
     <div className="p-5 space-y-6">
-      <div className={`rounded-xl border px-4 py-3 text-sm flex items-start gap-3 ${isSecret
-        ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
-        : "bg-orange-500/10 border-orange-500/30 text-orange-400"
-        }`}>
-        <span className="text-xl shrink-0 mt-0.5">{isSecret ? <EyeOff size={20} /> : <Lock size={20} />}</span>
+      <div className={`rounded-xl border px-4 py-3 text-sm flex items-start gap-3 ${
+        privacy === "SECRET"
+          ? "bg-purple-500/10 border-purple-500/30 text-purple-400"
+          : privacy === "PRIVATE"
+            ? "bg-orange-500/10 border-orange-500/30 text-orange-400"
+            : "bg-blue-500/10 border-blue-500/30 text-blue-400"
+      }`}>
+        <span className="text-xl shrink-0 mt-0.5">
+          {privacy === "SECRET" ? <EyeOff size={20} /> : privacy === "PRIVATE" ? <Lock size={20} /> : <Users size={20} />}
+        </span>
         <div>
-          <p className="font-semibold">{isSecret ? "Secret Community" : "Private Community"}</p>
+          <p className="font-semibold">
+            {privacy === "SECRET" ? "Secret Community" : privacy === "PRIVATE" ? "Private Community" : "Public Community"}
+          </p>
           <p className="opacity-70 text-xs mt-0.5">
-            {isSecret
+            {privacy === "SECRET"
               ? "Invites are the only way to join this community."
-              : "Invited users skip the approval queue and join instantly."}
+              : privacy === "PRIVATE"
+                ? "Invited users skip the approval queue and join instantly."
+                : "Generate invite links or invite specific users to join your public community."}
           </p>
         </div>
       </div>
@@ -1357,12 +1366,8 @@ function AdminPanel({
   const TABS: { key: AdminTab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { key: "requests", label: "Requests", icon: <Inbox size={14} />, badge: requests.length > 0 ? requests.length : undefined },
     { key: "members", label: "Members", icon: <Users size={14} /> },
-    ...(c.privacy !== "PUBLIC"
-      ? [{ key: "invites" as AdminTab, label: "Invites", icon: <Link size={14} /> }]
-      : []
-    ),
+    { key: "invites", label: "Invites", icon: <Link size={14} /> },
     { key: "settings", label: "Settings", icon: <Settings size={14} /> },
-    { key: "insights", label: "Insights", icon: <BarChart3 size={14} /> },
   ];
 
   const roleColor = (role: Member["role"]) => {
@@ -1510,10 +1515,10 @@ function AdminPanel({
             </div>
           )}
 
-          {tab === "invites" && c.privacy !== "PUBLIC" && (
+          {tab === "invites" && (
             <InviteTab
               communityId={c.id}
-              privacy={c.privacy as "PRIVATE" | "SECRET"}
+              privacy={c.privacy as "PUBLIC" | "PRIVATE" | "SECRET"}
               communityName={c.name}
             />
           )}
@@ -2714,7 +2719,7 @@ function DetailPanel({
                 <div className="rounded-xl border border-base-300 bg-base-200 p-5">
                   <h3 className="font-semibold mb-3 text-lg">About this community</h3>
                   <p className="text-sm opacity-80 whitespace-pre-line leading-relaxed">
-                    {c.description || "No detailed description provided."}
+                    {decodeHTML(c.description || "No detailed description provided.")}
                   </p>
                 </div>
 
@@ -2842,7 +2847,7 @@ function RecommendedCarousel({
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [visibleCards, setVisibleCards] = useState(3);
+  const [visibleCards, setVisibleCards] = useState(2);
   const [transitionEnabled, setTransitionEnabled] = useState(true);
   const [isAnimating, setIsAnimating] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2853,10 +2858,8 @@ function RecommendedCarousel({
     const handleResize = () => {
       if (window.innerWidth < 768) {
         setVisibleCards(1); // Single showcase in mobile devices
-      } else if (window.innerWidth < 1024) {
-        setVisibleCards(2); // 2 cards on tablet
       } else {
-        setVisibleCards(3); // Max 3 cards on large devices
+        setVisibleCards(2); // Max 2 cards on larger devices
       }
     };
     handleResize();
@@ -3045,7 +3048,7 @@ function RecommendedCarousel({
                   onClick={() => onSelect(c)}
                 >
                   {/* Card Container */}
-                  <div className="w-full bg-base-100 rounded-3xl border border-base-300 p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-300 h-[380px] md:h-[310px] cursor-pointer hover:border-base-content/20">
+                  <div className="w-full bg-base-100 rounded-3xl border border-base-300 dark:border-white/10 p-4.5 flex flex-col justify-between shadow-[0_4px_12px_rgba(0,0,0,0.05)] dark:shadow-[0_4px_12px_rgba(0,0,0,0.25)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] transition-all duration-300 h-[380px] md:h-[310px] cursor-pointer hover:border-base-content/20 dark:hover:border-white/25">
                     <div className="flex flex-col h-full justify-between">
                       <div>
                         {/* Cover Image at Top */}
@@ -3063,21 +3066,21 @@ function RecommendedCarousel({
                         {/* Title */}
                         <div className="mb-2 flex flex-wrap items-center gap-1.5">
                           {getCommunityRankLabel(c) && (
-                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 bg-amber-500/10 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                            <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/25 dark:border-amber-400/30 bg-amber-500/10 dark:bg-amber-400/10 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-400">
                               <Trophy size={10} /> {getCommunityRankLabel(c)}
                             </span>
                           )}
-                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/25 dark:border-emerald-400/30 bg-emerald-500/10 dark:bg-emerald-400/10 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                             <Activity size={10} /> {getCommunityMomentum(c)} momentum
                           </span>
                         </div>
                         <h3 className="font-extrabold text-sm sm:text-base text-base-content leading-tight mb-1 truncate notranslate">
-                          {c.name}
+                          {decodeHTML(c.name)}
                         </h3>
 
                         {/* Description */}
                         <p className="text-[11px] sm:text-xs text-base-content/60 line-clamp-2 leading-relaxed">
-                          {c.description}
+                          {decodeHTML(c.description)}
                         </p>
                       </div>
 
@@ -3555,7 +3558,7 @@ const Community = () => {
                     <span className="text-[#1D4ED8] dark:text-white shrink-0"><Users size={18} /></span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate notranslate">{highlight(c.name, query)}</p>
-                      {c.description && <p className="text-xs opacity-50 truncate">{c.description}</p>}
+                      {c.description && <p className="text-xs opacity-50 truncate">{decodeHTML(c.description)}</p>}
                     </div>
                     <span className="text-xs opacity-30 shrink-0 flex items-center gap-1"><Users size={12} /> {c.memberCount.toLocaleString()}</span>
                   </button>
@@ -3697,7 +3700,7 @@ const Community = () => {
                                 </div>
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-                                    <p className="font-bold text-sm truncate notranslate">{c.name}</p>
+                                    <p className="font-bold text-sm truncate notranslate">{decodeHTML(c.name)}</p>
                                     <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-warning/15 text-warning border border-warning/20">
                                       <Settings size={8} /> Owner
                                     </span>
@@ -3707,7 +3710,7 @@ const Community = () => {
                                       </span>
                                     )}
                                   </div>
-                                  {c.description && <p className="text-xs text-base-content/60 line-clamp-1">{c.description}</p>}
+                                  {c.description && <p className="text-xs text-base-content/60 line-clamp-1">{decodeHTML(c.description)}</p>}
                                   <p className="text-[11px] font-medium text-base-content/45 mt-1 flex items-center gap-1">
                                     <Users size={11} className="text-[#1D4ED8]/60" /> {c.memberCount.toLocaleString()} members
                                   </p>

@@ -3,6 +3,7 @@ import { Users, Settings, Crown, Camera, Check, Clock, Trophy, Activity } from "
 import { communityService } from "../../api/communityService";
 import { showToast } from "../../utils/toast";
 import ImageEditorModal from "../modals/ImageEditorModal";
+import { decodeHTML } from "../../utils/postUtils";
 
 type CommunityHeaderProps = {
   community: {
@@ -222,9 +223,9 @@ const CommunityHeader = ({
         </div>
 
         <div className="mt-2 text-left">
-          <h1 className="text-2xl font-bold notranslate">{c.name || "Community"}</h1>
+          <h1 className="text-2xl font-bold notranslate">{decodeHTML(c.name || "Community")}</h1>
           <p className="mt-1 text-sm opacity-80 break-words leading-relaxed max-w-2xl line-clamp-2">
-            {c.description || "No description provided."}
+            {decodeHTML(c.description || "No description provided.")}
           </p>
 
           <div className="mt-4 flex items-center gap-4 text-sm font-medium opacity-60">
@@ -234,10 +235,10 @@ const CommunityHeader = ({
             </span>
           </div>
           <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/10 px-2.5 py-1 text-[11px] font-black text-amber-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/25 dark:border-amber-400/30 bg-amber-500/10 dark:bg-amber-400/10 px-2.5 py-1 text-[11px] font-black text-amber-700 dark:text-amber-400">
               <Trophy size={12} /> {rankLabel}
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 dark:border-emerald-400/30 bg-emerald-500/10 dark:bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
               <Activity size={12} /> {momentumScore} momentum
             </span>
           </div>

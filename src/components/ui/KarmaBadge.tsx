@@ -10,15 +10,15 @@ export type KarmaTier = {
 
 export function getKarmaTier(score = 0): KarmaTier {
   if (score >= 1000) {
-    return { name: "Sattva", label: "Harmony", min: 1000, className: "bg-amber-500/15 text-amber-700 border-amber-500/30" };
+    return { name: "Sattva", label: "Harmony", min: 1000, className: "bg-amber-500/15 text-amber-700 border-amber-500/30 dark:bg-amber-400/10 dark:text-amber-400 dark:border-amber-400/20" };
   }
   if (score >= 500) {
-    return { name: "Tejas", label: "Radiance", min: 500, next: 1000, className: "bg-orange-500/15 text-orange-700 border-orange-500/30" };
+    return { name: "Tejas", label: "Radiance", min: 500, next: 1000, className: "bg-orange-500/15 text-orange-700 border-orange-500/30 dark:bg-orange-400/10 dark:text-orange-400 dark:border-orange-400/20" };
   }
   if (score >= 100) {
-    return { name: "Spandan", label: "Pulse", min: 100, next: 500, className: "bg-blue-500/15 text-blue-700 border-blue-500/30" };
+    return { name: "Spandan", label: "Pulse", min: 100, next: 500, className: "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:bg-blue-400/10 dark:text-blue-400 dark:border-blue-400/20" };
   }
-  return { name: "Navya", label: "Fresh civic voice", min: 0, next: 100, className: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30" };
+  return { name: "Navya", label: "Fresh civic voice", min: 0, next: 100, className: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30 dark:bg-emerald-400/10 dark:text-emerald-400 dark:border-emerald-400/20" };
 }
 
 export function shareKarmaBadge(score = 0) {
