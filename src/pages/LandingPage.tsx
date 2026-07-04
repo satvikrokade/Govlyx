@@ -259,8 +259,8 @@ export default function LandingPage() {
     <div className="min-h-screen bg-base-100 text-slate-800 dark:text-slate-200 selection:bg-[#1D4ED8]/20 selection:text-[#1e3a8a] dark:selection:text-white transition-colors duration-300 flex flex-col justify-between overflow-x-hidden">
       
       {/* ─── Navbar ──────────────────────────────────────────────────────────── */}
-      <nav className="fixed top-0 inset-x-0 z-[100] bg-base-100/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 h-[72px] transition-colors duration-300">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-full flex items-center justify-between">
+      <nav className="fixed top-0 inset-x-0 z-[100] bg-base-100/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 pt-[env(safe-area-inset-top,0px)] transition-colors duration-300">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between">
           <a href="#" className="flex items-center">
             <GovlyxLogo showText size={44} markScale={0.9} textClassName="hidden sm:block text-2xl sm:text-3xl" />
           </a>
@@ -285,7 +285,7 @@ export default function LandingPage() {
             
             <button 
               onClick={handleEnterPlatform}
-              className="liquid-button text-white font-semibold text-sm sm:text-base px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg transition-all cursor-pointer"
+              className="hidden md:inline-flex liquid-button text-white font-semibold text-sm sm:text-base px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg transition-all cursor-pointer"
             >
               <span className="description">Enter</span>
               <span className="ocean" aria-hidden="true">
@@ -339,7 +339,7 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="fixed top-[72px] inset-x-0 z-[99] bg-base-100 border-b border-slate-200 dark:border-slate-800/80 shadow-lg md:hidden transition-colors"
+            className="fixed top-[calc(72px+env(safe-area-inset-top,0px))] inset-x-0 z-[99] bg-base-100 border-b border-slate-200 dark:border-slate-800/80 shadow-lg md:hidden transition-colors"
           >
             <div className="px-4 pt-3 pb-6 space-y-3">
               <a 

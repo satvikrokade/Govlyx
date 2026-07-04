@@ -117,8 +117,8 @@ export default function CopyrightClaimStatus() {
   return (
     <div className="h-screen bg-base-100 text-slate-800 dark:text-slate-200 selection:bg-blue-650/30 transition-colors duration-300 flex flex-col relative overflow-hidden">
       {/* Top Navbar */}
-      <nav className="border-b border-slate-200 dark:border-slate-800 bg-base-100/90 backdrop-blur-md sticky top-0 z-50 h-[72px] shrink-0 transition-colors duration-300">
-        <div className="max-w-[1200px] mx-auto px-6 h-full flex items-center justify-between">
+      <nav className="border-b border-slate-200 dark:border-slate-800 bg-base-100/90 backdrop-blur-md sticky top-0 z-50 pt-[env(safe-area-inset-top,0px)] shrink-0 transition-colors duration-300">
+        <div className="max-w-[1200px] mx-auto px-6 h-[72px] flex items-center justify-between">
           <button
             onClick={() => navigate(-1)}
             className="flex items-center gap-2 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-all cursor-pointer bg-transparent border-none group"

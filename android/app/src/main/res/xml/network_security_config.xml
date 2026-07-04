@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext HTTP to the Govlyx VPS backend -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">187.127.141.153</domain>
+    </domain-config>
+    <!-- All other traffic uses default (HTTPS only) -->
+    <base-config cleartextTrafficPermitted="false" />
+</network-security-config>

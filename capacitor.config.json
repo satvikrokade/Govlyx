@@ -1,0 +1,33 @@
+{
+  "appId": "com.govlyx.app",
+  "appName": "Govlyx",
+  "webDir": "dist",
+  "server": {
+    "hostname": "govlyx.com",
+    "androidScheme": "https",
+    "cleartext": true,
+    "allowNavigation": [
+      "http://187.127.141.153:8081",
+      "http://187.127.141.153:8081/**"
+    ]
+  },
+  "android": {
+    "allowMixedContent": true,
+    "captureInput": true,
+    "webContentsDebuggingEnabled": false,
+    "backgroundColor": "#000000",
+    "overrideUserAgent": "GovlyxApp/1.0 Android"
+  },
+  "plugins": {
+    "StatusBar": {
+      "style": "DARK",
+      "backgroundColor": "#000000",
+      "overlaysWebView": false
+    },
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#000000",
+      "showSpinner": false
+    }
+  }
+}

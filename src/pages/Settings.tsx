@@ -601,7 +601,6 @@ const Settings = () => {
               onChange={(e) => {
                 const lang = e.target.value as LangCode;
                 setInterfaceLanguage(lang);
-                setPreferredLanguage(lang); // Sync preferred language with interface language
                 setEditField("localization");
               }}
             >
@@ -627,7 +626,6 @@ const Settings = () => {
               onChange={(e) => {
                 const lang = e.target.value as LangCode;
                 setPreferredLanguage(lang);
-                setInterfaceLanguage(lang); // Sync interface language with preferred language
                 setEditField("localization");
               }}
             >

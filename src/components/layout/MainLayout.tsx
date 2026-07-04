@@ -69,18 +69,11 @@ const MainLayout = () => {
 
                 {/* CENTER — page content animates, layout stays mounted */}
                 <main className={`col-span-12 lg:col-span-9 ${hideRightSidebar ? "xl:col-span-9" : "xl:col-span-6"} h-full ${location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "pb-0 overflow-hidden flex flex-col" : "pb-20 sm:pb-4 overflow-y-auto"} scrollbar-hide min-h-0`}>
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                      key={location.pathname}
-                      className={location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "flex-1 min-h-0 h-full flex flex-col pt-0" : "pt-3"}
-                      initial={{ opacity: 0, y: 6 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -6 }}
-                      transition={{ duration: 0.15, ease: "easeOut" }}
-                    >
-                      <Outlet />
-                    </motion.div>
-                  </AnimatePresence>
+                  <div
+                    className={location.pathname.includes("quick-chat") || location.pathname.startsWith("/admin/dashboard") ? "flex-1 min-h-0 h-full flex flex-col pt-0" : "pt-3"}
+                  >
+                    <Outlet />
+                  </div>
                 </main>
                 
                 {/* RIGHT SIDEBAR */}

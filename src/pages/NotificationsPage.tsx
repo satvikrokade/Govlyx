@@ -52,7 +52,11 @@ const NotificationsPage: React.FC = () => {
     }
     if (!n.isRead) markAsRead.mutate(n.id);
     if (n.actionUrl) {
-      navigate(n.actionUrl);
+      let targetUrl = n.actionUrl;
+      if (targetUrl.startsWith("/community/")) {
+        targetUrl = targetUrl.replace("/community/", "/communities/");
+      }
+      navigate(targetUrl);
     }
   };
 

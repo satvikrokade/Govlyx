@@ -508,7 +508,17 @@ function useFullSearch(committedQuery: string) {
     });
   }, [updatePostState]);
 
-  return { results, loading, initialLoading, hasMore, error, loadMore, handleLike, handleDislike, handleSave, updatePostState };
+  const handleShare = useCallback((postId: number) => {
+    updatePostState(postId, (dto: any) => {
+      if (!dto) return dto;
+      return {
+        ...dto,
+        shareCount: (dto.shareCount ?? 0) + 1
+      };
+    });
+  }, [updatePostState]);
+
+  return { results, loading, initialLoading, hasMore, error, loadMore, handleLike, handleDislike, handleSave, handleShare, updatePostState };
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -530,7 +540,13 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Sear
   const navigate = useNavigate();
 
   const debouncedInput = useDebounce(inputValue, 300);
-  const { results, loading, initialLoading, hasMore, error, loadMore, handleLike, handleDislike, handleSave, updatePostState } = useFullSearch(committedQuery);
+  const { results, loading, initialLoading, hasMore, error, loadMore, handleLike, handleDislike, handleSave, handleShare } = useFullSearch(committedQuery);
+
+  const handleComment = useCallback((id: number) => {
+    if (inputValue.trim()) saveRecentSearch(inputValue);
+    onClose();
+    navigate(`/post/${id}`);
+  }, [inputValue, onClose, navigate]);
 
   // Sync committedQuery with debouncedInput to auto-run search on typing pause
   useEffect(() => {
@@ -837,17 +853,8 @@ export default function SearchOverlay({ open, onClose, initialQuery = "" }: Sear
                         onLike={handleLike}
                         onDislike={handleDislike}
                         onSave={handleSave}
-                        onShare={(id: number) => {
-                          updatePostState(id, (dto: any) => ({
-                            ...dto,
-                            shareCount: (dto.shareCount ?? 0) + 1
-                          }));
-                        }}
-                        onComment={(id: number) => {
-                          if (inputValue.trim()) saveRecentSearch(inputValue);
-                          onClose();
-                          navigate(`/post/${id}`);
-                        }}
+                        onShare={handleShare}
+                        onComment={handleComment}
                       />
                     </div>
                   );

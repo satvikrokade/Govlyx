@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react";
 import { createPortal } from "react-dom";
 import {
   BadgeCheck,
@@ -300,19 +300,20 @@ export type AnyPost = IssuePost | SocialPost | CommunityPost | GovernmentPost | 
 type PostCardProps = {
   post: AnyPost;
   currentUser?: CurrentUser;
-  onLike?: (postId: number, liked: boolean) => void;
-  onDislike?: (postId: number, disliked: boolean) => void;
-  onSave?: (postId: number, saved: boolean) => void;
-  onShare?: (postId: number) => void;
-  onComment?: (postId: number) => void;
+  onLike?: (postId: number, liked: boolean, variant?: PostVariant) => void;
+  onDislike?: (postId: number, disliked: boolean, variant?: PostVariant) => void;
+  onSave?: (postId: number, saved: boolean, variant?: PostVariant) => void;
+  onShare?: (postId: number, variant?: PostVariant) => void;
+  onComment?: (postId: number, variant?: PostVariant) => void;
   onResolve?: (postId: number, isResolved: boolean, message: string) => void;
   onVote?: (pollId: number, optionIds: number[]) => void;
-  onDelete?: (postId: number) => void;
+  onDelete?: (postId: number, variant?: PostVariant) => void;
   hideCommunityStrip?: boolean;
   hideDelete?: boolean;
   onShareToCommunity?: (postId: number, content: string) => void;
   onNotInterested?: (postId: number) => void;
 };
+
 
 const postTranslationCache = new Map<string, string>();
 
@@ -1912,7 +1913,7 @@ const renderFormattedContent = (text: string) => {
   });
 };
 
-export default function PostCard({
+const PostCard = memo(function PostCard({
   post,
   currentUser,
   onLike,
@@ -1944,8 +1945,6 @@ export default function PostCard({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: currentUserProfile } = useCurrentUser();
-  const { data: billing } = useMyBilling();
-  const { data: fetchedTier } = useUserBillingTier(post?.username || "");
   
   const cachedState = post ? globalInteractionCache.get(getGlobalCacheKey(post)) : undefined;
 
@@ -2018,6 +2017,8 @@ export default function PostCard({
   const [isJoined, setIsJoined] = useState((post as any).isMember ?? false);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [canExpand, setCanExpand] = useState(false);
+  const textRef = useRef<HTMLParagraphElement>(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -2059,12 +2060,12 @@ export default function PostCard({
     setIsTranslating(true);
     try {
       const translatedText = await translateText(contentOverride || "", preferredLang);
-      if (translatedText && translatedText !== contentOverride) {
+      if (translatedText) {
         postTranslationCache.set(cacheKey, translatedText);
         setDynamicTranslation(translatedText);
         setShowOriginal(false);
       } else {
-        throw new Error("Translation failed or returned original text");
+        throw new Error("Translation returned empty result");
       }
     } catch (err: any) {
       console.error("Translation failed", err);
@@ -2254,9 +2255,9 @@ export default function PostCard({
         });
 
         // Notify parent to sync cache and avoid state reversion on re-renders
-        callbacksRef.current.onLike?.(post.id, e.detail.liked);
+        callbacksRef.current.onLike?.(post.id, e.detail.liked, post.variant);
         if (e.detail.liked && callbacksRef.current.onDislike) {
-          callbacksRef.current.onDislike(post.id, false);
+          callbacksRef.current.onDislike(post.id, false, post.variant);
         }
       } else if (e.detail.source === 'dislike') {
         setDisliked(e.detail.disliked);
@@ -2286,9 +2287,9 @@ export default function PostCard({
         });
 
         // Notify parent to sync cache
-        callbacksRef.current.onDislike?.(post.id, e.detail.disliked);
+        callbacksRef.current.onDislike?.(post.id, e.detail.disliked, post.variant);
         if (e.detail.disliked && callbacksRef.current.onLike) {
-          callbacksRef.current.onLike(post.id, false);
+          callbacksRef.current.onLike(post.id, false, post.variant);
         }
       } else if (e.detail.source === 'save') {
         setSaved(e.detail.saved);
@@ -2299,13 +2300,13 @@ export default function PostCard({
         updateGlobalCache(post, { saved: e.detail.saved });
 
         // Notify parent to sync cache
-        callbacksRef.current.onSave?.(post.id, e.detail.saved);
+        callbacksRef.current.onSave?.(post.id, e.detail.saved, post.variant);
       } else if (e.detail.source === 'share') {
         if (e.detail.shareCount !== undefined) {
           setShareCount(e.detail.shareCount);
           setHasSharedLocally(true);
           // Notify parent to sync cache
-          callbacksRef.current.onShare?.(post.id);
+          callbacksRef.current.onShare?.(post.id, post.variant);
         }
       } else if (e.detail.source === 'comment') {
         if (e.detail.commentCount !== undefined) setCommentCount(e.detail.commentCount);
@@ -2489,9 +2490,9 @@ export default function PostCard({
         });
 
         if (actionType === 'like') {
-          onLike?.(post.id, syncedLiked);
+          onLike?.(post.id, syncedLiked, post.variant);
         } else {
-          onDislike?.(post.id, syncedDisliked);
+          onDislike?.(post.id, syncedDisliked, post.variant);
         }
 
         window.dispatchEvent(new CustomEvent('POST_SYNC', {
@@ -2555,7 +2556,7 @@ export default function PostCard({
     });
     
     // 3. Notify parent and sync instances
-    onLike?.(post.id, nextLiked);
+    onLike?.(post.id, nextLiked, post.variant);
     window.dispatchEvent(new CustomEvent('POST_SYNC', {
       detail: { 
         postId: post.id, 
@@ -2620,7 +2621,7 @@ export default function PostCard({
     });
     
     // 3. Notify parent and sync instances
-    onDislike?.(post.id, nextDisliked);
+    onDislike?.(post.id, nextDisliked, post.variant);
     window.dispatchEvent(new CustomEvent('POST_SYNC', {
       detail: { 
         postId: post.id, 
@@ -2690,7 +2691,7 @@ export default function PostCard({
         // Revert global cache
         updateGlobalCache(post, { saved: originalSyncedState });
 
-        onSave?.(post.id, originalSyncedState);
+        onSave?.(post.id, originalSyncedState, post.variant);
         window.dispatchEvent(new CustomEvent('POST_SYNC', {
           detail: { postId: post.id, source: 'save', saved: originalSyncedState, emitterId: instanceId }
         }));
@@ -2721,7 +2722,7 @@ export default function PostCard({
     updateGlobalCache(post, { saved: nextSaved });
     
     // 3. Notify parent and sync instances
-    onSave?.(post.id, nextSaved);
+    onSave?.(post.id, nextSaved, post.variant);
     window.dispatchEvent(new CustomEvent('POST_SYNC', {
       detail: { postId: post.id, source: 'save', saved: nextSaved, emitterId: instanceId }
     }));
@@ -2758,7 +2759,7 @@ export default function PostCard({
             console.error("Failed to save share to localStorage", e);
           }
         }
-        onShare?.(post.id);
+        onShare?.(post.id, post.variant);
         
         window.dispatchEvent(new CustomEvent('POST_SYNC', {
           detail: { postId: post.id, source: 'share', shareCount: nextShareCount, emitterId: instanceId }
@@ -2828,7 +2829,7 @@ export default function PostCard({
       
       // Notify parent to remove it from the list without a full page reload if possible
       if (onDelete) {
-        onDelete(post.id);
+        onDelete(post.id, post.variant);
       } else {
         // Fallback for cases where onDelete isn't provided (unlikely in modern feeds)
         window.location.reload();
@@ -2941,52 +2942,13 @@ export default function PostCard({
     }
   }
 
-  const cleanEmailHelperMain = (val: string) => (val.includes("@") ? val.split("@")[0] : val);
-  const isMe = !!(currentUserProfile && post.username && currentUserProfile.username && (
-    post.username.toLowerCase() === currentUserProfile.username.toLowerCase() ||
-    post.username.toLowerCase() === cleanEmailHelperMain(currentUserProfile.username).toLowerCase() ||
-    post.username.toLowerCase() === (currentUserProfile.actualUsername || "").toLowerCase()
-  ));
-  const myTier = isMe ? billing?.currentTier : undefined;
 
-  let tier: "GOVLYX_FREE" | "GOVLYX_PRO" | "GOVLYX_VIP" = "GOVLYX_FREE";
 
-  if (isMe && myTier) {
-    tier = myTier;
-  } else {
-    const fallbackTier = normalizePassTier(
-      (post as any).authorBillingTier ||
-      (post as any).userBillingTier ||
-      (post as any).billingTier ||
-      (post as any).currentTier ||
-      (post as any).subscriptionTier ||
-      (post as any).planTier ||
-      (post as any).passTier ||
-      (post as any).authorTier ||
-      (post as any).userTier ||
-      (post as any).tier
-    );
-
-    if (fetchedTier === "GOVLYX_VIP" || fetchedTier === "GOVLYX_PRO") {
-      tier = fetchedTier;
-    } else if (fallbackTier === "GOVLYX_VIP" || fallbackTier === "GOVLYX_PRO") {
-      tier = fallbackTier;
-    }
-  }
-
-  let borderClass = isGovt
+  const borderClass = isGovt
     ? "border-[#1D4ED8]/25 bg-base-100"
     : isResolved
       ? "border-emerald-500/20 bg-base-100"
       : "border-base-300 bg-base-100";
-
-  if (!isGovt && !isResolved) {
-    if (tier === "GOVLYX_VIP") {
-      borderClass = "border-amber-500/35 bg-base-100 shadow-[0_8px_30px_rgba(245,158,11,0.05)] hover:shadow-[0_20px_50px_rgba(245,158,11,0.12)] hover:border-amber-500/50";
-    } else if (tier === "GOVLYX_PRO") {
-      borderClass = "border-blue-500/25 bg-base-100 shadow-[0_8px_30px_rgba(59,130,246,0.05)] hover:shadow-[0_20px_50px_rgba(59,130,246,0.12)] hover:border-blue-500/40";
-    }
-  }
 
   const handleCommentClick = () => {
     if (!currentUserProfile) {
@@ -3009,6 +2971,24 @@ export default function PostCard({
   const displayText = hasTranslation && !showOriginal
     ? (dynamicTranslation || (post as BasePost).translatedContent!)
     : contentOverride;
+
+  useEffect(() => {
+    const element = textRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(() => {
+      if (!expanded) {
+        const isTruncated = element.scrollHeight > element.clientHeight;
+        setCanExpand(isTruncated);
+      }
+    });
+
+    observer.observe(element);
+    return () => {
+      observer.disconnect();
+    };
+  }, [displayText, expanded]);
+
   const canShowDelete = !hideDelete && ((post as any).canDelete !== undefined ? !!(post as any).canDelete : !!(currentUser && post.username === currentUser.username));
   const canShowEdit = post.variant !== "poll" && ((post as any).canEdit !== undefined ? !!(post as any).canEdit : isAuthor);
   const translateLabel = hasTranslation ? (showOriginal ? "See Translation" : "Show Original") : "Translate";
@@ -3298,10 +3278,13 @@ export default function PostCard({
               </div>
             )}
 
-            <motion.p className={`text-[13px] leading-relaxed font-medium text-base-content/90 notranslate ${!expanded ? "line-clamp-3" : ""} ${post.contentHidden && !isContentRevealed ? "blur-sm opacity-50 select-none" : ""}`}>
+            <motion.p
+              ref={textRef}
+              className={`text-[13px] leading-relaxed font-medium text-base-content/90 notranslate ${!expanded ? "line-clamp-3" : ""} ${post.contentHidden && !isContentRevealed ? "blur-sm opacity-50 select-none" : ""}`}
+            >
               {renderFormattedContent(displayText)}
             </motion.p>
-            {(!post.contentHidden || isContentRevealed) && (displayText?.length ?? 0) > 160 && (
+            {(!post.contentHidden || isContentRevealed) && (canExpand || expanded) && (
               <button onClick={() => setExpanded(!expanded)} className="text-[9px] font-black uppercase tracking-widest text-red-600 dark:text-red-500 hover:underline [text-shadow:0_0_8px_rgba(239,68,68,0.4)] transition-all">
                 {expanded ? "Less ↑" : "More ↓"}
               </button>
@@ -3603,4 +3586,6 @@ export default function PostCard({
       />
     </>
   );
-}
+});
+
+export default PostCard;

@@ -7,8 +7,8 @@ export default function Docs() {
   return (
     <div className="h-screen bg-[#F8FAFC] dark:bg-[#0A0F1D] text-slate-800 dark:text-slate-200 selection:bg-[#1D4ED8]/20 transition-colors duration-300 flex flex-col overflow-hidden">
       {/* Navbar */}
-      <nav className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-[#0A0F1D]/90 backdrop-blur-md sticky top-0 z-50 h-[72px] shrink-0">
-        <div className="max-w-[1200px] mx-auto px-4 h-full flex items-center justify-between">
+      <nav className="border-b border-slate-200/80 dark:border-slate-800/80 bg-white/90 dark:bg-[#0A0F1D]/90 backdrop-blur-md sticky top-0 z-50 pt-[env(safe-area-inset-top,0px)] shrink-0">
+        <div className="max-w-[1200px] mx-auto px-4 h-[72px] flex items-center justify-between">
           <button
             onClick={() => navigate("/")}
             className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors cursor-pointer"

@@ -15,7 +15,9 @@ export type NotificationType =
   | "COMMUNITY_JOIN_REQUEST"
   | "COMMUNITY_JOIN_ACCEPT"
   | "SYSTEM_ANNOUNCEMENT"
-  | "BROADCAST";
+  | "BROADCAST"
+  | "COMMUNITY_POST_APPROVED"
+  | "COMMUNITY_POST_REJECTED";
 
 export interface Notification {
   id: number;

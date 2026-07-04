@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Govlyx</string>
+    <string name="title_activity_main">Govlyx</string>
+    <string name="package_name">com.govlyx.app</string>
+    <string name="custom_url_scheme">com.govlyx.app</string>
+</resources>

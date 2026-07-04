@@ -27,13 +27,15 @@ type CommunityHeaderProps = {
   acting?: boolean;
   onJoinClick?: () => void;
   onImageUploaded?: (type: "avatar" | "cover", url: string) => void;
+  onSettingsClick?: () => void;
 };
 
 const CommunityHeader = ({ 
   community: c, 
   acting, 
   onJoinClick,
-  onImageUploaded
+  onImageUploaded,
+  onSettingsClick
 }: CommunityHeaderProps) => {
   const finalMember = c.isMember ?? false;
   const finalOwner = c.isOwner ?? false;
@@ -193,7 +195,15 @@ const CommunityHeader = ({
         <div className="flex justify-end pt-3 h-10">
           {finalOwner ? (
              <div className="flex items-center gap-2">
-               <span className="badge badge-warning gap-1.5 font-bold py-3"><Settings size={14} className="hidden sm:block" /><Crown size={14} /> Owner</span>
+               <span 
+                 onClick={onSettingsClick} 
+                 className="badge badge-warning gap-1.5 font-bold py-3 cursor-pointer hover:scale-105 active:scale-95 transition-all duration-150"
+                 title="Community Settings"
+               >
+                 <Settings size={14} className="hidden sm:block" />
+                 <Crown size={14} />
+                 <span>Owner</span>
+               </span>
              </div>
           ) : (
               <button

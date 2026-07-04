@@ -185,8 +185,8 @@ export function useCreatePost() {
         }
       });
     },
-    onError: (_err, _variables, context, mutation: any) => {
-      if (context?.prevFeeds && !mutation.state.isPaused) {
+    onError: (_err, _variables, context) => {
+      if (context?.prevFeeds) {
         context.prevFeeds.forEach(([key, val]: any) => {
           queryClient.setQueryData(key, val);
         });
@@ -315,8 +315,8 @@ export function useCreatePoll() {
         }
       });
     },
-    onError: (_err, _variables, context, mutation: any) => {
-      if (context?.prevFeeds && !mutation.state.isPaused) {
+    onError: (_err, _variables, context) => {
+      if (context?.prevFeeds) {
         context.prevFeeds.forEach(([key, val]: any) => {
           queryClient.setQueryData(key, val);
         });

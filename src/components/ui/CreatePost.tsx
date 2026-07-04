@@ -479,8 +479,12 @@ function PostForm({
       }, {
         onSuccess: (res) => {
           const syncedData = res.data ?? res;
-          if (onPostCreated) onPostCreated(syncedData);
-          window.dispatchEvent(new CustomEvent("postCreated", { detail: { post: syncedData, communityId } }));
+          if (syncedData.status === "PENDING_APPROVAL" || syncedData.isPendingApproval) {
+            showToast.success("Your post has been submitted and is pending moderator approval.");
+          } else {
+            if (onPostCreated) onPostCreated(syncedData);
+            window.dispatchEvent(new CustomEvent("postCreated", { detail: { post: syncedData, communityId } }));
+          }
         },
         onError: (err: any) => {
           setError({ type: "error", msg: err.message ?? "Something went wrong. Please try again." });
@@ -1041,7 +1045,7 @@ function PostForm({
             {showEmojiPicker && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
-                <div className="absolute left-0 bottom-full mb-2 bg-base-100 border border-base-300 shadow-2xl rounded-2xl p-2.5 z-50 w-44">
+                <div className="absolute right-0 bottom-full mb-2 bg-base-100 border border-base-300 shadow-2xl rounded-2xl p-2.5 z-50 w-44">
                   <div className="grid grid-cols-5 gap-1.5 justify-items-center">
                     {["😊", "👍", "🔥", "🙌", "💡", "⚠️", "📌", "📢", "👏", "❤️"].map(emoji => (
                       <button
@@ -1329,21 +1333,25 @@ function PollForm({
       }, {
         onSuccess: (res) => {
           const syncedData = res.data ?? res;
-          const augmentedPoll = {
-            ...syncedData,
-            variant: "poll",
-            actualUsername: currentUser?.actualUsername,
-            username: currentUser?.actualUsername ?? currentUser?.username,
-            userDisplayName: currentUser?.actualUsername ?? currentUser?.username,
-            userProfileImage: currentUser?.profileImage,
-            poll: syncedData,
-          };
-          if (onPostCreated) onPostCreated(augmentedPoll);
-          window.dispatchEvent(
-            new CustomEvent("postCreated", {
-              detail: { post: augmentedPoll, communityId },
-            })
-          );
+          if (syncedData.status === "PENDING_APPROVAL" || syncedData.isPendingApproval) {
+            showToast.success("Your post has been submitted and is pending moderator approval.");
+          } else {
+            const augmentedPoll = {
+              ...syncedData,
+              variant: "poll",
+              actualUsername: currentUser?.actualUsername,
+              username: currentUser?.actualUsername ?? currentUser?.username,
+              userDisplayName: currentUser?.actualUsername ?? currentUser?.username,
+              userProfileImage: currentUser?.profileImage,
+              poll: syncedData,
+            };
+            if (onPostCreated) onPostCreated(augmentedPoll);
+            window.dispatchEvent(
+              new CustomEvent("postCreated", {
+                detail: { post: augmentedPoll, communityId },
+              })
+            );
+          }
         },
         onError: (err: any) => {
           setApiError(err.message ?? "Failed to create poll. Please try again.");
@@ -1692,7 +1700,7 @@ function PollForm({
           {showEmojiPicker && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowEmojiPicker(false)} />
-              <div className="absolute left-0 bottom-full mb-2 bg-base-100 border border-base-300 shadow-2xl rounded-2xl p-2.5 z-50 w-44">
+              <div className="absolute right-0 bottom-full mb-2 bg-base-100 border border-base-300 shadow-2xl rounded-2xl p-2.5 z-50 w-44">
                 <div className="grid grid-cols-5 gap-1.5 justify-items-center">
                   {["😊", "👍", "🔥", "🙌", "💡", "⚠️", "📌", "📢", "👏", "❤️"].map(emoji => (
                     <button

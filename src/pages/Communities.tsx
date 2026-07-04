@@ -9,7 +9,7 @@ import {
   Save, Archive, MessageSquare, Calendar,
   Tag, Rocket, PartyPopper, Plus, ChevronLeft, ChevronRight,
   XCircle, Home, Link, Eye, Image as ImageIcon, RefreshCw,
-  Activity, Radio, FileText, Upload, Sparkles, Flame, Check, Clock, MoreVertical,
+  Activity, Radio, FileText, Upload, Sparkles, Flame, Check, MoreVertical,
   Search, ArrowRight, Send, Copy, Share2, Instagram, ArrowDown
 } from "lucide-react";
 
@@ -1045,14 +1045,16 @@ function AdminPanel({
   onClose,
   onCommunityUpdated,
   onMembershipChange,
+  initialTab = "requests",
 }: {
   community: CommunityData;
   onClose: () => void;
   onCommunityUpdated: (c: CommunityData) => void;
   onMembershipChange?: (id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean) => void;
+  initialTab?: AdminTab;
 }) {
   const { closeViaUI } = useBackNavigation(onClose);
-  const [tab, setTab] = useState<AdminTab>("requests");
+  const [tab, setTab] = useState<AdminTab>(initialTab);
   const [c, setC] = useState(community);
   const [panelAnimDone, setPanelAnimDone] = useState(false);
 
@@ -1069,21 +1071,24 @@ function AdminPanel({
   const loadPendingPosts = useCallback(async () => {
     setPendingLoading(true);
     try {
-      let res = await fetch(apiUrl(`/api/communities/${c.id}/posts/pending`), { headers: hdrs() });
-      if (!res.ok) {
-        res = await fetch(apiUrl(`/api/communities/${c.id}/posts?status=PENDING`), { headers: hdrs() });
-      }
-      if (!res.ok) {
-        res = await fetch(apiUrl(`/api/communities/${c.id}/posts?pending=true`), { headers: hdrs() });
-      }
-      if (!res.ok) {
-        throw new Error("Failed to fetch pending posts");
-      }
-      const d = await res.json();
+      const d = await communityService.getPendingPosts(c.id);
       const list = d?.data?.content ?? d?.data?.data ?? d?.data ?? d?.content ?? d ?? [];
       setPendingPosts(Array.isArray(list) ? list : []);
     } catch (err) {
       console.error("Error loading pending posts:", err);
+      // Fallback manual fetches if new service fails
+      try {
+        let res = await fetch(apiUrl(`/api/communities/${c.id}/posts?status=PENDING`), { headers: hdrs() });
+        if (!res.ok) {
+          res = await fetch(apiUrl(`/api/communities/${c.id}/posts?pending=true`), { headers: hdrs() });
+        }
+        if (res.ok) {
+          const d = await res.json();
+          const list = d?.data?.content ?? d?.data?.data ?? d?.data ?? d?.content ?? d ?? [];
+          setPendingPosts(Array.isArray(list) ? list : []);
+          return;
+        }
+      } catch {}
       setPendingPosts([]);
     } finally {
       setPendingLoading(false);
@@ -1093,49 +1098,43 @@ function AdminPanel({
   async function reviewPost(postId: number, approve: boolean) {
     setActingPost(postId);
     try {
-      let res;
       if (approve) {
-        res = await fetch(apiUrl(`/api/communities/${c.id}/posts/${postId}/approve`), {
-          method: "POST",
-          headers: hdrs(),
-          body: JSON.stringify({})
-        });
-        if (!res.ok) {
+        await communityService.approvePost(c.id, postId);
+      } else {
+        await communityService.rejectPost(c.id, postId);
+      }
+      setPendingPosts(prev => prev.filter(p => p.id !== postId));
+      showToast.success(approve ? "Post approved successfully!" : "Post rejected successfully!");
+    } catch (err) {
+      // Fallback manual fetches if new service fails
+      try {
+        let res;
+        if (approve) {
           res = await fetch(apiUrl(`/api/posts/${postId}/approve`), {
             method: "POST",
             headers: hdrs(),
             body: JSON.stringify({})
           });
-        }
-      } else {
-        res = await fetch(apiUrl(`/api/communities/${c.id}/posts/${postId}/reject`), {
-          method: "POST",
-          headers: hdrs(),
-          body: JSON.stringify({})
-        });
-        if (!res.ok) {
+        } else {
           res = await fetch(apiUrl(`/api/posts/${postId}/reject`), {
             method: "POST",
             headers: hdrs(),
             body: JSON.stringify({})
           });
+          if (!res.ok) {
+            res = await fetch(apiUrl(`/api/social-posts/${postId}`), {
+              method: "DELETE",
+              headers: hdrs()
+            });
+          }
         }
-        if (!res.ok) {
-          res = await fetch(apiUrl(`/api/social-posts/${postId}`), {
-            method: "DELETE",
-            headers: hdrs()
-          });
+        if (res && res.ok) {
+          setPendingPosts(prev => prev.filter(p => p.id !== postId));
+          showToast.success(approve ? "Post approved successfully!" : "Post rejected successfully!");
+          return;
         }
-      }
-
-      if (!res.ok) {
-        alert(approve ? "Failed to approve post." : "Failed to reject post.");
-      } else {
-        setPendingPosts(prev => prev.filter(p => p.id !== postId));
-        alert(approve ? "Post approved!" : "Post rejected.");
-      }
-    } catch (err) {
-      alert("An error occurred while reviewing the post.");
+      } catch {}
+      showToast.error("An error occurred while reviewing the post.");
     } finally {
       setActingPost(null);
     }
@@ -1398,13 +1397,23 @@ function AdminPanel({
       const res = await fetch(apiUrl(`/api/communities/${c.id}`), {
         method: "PUT", headers: hdrs(), body: JSON.stringify(settingsPayload),
       });
-      if (!res.ok) { const d = await res.json().catch(() => ({})); setSettingsMsg("❌ " + (d?.message || "Save failed.")); return; }
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        const errorMsg = d?.message || "Save failed.";
+        setSettingsMsg("❌ " + errorMsg);
+        showToast.error(errorMsg);
+        return;
+      }
       const d = await res.json();
       const raw = d?.data ?? d;
       const updated: CommunityData = { ...c, ...raw, requirePostApproval: resolvePostApprovalFlag(raw, settingsForm.requirePostApproval), isOwner: true, isMember: true };
       setC(updated); onCommunityUpdated(updated);
       setSettingsMsg("✅ Saved successfully.");
-    } catch { setSettingsMsg("❌ Server unreachable."); }
+      showToast.success("Changes saved successfully!");
+    } catch {
+      setSettingsMsg("❌ Server unreachable.");
+      showToast.error("Server unreachable.");
+    }
     finally { setSettingsBusy(false); }
   }
 
@@ -2380,10 +2389,12 @@ function DetailPanel({
   community,
   onClose,
   onMembershipChange,
+  onManageClick,
 }: {
   community: CommunityData;
   onClose: () => void;
   onMembershipChange: (id: number, isMember: boolean, delta: number, hasPendingRequest?: boolean, communityData?: CommunityData) => void;
+  onManageClick?: (community: CommunityData, initialTab: AdminTab) => void;
 }) {
   const navigate = useNavigate();
   const { closeViaUI } = useBackNavigation(onClose);
@@ -2680,7 +2691,7 @@ function DetailPanel({
   }
 
   const canPost = c.isOwner || (c.isMember && c.allowMemberPosts !== false);
-  const isSecret = c.privacy === "SECRET" && !c.isMember;
+
   const canViewPosts = c.isMember || c.isOwner || c.privacy === "PUBLIC";
 
   return (
@@ -2706,6 +2717,7 @@ function DetailPanel({
                 setC(prev => ({ ...prev, [type === "avatar" ? "avatarUrl" : "coverImageUrl"]: url }));
                 onMembershipChange(c.id, c.isMember ?? false, 0, c.hasPendingRequest, { ...c, [type === "avatar" ? "avatarUrl" : "coverImageUrl"]: url });
               }}
+              onSettingsClick={() => onManageClick?.(c, "settings")}
             />
             <CommunityTabs active={tab} onChange={setTab} />
 
@@ -2773,6 +2785,9 @@ function DetailPanel({
                       communityId={c.id}
                       communityName={c.name}
                       onPostCreated={(newPost: Post) => {
+                        if (newPost.status === "PENDING_APPROVAL" || (newPost as any).isPendingApproval) {
+                          return;
+                        }
                         setPosts((prev) => [newPost, ...prev]);
                         setC((prev) => ({ ...prev, postCount: prev.postCount + 1 }));
                       }}
@@ -3310,6 +3325,7 @@ const Community = () => {
   const [myCommunitiesLoading, setMyCommunitiesLoading] = useState(true);
   const [selected, setSelected] = useState<CommunityData | null>(null);
   const [adminTarget, setAdminTarget] = useState<CommunityData | null>(null);
+  const [adminInitialTab, setAdminInitialTab] = useState<AdminTab>("requests");
   const [showCreate, setShowCreate] = useState(false);
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -3873,7 +3889,7 @@ const Community = () => {
                               </button>
                               <button
                                 className="py-2.5 text-xs font-semibold text-red-600 hover:text-red-700 hover:bg-red-500/10 [text-shadow:0_0_8px_rgba(239,68,68,0.3)] transition-all duration-200 flex items-center justify-center gap-1.5"
-                                onClick={e => { e.stopPropagation(); setAdminTarget(c); }}
+                                onClick={e => { e.stopPropagation(); setAdminTarget(c); setAdminInitialTab("requests"); }}
                               >
                                 <Settings size={13} /> Manage
                               </button>
@@ -3930,11 +3946,15 @@ const Community = () => {
           }}
           onClose={closeCommunity}
           onMembershipChange={syncMembership}
+          onManageClick={(communityData, initialTab) => {
+            setAdminTarget(communityData);
+            setAdminInitialTab(initialTab);
+          }}
         />
       )}
 
       {adminTarget && (
-        <AdminPanel key={adminTarget.id} community={adminTarget} onClose={() => { setAdminTarget(null); if (slugParam) navigate("/communities" + location.search, { replace: true }); }} onCommunityUpdated={handleCommunityUpdated} onMembershipChange={syncMembership} />
+        <AdminPanel key={adminTarget.id} community={adminTarget} initialTab={adminInitialTab} onClose={() => { setAdminTarget(null); if (slugParam) navigate("/communities" + location.search, { replace: true }); }} onCommunityUpdated={handleCommunityUpdated} onMembershipChange={syncMembership} />
       )}
 
       {showCreate && (

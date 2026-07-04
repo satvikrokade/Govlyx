@@ -96,5 +96,22 @@ export const communityService = {
       headers: idempotencyKey ? { "Idempotency-Key": idempotencyKey } : undefined,
     });
     return response.data;
+  },
+
+  getPendingPosts: async (communityId: number, cursor?: string | number | null, limit = 20) => {
+    const response = await axiosInstance.get(`/api/communities/${communityId}/posts/pending`, {
+      params: { cursor, limit }
+    });
+    return response.data;
+  },
+
+  approvePost: async (communityId: number, postId: number) => {
+    const response = await axiosInstance.post(`/api/communities/${communityId}/posts/${postId}/approve`);
+    return response.data;
+  },
+
+  rejectPost: async (communityId: number, postId: number) => {
+    const response = await axiosInstance.post(`/api/communities/${communityId}/posts/${postId}/reject`);
+    return response.data;
   }
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Flame, Clock, ArrowUp, SlidersHorizontal, Sparkles, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
@@ -232,11 +232,14 @@ const Home = () => {
   const { posts, loading, initialLoading, hasMore, error, fatalError, loadMore, retry, updatePost, prependPost, deletePost } =
     useFeed(sourceTab, sortTab);
 
-  const currentUser = user ? {
-    id: user.id,
-    username: user.actualUsername || user.username,
-    role: user.role
-  } : undefined;
+  const currentUser = useMemo(() => {
+    if (!user) return undefined;
+    return {
+      id: user.id,
+      username: user.actualUsername || user.username,
+      role: user.role
+    };
+  }, [user]);
 
   const handleLike = useCallback((postId: number, liked: boolean) => {
     updatePost(postId, (post) => {
@@ -302,6 +305,17 @@ const Home = () => {
       console.error("Failed to submit not interested signal:", err);
     }
   }, [deletePost]);
+
+  const handleResolve = useCallback((id: number, resolved: boolean, message: string) => {
+    updatePost(id, {
+      status: resolved ? "RESOLVED" : "ACTIVE",
+      isResolved: resolved,
+      resolutionMessage: resolved ? message : undefined,
+      reopened: !resolved,
+      isReopened: !resolved,
+      reopenedReason: !resolved ? message : undefined,
+    } as Partial<AnyPost>);
+  }, [updatePost]);
 
   useEffect(() => {
     const onPostCreated = (e: Event) => {
@@ -458,16 +472,7 @@ const Home = () => {
                 onComment={handleComment}
                 onDelete={handleDelete}
                 onNotInterested={handleNotInterested}
-                onResolve={(id, resolved, message) => {
-                  updatePost(id, {
-                    status: resolved ? "RESOLVED" : "ACTIVE",
-                    isResolved: resolved,
-                    resolutionMessage: resolved ? message : undefined,
-                    reopened: !resolved,
-                    isReopened: !resolved,
-                    reopenedReason: !resolved ? message : undefined,
-                  } as Partial<AnyPost>);
-                }}
+                onResolve={handleResolve}
               />
             ))}
           </div>

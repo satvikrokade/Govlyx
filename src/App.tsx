@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { App as CapApp } from "@capacitor/app";
 import AppRouter from "./router/AppRouter";
 import axios from "axios";
 import { API_BASE_URL } from "./api/axiosConfig";
 import { persistAuthToken, clearAuthTokens } from "./utils/auth";
 
 const App = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+
   const [isInitializing, setIsInitializing] = useState(() => {
     try {
       return localStorage.getItem("isLoggedIn") === "true";
@@ -12,6 +17,34 @@ const App = () => {
       return false;
     }
   });
+
+  // Handle Capacitor Android/gesture back button navigation
+  useEffect(() => {
+    let backButtonListener: any = null;
+
+    const setupListener = async () => {
+      backButtonListener = await CapApp.addListener("backButton", () => {
+        const currentPath = location.pathname;
+        
+        // Root-like pages from where clicking "Back" should exit the app
+        const rootPaths = ["/", "/dashboard", "/admin/dashboard", "/department/dashboard"];
+        
+        if (rootPaths.includes(currentPath) || window.history.length <= 1) {
+          CapApp.exitApp();
+        } else {
+          navigate(-1);
+        }
+      });
+    };
+
+    setupListener();
+
+    return () => {
+      if (backButtonListener) {
+        backButtonListener.remove();
+      }
+    };
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     // Warm up the backend API/cache on initial mount

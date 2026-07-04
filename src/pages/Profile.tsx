@@ -15,6 +15,8 @@ import {
   Bookmark,
   MessageSquare,
   List,
+  Mail,
+  MapPin,
 } from "lucide-react";
 import EmptyState from "../components/ui/EmptyState";
 import ProfileTabs from "../components/profile/ProfileTabs";
@@ -212,9 +214,10 @@ const Profile = () => {
     }
   };
 
-  const handleDelete = (type: 'posts' | 'social-posts', id: number) => {
+  const handleDelete = useCallback((id: number, variant?: string) => {
     // Parent only handles state removal. PostCard handles confirm + API.
-    if (type === 'posts') {
+    const isSocial = variant === "social" || variant === "community" || variant === "poll";
+    if (!isSocial) {
       setAllPosts(prev => prev.filter(p => p.id !== id));
       setActivePosts(prev => prev.filter(p => p.id !== id));
       setResolvedPosts(prev => prev.filter(p => p.id !== id));
@@ -223,47 +226,9 @@ const Profile = () => {
       setSocialPosts(prev => prev.filter(p => p.id !== id));
       setSocialCount(n => n !== null ? Math.max(0, n - 1) : null);
     }
-  };
+  }, []);
 
-  const applyResolveUpdate = (prev: AnyPost[], id: number, resolved: boolean, message: string): AnyPost[] =>
-    prev.map((p) => {
-      if (p.id === id && p.variant === "issue") {
-        return {
-          ...p,
-          status: resolved ? "RESOLVED" : "ACTIVE",
-          isResolved: resolved,
-          resolutionMessage: resolved ? message : (p as any).resolutionMessage,
-          reopened: !resolved,
-          isReopened: !resolved,
-          reopenedReason: !resolved ? message : (p as any).reopenedReason,
-        } as any as AnyPost;
-      }
-      return p;
-    });
 
-  const handleResolve = (id: number, resolved: boolean, message: string) => {
-    setAllPosts(prev => applyResolveUpdate(prev, id, resolved, message));
-    // Keep active/resolved filtered arrays in sync too
-    if (resolved) {
-      // Move from activePosts → resolvedPosts
-      setActivePosts(prev => prev.filter(p => p.id !== id));
-      setResolvedPosts(prev => {
-        const existing = prev.find(p => p.id === id);
-        const updated = allPosts.find(p => p.id === id);
-        if (existing || !updated) return prev.map(p => p.id === id ? applyResolveUpdate([p], id, resolved, message)[0] : p);
-        return [applyResolveUpdate([updated], id, resolved, message)[0], ...prev];
-      });
-    } else {
-      // Move from resolvedPosts → activePosts
-      setResolvedPosts(prev => prev.filter(p => p.id !== id));
-      setActivePosts(prev => {
-        const existing = prev.find(p => p.id === id);
-        const updated = allPosts.find(p => p.id === id);
-        if (existing || !updated) return prev.map(p => p.id === id ? applyResolveUpdate([p], id, resolved, message)[0] : p);
-        return [applyResolveUpdate([updated], id, resolved, message)[0], ...prev];
-      });
-    }
-  };
 
   const [username, setUsername] = useState<string>("...");
   const [memberSince, setMemberSince] = useState("");
@@ -291,6 +256,48 @@ const Profile = () => {
   const { data: user } = useCurrentUser();
   const isDept = getUserRole() === "ROLE_DEPARTMENT";
 
+  const applyResolveUpdate = (prev: AnyPost[], id: number, resolved: boolean, message: string): AnyPost[] =>
+    prev.map((p) => {
+      if (p.id === id && p.variant === "issue") {
+        return {
+          ...p,
+          status: resolved ? "RESOLVED" : "ACTIVE",
+          isResolved: resolved,
+          resolutionMessage: resolved ? message : (p as any).resolutionMessage,
+          reopened: !resolved,
+          isReopened: !resolved,
+          reopenedReason: !resolved ? message : (p as any).reopenedReason,
+        } as any as AnyPost;
+      }
+      return p;
+    });
+
+  const handleResolve = useCallback((id: number, resolved: boolean, message: string) => {
+    setAllPosts(prev => applyResolveUpdate(prev, id, resolved, message));
+    // Keep active/resolved filtered arrays in sync too
+    if (resolved) {
+      // Move from activePosts → resolvedPosts
+      setActivePosts(prev => prev.filter(p => p.id !== id));
+      setResolvedPosts(prev => {
+        const existing = prev.find(p => p.id === id);
+        if (existing) return prev.map(p => p.id === id ? applyResolveUpdate([p], id, resolved, message)[0] : p);
+        const updated = allPosts.find(p => p.id === id);
+        if (!updated) return prev;
+        return [applyResolveUpdate([updated], id, resolved, message)[0], ...prev];
+      });
+    } else {
+      // Move from resolvedPosts → activePosts
+      setResolvedPosts(prev => prev.filter(p => p.id !== id));
+      setActivePosts(prev => {
+        const existing = prev.find(p => p.id === id);
+        if (existing) return prev.map(p => p.id === id ? applyResolveUpdate([p], id, resolved, message)[0] : p);
+        const updated = allPosts.find(p => p.id === id);
+        if (!updated) return prev;
+        return [applyResolveUpdate([updated], id, resolved, message)[0], ...prev];
+      });
+    }
+  }, [allPosts]);
+
   const updatePostState = useCallback((postId: number, variant: string, updater: Partial<AnyPost> | ((p: AnyPost) => Partial<AnyPost>)) => {
     const updateListItem = (prev: AnyPost[]) =>
       prev.map((p) => {
@@ -314,8 +321,9 @@ const Profile = () => {
     );
   }, []);
 
-  const handleLike = useCallback((postId: number, variant: string, liked: boolean) => {
-    updatePostState(postId, variant, (post) => {
+  const handleLike = useCallback((postId: number, liked: boolean, variant?: string) => {
+    const v = variant || "issue";
+    updatePostState(postId, v, (post) => {
       const hasDislikeSupport = post.variant === "issue";
       const isPreviouslyDisliked = hasDislikeSupport && !!(post as any).isDislikedByCurrentUser;
       return {
@@ -329,8 +337,9 @@ const Profile = () => {
     });
   }, [updatePostState]);
 
-  const handleDislike = useCallback((postId: number, variant: string, disliked: boolean) => {
-    updatePostState(postId, variant, (post) => {
+  const handleDislike = useCallback((postId: number, disliked: boolean, variant?: string) => {
+    const v = variant || "issue";
+    updatePostState(postId, v, (post) => {
       const isPreviouslyLiked = !!post.isLikedByCurrentUser;
       return {
         isDislikedByCurrentUser: disliked,
@@ -343,15 +352,17 @@ const Profile = () => {
     });
   }, [updatePostState]);
 
-  const handleSave = useCallback((postId: number, variant: string, saved: boolean) => {
-    updatePostState(postId, variant, {
+  const handleSave = useCallback((postId: number, saved: boolean, variant?: string) => {
+    const v = variant || "issue";
+    updatePostState(postId, v, {
       isSaved: saved,
       isSavedByCurrentUser: saved
     } as Partial<AnyPost>);
   }, [updatePostState]);
 
-  const handleShare = useCallback((postId: number, variant: string) => {
-    updatePostState(postId, variant, (post) => ({
+  const handleShare = useCallback((postId: number, variant?: string) => {
+    const v = variant || "issue";
+    updatePostState(postId, v, (post) => ({
       shareCount: (post.shareCount ?? 0) + 1
     }));
   }, [updatePostState]);
@@ -781,15 +792,49 @@ const Profile = () => {
               <span className="notranslate">{memberSince ? `Member since ${memberSince}` : "Loading…"}</span> • <span className="notranslate">{location}</span>
             </p>
           </div>
-          <div className="flex-shrink-0">
-            <button
-              onClick={openEditModal}
-              className="btn btn-xs sm:btn-sm btn-outline rounded-xl border-base-300 hover:border-red-500 hover:bg-red-500/10 text-base-content hover:text-red-400 font-bold transition flex items-center gap-1 sm:gap-1.5 cursor-pointer"
-            >
-              <Edit size={12} className="sm:w-3.5 sm:h-3.5" />
-              <span className="hidden sm:inline">Edit Profile</span>
-            </button>
+        </div>
+
+        {/* Dividers and Info Rows */}
+        <div className="border-t border-base-300/60 my-3"></div>
+
+        {/* Email Row */}
+        <div className="flex items-center justify-between py-1 px-1">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-base-content/60 shrink-0"><Mail size={16} /></span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-base-content/90">Email</p>
+              <p className="text-xs opacity-60 truncate mt-0.5">
+                {user?.email || <span className="italic">Not set</span>}
+              </p>
+            </div>
           </div>
+          <button 
+            className="btn btn-xs btn-ghost hover:bg-base-300/50 text-base-content/80 hover:text-base-content shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+            onClick={openEditModal}
+          >
+            <Edit size={12} /> Edit
+          </button>
+        </div>
+
+        <div className="border-t border-base-300/60 my-3"></div>
+
+        {/* Location Row */}
+        <div className="flex items-center justify-between py-1 px-1">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-base-content/60 shrink-0"><MapPin size={16} /></span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-base-content/90">Location (Pincode)</p>
+              <p className="text-xs opacity-60 truncate mt-0.5">
+                {user?.pincode || <span className="italic">Not set</span>}
+              </p>
+            </div>
+          </div>
+          <button 
+            className="btn btn-xs btn-ghost hover:bg-base-300/50 text-base-content/80 hover:text-base-content shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+            onClick={openEditModal}
+          >
+            <Edit size={12} /> Edit
+          </button>
         </div>
       </div>
 
@@ -828,12 +873,12 @@ const Profile = () => {
                 key={p.id} 
                 post={p} 
                 currentUser={currentUser} 
-                onDelete={(id) => handleDelete('posts', id)} 
+                onDelete={handleDelete} 
                 onResolve={handleResolve}
-                onLike={(id, liked) => handleLike(id, p.variant, liked)}
-                onDislike={(id, disliked) => handleDislike(id, p.variant, disliked)}
-                onSave={(id, saved) => handleSave(id, p.variant, saved)}
-                onShare={(id) => handleShare(id, p.variant)}
+                onLike={handleLike}
+                onDislike={handleDislike}
+                onSave={handleSave}
+                onShare={handleShare}
               />
             ))
           )}
@@ -887,12 +932,12 @@ const Profile = () => {
                       key={p.id} 
                       post={p} 
                       currentUser={currentUser} 
-                      onDelete={(id) => handleDelete('posts', id)} 
+                      onDelete={handleDelete} 
                       onResolve={handleResolve}
-                      onLike={(id, liked) => handleLike(id, p.variant, liked)}
-                      onDislike={(id, disliked) => handleDislike(id, p.variant, disliked)}
-                      onSave={(id, saved) => handleSave(id, p.variant, saved)}
-                      onShare={(id) => handleShare(id, p.variant)}
+                      onLike={handleLike}
+                      onDislike={handleDislike}
+                      onSave={handleSave}
+                      onShare={handleShare}
                     />
                   ))}
 
@@ -936,11 +981,11 @@ const Profile = () => {
                       key={p.id} 
                       post={p} 
                       currentUser={currentUser} 
-                      onDelete={(id) => handleDelete('social-posts', id)} 
-                      onLike={(id, liked) => handleLike(id, p.variant, liked)}
-                      onDislike={(id, disliked) => handleDislike(id, p.variant, disliked)}
-                      onSave={(id, saved) => handleSave(id, p.variant, saved)}
-                      onShare={(id) => handleShare(id, p.variant)}
+                      onDelete={handleDelete} 
+                      onLike={handleLike}
+                      onDislike={handleDislike}
+                      onSave={handleSave}
+                      onShare={handleShare}
                     />
                   ))}
 
@@ -1014,10 +1059,10 @@ const Profile = () => {
                     currentUser={currentUser}
                     hideDelete={true}
                     onResolve={handleResolve}
-                    onLike={(id, liked) => handleLike(id, post.variant, liked)}
-                    onDislike={(id, disliked) => handleDislike(id, post.variant, disliked)}
-                    onSave={(id, saved) => handleSave(id, post.variant, saved)}
-                    onShare={(id) => handleShare(id, post.variant)}
+                    onLike={handleLike}
+                    onDislike={handleDislike}
+                    onSave={handleSave}
+                    onShare={handleShare}
                   />
                 ))
               )}
