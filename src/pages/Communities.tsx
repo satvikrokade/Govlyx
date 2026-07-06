@@ -2705,6 +2705,15 @@ function DetailPanel({
 
         <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-base-300">
           <button className="btn btn-ghost btn-sm gap-1" onClick={closeViaUI}><ChevronLeft size={18} /> Back</button>
+          {c.isMember && !c.isOwner && (
+            <button
+              className="btn btn-sm btn-outline btn-error text-error hover:bg-error hover:text-white font-semibold transition-all duration-200"
+              onClick={toggleMembership}
+              disabled={acting}
+            >
+              Leave
+            </button>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">

@@ -262,7 +262,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 inset-x-0 z-[100] bg-base-100/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/80 pt-[env(safe-area-inset-top,0px)] transition-colors duration-300">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-[72px] flex items-center justify-between">
           <a href="#" className="flex items-center">
-            <GovlyxLogo showText size={44} markScale={0.9} textClassName="hidden sm:block text-2xl sm:text-3xl" />
+            <GovlyxLogo showText size={44} textClassName="hidden sm:block text-2xl sm:text-3xl" />
           </a>
           
           {/* Desktop Navigation */}
@@ -403,7 +403,7 @@ export default function LandingPage() {
       </AnimatePresence>
 
       {/* ─── Hero Section ────────────────────────────────────────────────────── */}
-      <section className="relative pt-20 pb-6 lg:pt-24 lg:pb-8 px-4 sm:px-8 lg:px-24 xl:px-32 overflow-hidden min-h-[80vh] lg:min-h-0 flex items-center bg-transparent">
+      <section className="relative pt-[calc(72px+env(safe-area-inset-top,0px)+1.5rem)] pb-6 lg:pt-[calc(72px+env(safe-area-inset-top,0px)+2.5rem)] lg:pb-8 px-4 sm:px-8 lg:px-24 xl:px-32 overflow-hidden min-h-[80vh] lg:min-h-0 flex items-center bg-transparent">
         {/* Background Decor */}
         <div className="absolute inset-0 bg-grid-pattern opacity-40 dark:opacity-30 pointer-events-none"></div>
         <div className="absolute top-0 right-0 w-[400px] lg:w-[600px] h-[400px] lg:h-[600px] bg-[#eff4ff] dark:bg-[#1D4ED8]/10 rounded-full mix-blend-multiply filter blur-[80px] lg:blur-[100px] opacity-70 dark:opacity-40 translate-x-1/3 -translate-y-1/4 pointer-events-none"></div>
